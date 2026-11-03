@@ -21,6 +21,9 @@ use PHPUnit\Runner\Version;
  * None of these pins fails a test run when stale, so nothing else notices when
  * the PHP or PHPUnit requirement moves on. Thin I/O around the detectors.
  *
+ * The lane also holds the workflow shape rule that a `pull_request` run stops
+ * when its head is behind the base branch ({@see WorkflowBaseGateDetector}).
+ *
  * @internal
  */
 final readonly class VersionPinsCheck
@@ -43,6 +46,7 @@ final readonly class VersionPinsCheck
         private PhpUnitConfigDetector $phpUnitConfigDetector = new PhpUnitConfigDetector(),
         private SafeScanFilesDetector $safeScanFilesDetector = new SafeScanFilesDetector(),
         private WorkflowPhpVersionDetector $workflowDetector = new WorkflowPhpVersionDetector(),
+        private WorkflowBaseGateDetector $baseGateDetector = new WorkflowBaseGateDetector(),
     ) {
     }
 
@@ -61,7 +65,7 @@ final readonly class VersionPinsCheck
 
         if ([] === $problems) {
             echo \sprintf(
-                'Version pins agree with the toolchain in use (PHPUnit %s, PHP %s): phpunit.xml, safe scan-files, GitHub Actions workflows — OK.',
+                'Version pins agree with the toolchain in use (PHPUnit %s, PHP %s) and pull_request workflows gate on an up-to-date base: phpunit.xml, safe scan-files, GitHub Actions workflows — OK.',
                 $this->installedPhpUnitVersion,
                 $this->phpMajorMinor,
             ) . \PHP_EOL;
@@ -69,8 +73,8 @@ final readonly class VersionPinsCheck
             return 0;
         }
 
-        echo \PHP_EOL . 'ERROR — a version pin in the QA configuration does not match the toolchain in use' . \PHP_EOL
-            . '----------------------------------------------------------------------------------' . \PHP_EOL
+        echo \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull_request workflow has no up-to-date-base gate' . \PHP_EOL
+            . '------------------------------------------------------------------------------------------------------------------' . \PHP_EOL
             . 'Installed: PHPUnit ' . $this->installedPhpUnitVersion . ', PHP ' . $this->phpMajorMinor . \PHP_EOL . \PHP_EOL;
         foreach ($problems as $problem) {
             echo '  - ' . $problem . \PHP_EOL;
@@ -129,13 +133,13 @@ final readonly class VersionPinsCheck
     private function workflowProblems(string $projectRoot): array
     {
         $required = $this->requiredPhpVersion($projectRoot);
-        if (null === $required) {
-            return [];
-        }
-
         $problems = [];
         foreach ($this->workflows($projectRoot) as $relative => $yaml) {
-            if (!$this->workflowDetector->detectsPhpVersion($yaml)) {
+            foreach ($this->baseGateDetector->check($yaml) as $problem) {
+                $problems[] = $relative . ': ' . $problem;
+            }
+
+            if (null === $required || !$this->workflowDetector->detectsPhpVersion($yaml)) {
                 continue;
             }
 

@@ -24,7 +24,7 @@ final readonly class WorkflowBaseGateDetector
 {
     private const string TRIGGER_PATTERN = '/^(?:on:.*\bpull_request\b|[ \t]{2}pull_request:)/m';
 
-    private const string JOB_HEADER_PATTERN = '/^  ([A-Za-z0-9_-]+):[ \t]*$/m';
+    private const string JOB_HEADER_PATTERN = '/^  ([A-Za-z0-9_-]+):[ \t]*$/';
 
     private const string NEEDS_PATTERN = '/^    needs:[ \t]*(.+)$/m';
 
@@ -58,17 +58,19 @@ final readonly class WorkflowBaseGateDetector
             return [];
         }
 
-        $gateJobs = array_keys(array_filter($jobs, $this->hasGate(...)));
+        $gateJobs = array_map(strval(...), array_keys(array_filter($jobs, $this->hasGate(...))));
         if ([] === $gateJobs) {
             return ['runs on pull_request but has no up-to-date-with-base gate: add a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"` is false, with BASE_REF set from github.event.pull_request.base.ref'];
         }
 
         $needs    = $this->needsMap($jobs);
         $problems = [];
-        foreach ($jobs as $id => $body) {
+        foreach ($jobs as $key => $body) {
             if (!$this->isExpensive($body)) {
                 continue;
             }
+
+            $id = (string)$key;
 
             if (\in_array($id, $gateJobs, true)) {
                 if ($this->gatePosition($body) > $this->firstExpensivePosition($body)) {
@@ -78,7 +80,7 @@ final readonly class WorkflowBaseGateDetector
                 continue;
             }
 
-            if (!$this->needsAny($id, $gateJobs, $needs)) {
+            if (!$this->needsAny($id, $needs, ...$gateJobs)) {
                 $problems[] = \sprintf('job "%s" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (%s) to its needs', $id, implode(', ', $gateJobs));
             }
         }
@@ -86,7 +88,7 @@ final readonly class WorkflowBaseGateDetector
         return $problems;
     }
 
-    /** @return array<string, string> job id => the job's text */
+    /** @return array<array-key, string> job id => the job's text; an all-digit id is an int key */
     private function jobs(string $workflowYaml): array
     {
         $start = strpos($workflowYaml, "\njobs:");
@@ -94,10 +96,19 @@ final readonly class WorkflowBaseGateDetector
             return [];
         }
 
-        $parts = \Safe\preg_split(self::JOB_HEADER_PATTERN, substr($workflowYaml, $start + 1), -1, \PREG_SPLIT_DELIM_CAPTURE);
-        $jobs  = [];
-        for ($i = 1; $i + 1 < \count($parts); $i += 2) {
-            $jobs[$parts[$i]] = $parts[$i + 1];
+        $jobs    = [];
+        $current = null;
+        foreach (explode("\n", substr($workflowYaml, $start + 1)) as $line) {
+            if (1 === \Safe\preg_match(self::JOB_HEADER_PATTERN, $line, $matches) && isset($matches[1])) {
+                $current        = $matches[1];
+                $jobs[$current] = '';
+
+                continue;
+            }
+
+            if (null !== $current) {
+                $jobs[$current] .= $line . "\n";
+            }
         }
 
         return $jobs;
@@ -134,32 +145,32 @@ final readonly class WorkflowBaseGateDetector
     }
 
     /**
-     * @param array<string, string> $jobs
+     * @param array<array-key, string> $jobs
      *
-     * @return array<string, list<string>> job id => the job ids it lists under needs
+     * @return array<array-key, list<string>> job id => the job ids it lists under needs
      */
     private function needsMap(array $jobs): array
     {
         $map = [];
         foreach ($jobs as $id => $body) {
             $map[$id] = [];
-            if (1 !== \Safe\preg_match(self::NEEDS_PATTERN, $body, $matches)) {
+            if (1 !== \Safe\preg_match(self::NEEDS_PATTERN, $body, $matches) || !isset($matches[1])) {
                 continue;
             }
 
-            foreach (\Safe\preg_split('/[\s,\[\]]+/', $matches[1], -1, \PREG_SPLIT_NO_EMPTY) as $name) {
-                $map[$id][] = $name;
-            }
+            $map[$id] = array_values(array_filter(
+                explode(' ', str_replace(["\t", ',', '[', ']'], ' ', $matches[1])),
+                static fn (string $name): bool => '' !== $name,
+            ));
         }
 
         return $map;
     }
 
     /**
-     * @param list<string>                $targets
-     * @param array<string, list<string>> $needs
+     * @param array<array-key, list<string>> $needs
      */
-    private function needsAny(string $job, array $targets, array $needs): bool
+    private function needsAny(string $job, array $needs, string ...$targets): bool
     {
         $seen  = [];
         $queue = [$job];

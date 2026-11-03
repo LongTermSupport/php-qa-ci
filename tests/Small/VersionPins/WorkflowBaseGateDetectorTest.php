@@ -27,7 +27,11 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
         YAML;
 
-    private const string EXPENSIVE_STEPS = <<<'YAML'
+    private const string QA_JOB = "on:\n  pull_request:\njobs:\n  qa:\n    steps:\n";
+
+    private const string GATE_JOB = "on:\n  pull_request:\njobs:\n  base-gate:\n    steps:\n";
+
+    private const string EXPENSIVE_STEPS =<<<'YAML'
           - uses: shivammathur/setup-php@v2
           - run: composer install
 
@@ -52,7 +56,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function aPullRequestJobWithNoGateIsReported(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEPS;
+        $yaml = self::QA_JOB . self::EXPENSIVE_STEPS;
 
         self::assertSame(
             ['runs on pull_request but has no up-to-date-with-base gate: add a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"` is false, with BASE_REF set from github.event.pull_request.base.ref'],
@@ -69,7 +73,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function aGateAheadOfTheExpensiveStepsInTheSameJobPasses(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  qa:\n    steps:\n" . self::GATE_STEP . self::EXPENSIVE_STEPS;
+        $yaml = self::QA_JOB . self::GATE_STEP . self::EXPENSIVE_STEPS;
 
         self::assertSame([], $this->detector->check($yaml));
     }
@@ -77,7 +81,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function aGateAfterTheExpensiveStepsIsReported(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEPS . self::GATE_STEP;
+        $yaml = self::QA_JOB . self::EXPENSIVE_STEPS . self::GATE_STEP;
 
         self::assertSame(
             ['job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install'],
@@ -88,7 +92,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function aGateJobThatEveryExpensiveJobNeedsPasses(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n    steps:\n" . self::GATE_STEP
+        $yaml = self::GATE_JOB . self::GATE_STEP
             . "  fix:\n    needs: base-gate\n    steps:\n" . self::EXPENSIVE_STEPS
             . "  check:\n    needs: [base-gate, fix]\n    steps:\n" . self::EXPENSIVE_STEPS;
 
@@ -98,7 +102,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function aJobReachingTheGateThroughAnotherJobPasses(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n    steps:\n" . self::GATE_STEP
+        $yaml = self::GATE_JOB . self::GATE_STEP
             . "  fix:\n    needs: base-gate\n    steps:\n" . self::EXPENSIVE_STEPS
             . "  check:\n    needs: fix\n    steps:\n" . self::EXPENSIVE_STEPS;
 
@@ -108,7 +112,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function anExpensiveJobThatDoesNotNeedTheGateIsReported(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n    steps:\n" . self::GATE_STEP
+        $yaml = self::GATE_JOB . self::GATE_STEP
             . "  other:\n    steps:\n" . self::EXPENSIVE_STEPS;
 
         self::assertSame(
@@ -120,7 +124,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[Test]
     public function aJobThatRunsNothingExpensiveNeedsNoGate(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n    steps:\n" . self::GATE_STEP
+        $yaml = self::GATE_JOB . self::GATE_STEP
             . "  tidy:\n    steps:\n      - run: echo hello\n";
 
         self::assertSame([], $this->detector->check($yaml));
