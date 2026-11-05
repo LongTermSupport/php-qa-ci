@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.13.0 — 2026-11-05
+
 ### Changed
 
 - The QA run lock is now one per repository, shared by every git worktree of it: it lives in the
