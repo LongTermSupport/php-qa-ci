@@ -6,16 +6,20 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Lock;
 
 use LTS\PHPQA\Pipeline\Lock\LockDirectoryResolver;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
+use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Tests\Support\FakeProcessRunner;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(LockDirectoryResolver::class)]
+#[UsesClass(ProcessResultDto::class)]
+#[UsesClass(ProcessSpecDto::class)]
 #[Small]
 final class LockDirectoryResolverTest extends TestCase
 {

@@ -36,6 +36,8 @@ final class RunLock
 
     private const int POLL_SECONDS = 1;
 
+    private const int MICROSECONDS_PER_SECOND = 1_000_000;
+
     /** @var resource|null the open lock file while this run holds the flock */
     private mixed $handle = null;
 
@@ -276,7 +278,7 @@ final class RunLock
             return;
         }
 
-        \Safe\sleep(self::POLL_SECONDS);
+        usleep(self::POLL_SECONDS * self::MICROSECONDS_PER_SECOND);
     }
 
     private function reportAbandonedRecord(): void
