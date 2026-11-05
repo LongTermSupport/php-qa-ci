@@ -547,13 +547,21 @@ final class QaApplicationTest extends TestCase
     #[Test]
     public function aHeldLockEndsTheRunWithItsOwnExitCodeAndOneStderrLine(): void
     {
-        $exit = $this->holdingTheLock(fn (): int => $this->qa([], self::DASH_T, self::PROBE));
+        $exit = $this->holdingTheLock(fn (): int => $this->qa(['QA_LOCK_WAIT_SECONDS' => '0'], self::DASH_T, self::PROBE));
 
         self::assertSame(Pipeline::EXIT_LOCK_CONTENDED, $exit);
         self::assertSame(self::LOCK_LINE, $this->stderr);
         self::assertStringNotContainsString('[probe', $this->stdout);
         self::assertStringNotContainsString(self::COMPLETED, $this->stdout);
         self::assertStringNotContainsString('FAILED', $this->stdout);
+    }
+
+    #[Test]
+    public function aLockWaitThatIsNotAWholeNumberIsWarnedAboutNotSilentlyIgnored(): void
+    {
+        $this->qa(['QA_LOCK_WAIT_SECONDS' => '-5'], self::DASH_T, self::PROBE);
+
+        self::assertStringContainsString('qa: ignoring QA_LOCK_WAIT_SECONDS="-5": not a whole number of seconds; using the default wait.', $this->stderr);
     }
 
     /** --json keeps stdout for the structured output, so every line of decoration goes to stderr. */
@@ -592,7 +600,7 @@ final class QaApplicationTest extends TestCase
     #[Test]
     public function agentModeReportsAHeldLockOnStdoutWithItsOwnStatus(): void
     {
-        $exit = $this->holdingTheLock(fn (): int => $this->qa([], self::AGENT_MODE, self::DASH_T, self::PROBE));
+        $exit = $this->holdingTheLock(fn (): int => $this->qa(['QA_LOCK_WAIT_SECONDS' => '0'], self::AGENT_MODE, self::DASH_T, self::PROBE));
 
         self::assertSame(AgentStatusEnum::LockHeld->exitCode(), $exit);
         self::assertStringStartsWith('PROBE AGENT MODE: lock-held — another QA run holds the project lock', $this->stdout);

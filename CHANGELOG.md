@@ -25,6 +25,18 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- The QA run lock is now one per repository, shared by every git worktree of it: it lives in the
+  repository's common git directory (`<git-common-dir>/php-qa-ci-lock/`), so it is never tracked.
+  A project that is not the root of a git work tree keeps `qaConfig/.qa-lock/`. A run that finds
+  the lock held now waits for it, printing that it is waiting and who holds it, instead of exiting
+  75 at once; it gives up with exit 75 after `QA_LOCK_WAIT_SECONDS` (default 900, 60 in agent
+  mode, where one waiting line reaches stdout; `0` restores the immediate refusal; a value that is
+  not a whole number prints a warning on stderr and the default applies). The repository
+  is decided from the project root, whatever `GIT_DIR` or `GIT_WORK_TREE` the caller exports. Release on exit or crash is still the kernel's `flock`.
+- **Bundled tool versions updated** by the dependency update: infection 0.35.8 → 0.35.9; phpstan 2.3.4 → 2.3.5; php-cs-fixer 3.95.27 → 3.95.28; phpstan/phpstan (in rector.phar) 2.3.4 → 2.3.5; rector/rector 2.8.3 → 2.8.4.
+
 ### Added
 
 - A `pull_request` run stops at once when the pull request head is behind its base branch, instead
@@ -34,10 +46,6 @@ the release and its tag. The full rules are in
   workflow in `.github/workflows/` or `templates/github-actions/` that runs on `pull_request`
   without that gate, with the gate after PHP setup or `composer install`, or with an installing job
   that does not depend on it. Consumers copy the updated templates to receive the gate.
-
-### Changed
-
-- **Bundled tool versions updated** by the dependency update: infection 0.35.8 → 0.35.9; phpstan 2.3.4 → 2.3.5; php-cs-fixer 3.95.27 → 3.95.28; phpstan/phpstan (in rector.phar) 2.3.4 → 2.3.5; rector/rector 2.8.3 → 2.8.4.
 
 ## 85.12.0 — 2026-11-02
 

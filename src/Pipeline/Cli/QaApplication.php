@@ -14,6 +14,7 @@ use LTS\PHPQA\Pipeline\Config\ProjectConfigLoader;
 use LTS\PHPQA\Pipeline\Config\ProjectPathsResolver;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Config\XdebugJitAdvisory;
+use LTS\PHPQA\Pipeline\Lock\LockDirectoryResolver;
 use LTS\PHPQA\Pipeline\Lock\RunLock;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\LogArchiver;
@@ -53,6 +54,12 @@ use Throwable;
 final readonly class QaApplication
 {
     private const string RULE = '===========================================';
+
+    private const string LOCK_WAIT_ENV = 'QA_LOCK_WAIT_SECONDS';
+
+    private const int LOCK_WAIT_DEFAULT_SECONDS = 900;
+
+    private const int LOCK_WAIT_AGENT_SECONDS = 60;
 
     /**
      * @param list<string>          $argv         the arguments after the script name
@@ -96,7 +103,18 @@ final readonly class QaApplication
         // Installed before the first child process starts and for the rest of
         // the run, so an interrupt at any point stops the tools and frees the lock.
         $children   = new RunningProcesses();
-        $lock       = RunLock::forProject($this->projectRoot, $decoration);
+        $badWait    = $env->string(self::LOCK_WAIT_ENV);
+        if (null !== $badWait && null === $env->intOrNull(self::LOCK_WAIT_ENV)) {
+            new StreamOutput($this->stderrStream)->writeln(\sprintf('qa: ignoring %s="%s": not a whole number of seconds; using the default wait.', self::LOCK_WAIT_ENV, $badWait));
+        }
+
+        $lockDir    = new LockDirectoryResolver(new SymfonyProcessRunner(new NullOutput(), $children))->resolve($this->projectRoot);
+        $lock       = new RunLock(
+            $lockDir,
+            $decoration,
+            maxWaitSeconds: $env->int(self::LOCK_WAIT_ENV, $agentMode ? self::LOCK_WAIT_AGENT_SECONDS : self::LOCK_WAIT_DEFAULT_SECONDS),
+            waitNotice: $agentMode ? $stdout : null,
+        );
         $interrupts = new RunInterruptHandler($lock, $children, $decoration);
         $interrupts->install();
 
