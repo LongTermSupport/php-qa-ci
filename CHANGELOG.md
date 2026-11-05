@@ -46,6 +46,10 @@ the release and its tag. The full rules are in
   without that gate, with the gate after PHP setup or `composer install`, or with an installing job
   that does not depend on it. Consumers copy the updated templates to receive the gate.
 
+### Changed
+
+- **Bundled tool versions updated** by the dependency update: infection 0.35.8 → 0.35.9; phpstan 2.3.4 → 2.3.5; php-cs-fixer 3.95.27 → 3.95.28; phpstan/phpstan (in rector.phar) 2.3.4 → 2.3.5; rector/rector 2.8.3 → 2.8.4.
+
 ## 85.12.0 — 2026-11-02
 
 ### Added
