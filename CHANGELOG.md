@@ -32,7 +32,8 @@ the release and its tag. The full rules are in
   A project that is not the root of a git work tree keeps `qaConfig/.qa-lock/`. A run that finds
   the lock held now waits for it, printing that it is waiting and who holds it, instead of exiting
   75 at once; it gives up with exit 75 after `QA_LOCK_WAIT_SECONDS` (default 900, 60 in agent
-  mode, where one waiting line reaches stdout; `0` restores the immediate refusal). The repository
+  mode, where one waiting line reaches stdout; `0` restores the immediate refusal; a value that is
+  not a whole number prints a warning on stderr and the default applies). The repository
   is decided from the project root, whatever `GIT_DIR` or `GIT_WORK_TREE` the caller exports. Release on exit or crash is still the kernel's `flock`.
 
 ### Added

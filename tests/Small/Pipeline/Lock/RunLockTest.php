@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Safe\Exceptions\FilesystemException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -284,6 +285,27 @@ final class RunLockTest extends TestCase
         self::assertStringContainsString('Waiting for the QA lock (up to 2 seconds)', $line);
         self::assertStringContainsString('host host-a, pid 42', $line);
         self::assertStringNotContainsString('Waiting for the QA lock', $quiet->fetch(), 'the banner output does not get it twice');
+    }
+
+    #[Test]
+    public function aFailedGitignoreRenameLeavesNoStagingFileBehind(): void
+    {
+        $this->project->mkdir('qaConfig/.qa-lock/.gitignore');
+
+        $failure = null;
+        // The rename's own PHP warning is the expected failure here; Safe turns it into the exception.
+        set_error_handler(static fn (): bool => true, \E_WARNING);
+
+        try {
+            $this->lockAt(1)->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+        } catch (FilesystemException $filesystemException) {
+            $failure = $filesystemException;
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertInstanceOf(FilesystemException::class, $failure, 'the rename onto a directory fails');
+        self::assertSame([], \Safe\glob($this->project->path . self::LOCK_DIR . '/.gitignore.*'));
     }
 
     #[Test]

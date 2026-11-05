@@ -208,8 +208,17 @@ final class RunLock
         }
 
         $staging = $gitignore . '.' . bin2hex(random_bytes(4));
-        \Safe\file_put_contents($staging, self::GITIGNORE);
-        \Safe\rename($staging, $gitignore);
+
+        try {
+            \Safe\file_put_contents($staging, self::GITIGNORE);
+            \Safe\rename($staging, $gitignore);
+        } catch (FilesystemException $filesystemException) {
+            if (is_file($staging)) {
+                \Safe\unlink($staging);
+            }
+
+            throw $filesystemException;
+        }
     }
 
     private function reportHolder(): void
