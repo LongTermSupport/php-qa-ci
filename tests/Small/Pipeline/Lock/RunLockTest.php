@@ -221,6 +221,65 @@ final class RunLockTest extends TestCase
         self::assertEqualsWithDelta(time(), new SystemClock()->now(), 2);
     }
 
+    #[Test]
+    public function aContenderWaitsForTheHolderAndTakesTheLockWhenItIsReleased(): void
+    {
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $this->output->fetch();
+
+        $clock     = new MutableClock(1_000_000);
+        $sleeps    = [];
+        $contender = new RunLock(
+            $this->project->path . '/qaConfig/.qa-lock',
+            $this->output,
+            $clock,
+            maxWaitSeconds: 60,
+            sleeper: static function (int $seconds) use ($clock, $holder, &$sleeps): void {
+                $sleeps[] = $seconds;
+                $clock->now += $seconds;
+                if (3 === \count($sleeps)) {
+                    $holder->release(0);
+                }
+            },
+        );
+
+        self::assertTrue($contender->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        self::assertCount(3, $sleeps);
+        $printed = $this->output->fetch();
+        self::assertStringContainsString('Waiting for the QA lock (up to 60 seconds)', $printed);
+        self::assertStringContainsString('host host-a, pid 42, tool "unit"', $printed);
+        self::assertSame(1, substr_count($printed, 'Waiting for the QA lock'), 'announced once, not on every poll');
+        self::assertSame(43, $contender->current()?->pid);
+    }
+
+    #[Test]
+    public function aContenderGivesUpWhenTheWaitExpires(): void
+    {
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $this->output->fetch();
+
+        $clock     = new MutableClock(1_000_000);
+        $contender = new RunLock(
+            $this->project->path . '/qaConfig/.qa-lock',
+            $this->output,
+            $clock,
+            maxWaitSeconds: 5,
+            sleeper: static function (int $seconds) use ($clock): void {
+                $clock->now += $seconds;
+            },
+        );
+
+        self::assertFalse($contender->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        $printed = $this->output->fetch();
+        self::assertStringContainsString('Gave up waiting after 5 seconds', $printed);
+        self::assertStringContainsString('Another QA run holds the lock', $printed);
+        self::assertSame(42, $contender->current()?->pid, 'the holder record is left in place');
+    }
+
     private function lockAt(int $now): RunLock
     {
         return RunLock::forProject($this->project->path, $this->output, $this->clockAt($now));

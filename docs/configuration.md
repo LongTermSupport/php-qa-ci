@@ -69,6 +69,13 @@ being applied, and the run defaults to [aggregate mode](pipeline.md#fail-fast-ag
 (`QA_FAIL_FAST=1` turns that off). `CI=true` alone does not make a run read-only: to reproduce
 a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`.
 
+##### Run lock wait:
+
+`QA_LOCK_WAIT_SECONDS`
+
+How long a run waits for another run's [lock](pipeline.md) before giving up with
+exit 75. Default: `900`. `0` gives up at once.
+
 ##### Memory limit:
 
 `phpqaMemoryLimit`

@@ -12,11 +12,11 @@ A writable run (the local default) is **fail-fast**: the first failing tool ends
 
 ### Exit codes
 
-| Code | Meaning                                              |
-| ---- | ---------------------------------------------------- |
-| 0    | every tool passed                                    |
-| 1    | a tool failed, or the run could not be configured    |
-| 75   | another QA run held the lock, so nothing was checked |
+| Code | Meaning                                                                 |
+| ---- | ----------------------------------------------------------------------- |
+| 0    | every tool passed                                                       |
+| 1    | a tool failed, or the run could not be configured                       |
+| 75   | another QA run held the lock for the whole wait, so nothing was checked |
 
 75 exists so a caller can tell contention from a verdict. A run that hits it also prints one line to stderr and checks nothing; retry it rather than reporting it as a failure.
 
@@ -83,7 +83,7 @@ The pre hook runs after configuration and PHAR verification, before the run lock
 - creates `var/qa/` and `var/qa/cache/` with self-excluding `.gitignore` files and adds the managed block of QA runtime-cache excludes to the project's root `.gitignore` ([DirectoryPreparer](../src/Pipeline/Runner/DirectoryPreparer.php));
 - verifies the PHARs ([PharToolsVerifier](../src/Pipeline/Runner/PharToolsVerifier.php)): `phive.xml` is a hard requirement, and every PHAR it lists plus one committed `vendor-phar/<tool>.phar` per `build/<tool>/` manifest must be present under the library's `vendor-phar/`, and so must `vendor-phar/turbo-ext.json` for the same PHPStan version as the shipped phar (its digests pin the Turbo files of the release it names). Nothing is fetched at run time; PHIVE re-fetches only in the maintainer `update`/`--force` modes of `scripts/tool-install.bash`, and maintainers rebuild the self-built PHARs with `scripts/build-phar.bash`;
 - runs your project's `hookPre.php` if present;
-- acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per project: an exclusive `flock` on `qaConfig/.qa-lock/qa-running.lock`, with the holder's host, pid, tool, path and start time recorded in the file. A holder aborts the run before any tool executes, with exit code 75. The kernel frees the lock the moment its holder dies, however it dies, so there is no stale window; a record left by a killed run is taken over with a note. The lock is released with the exit code and elapsed time at the end. An interrupted run (Ctrl-C, `kill`, a closed terminal: SIGINT, SIGTERM, SIGHUP or SIGQUIT) stops its running tool and that tool's own descendants, read from `/proc` by [ProcessTree](../src/Pipeline/Process/ProcessTree.php) so PHPStan's workers go too, releases the lock and exits 128 + the signal number ([RunInterruptHandler](../src/Pipeline/Runner/RunInterruptHandler.php)). This is why `ext-pcntl` and `ext-posix` are required.
+- acquires the run lock ([RunLock](../src/Pipeline/Lock/RunLock.php)). One run per repository: an exclusive `flock` on `qa-running.lock`, with the holder's host, pid, tool, path and start time recorded in the file. The lock lives in the repository's common git directory (`<git-common-dir>/php-qa-ci-lock/`, resolved by [LockDirectoryResolver](../src/Pipeline/Lock/LockDirectoryResolver.php)), so every git worktree of the repository shares it and runs started from different worktrees exclude each other; a project that is not the root of a git work tree keeps it in `qaConfig/.qa-lock/`. A run that finds the lock held waits for it, printing that it is waiting and who holds it, for at most `QA_LOCK_WAIT_SECONDS` (default 900, see [configuration](./configuration.md)); when the wait expires it aborts before any tool executes, with exit code 75. The kernel frees the lock the moment its holder dies, however it dies, so there is no stale window; a record left by a killed run is taken over with a note. The lock is released with the exit code and elapsed time at the end. An interrupted run (Ctrl-C, `kill`, a closed terminal: SIGINT, SIGTERM, SIGHUP or SIGQUIT) stops its running tool and that tool's own descendants, read from `/proc` by [ProcessTree](../src/Pipeline/Process/ProcessTree.php) so PHPStan's workers go too, releases the lock and exits 128 + the signal number ([RunInterruptHandler](../src/Pipeline/Runner/RunInterruptHandler.php)). This is why `ext-pcntl` and `ext-posix` are required.
 
 A full run (no `-t`) then checks that the locked packages you keep current, `lts/php-qa-ci` by
 default, are what `composer update` would install: [Dependency Freshness](./tools/dependencyFreshness.md).

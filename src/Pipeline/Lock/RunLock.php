@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lock;
 
+use Closure;
 use JsonException;
 use LTS\PHPQA\Pipeline\Lock\Dto\LockInfoDto;
 use RuntimeException;
@@ -11,8 +12,8 @@ use Safe\Exceptions\FilesystemException;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * One run at a time per project: an exclusive flock on
- * qaConfig/.qa-lock/qa-running.lock, held for the life of the run. The lock
+ * One run at a time per repository: an exclusive flock on qa-running.lock in
+ * the lock directory (LockDirectoryResolver), held for the life of the run. The lock
  * file's JSON names the holder for a human; the flock is the lock. Liveness is
  * "can the flock be taken", never a pid or a clock.
  *
@@ -33,6 +34,8 @@ final class RunLock
 
     private const string OPEN_MODE = 'c+e';
 
+    private const int POLL_SECONDS = 1;
+
     /** @var resource|null the open lock file while this run holds the flock */
     private mixed $handle = null;
 
@@ -40,6 +43,8 @@ final class RunLock
         private readonly string $lockDir,
         private readonly OutputInterface $output,
         private readonly ClockInterface $clock = new SystemClock(),
+        private readonly int $maxWaitSeconds = 0,
+        private readonly ?Closure $sleeper = null,
     ) {
     }
 
@@ -49,8 +54,10 @@ final class RunLock
     }
 
     /**
-     * Take the flock, or report the holder and return false. A record left by
-     * a run that died without releasing is noted and overwritten.
+     * Take the flock, waiting up to the configured maximum for a holder to
+     * finish, or report the holder and return false. The wait polls the flock;
+     * the holder's liveness is never judged by a pid or a clock. A record left
+     * by a run that died without releasing is noted and overwritten.
      */
     public function acquire(string $tool, string $path, string $hostname, int $pid): bool
     {
@@ -66,12 +73,23 @@ final class RunLock
         // 'c' creates without truncating, so a contender can read the holder's
         // record. 'e' is close-on-exec: a child tool that inherited the
         // descriptor would keep the flock alive after this process died.
-        $handle = \Safe\fopen($this->lockFile(), self::OPEN_MODE);
-        if (!$this->flock($handle)) {
-            \Safe\fclose($handle);
-            $this->reportHolder();
+        $handle    = \Safe\fopen($this->lockFile(), self::OPEN_MODE);
+        $deadline  = $this->clock->now() + $this->maxWaitSeconds;
+        $announced = false;
+        while (!$this->flock($handle)) {
+            if ($this->clock->now() >= $deadline) {
+                \Safe\fclose($handle);
+                $this->reportHolder();
 
-            return false;
+                return false;
+            }
+
+            if (!$announced) {
+                $this->reportWaiting();
+                $announced = true;
+            }
+
+            $this->pause();
         }
 
         $this->handle = $handle;
@@ -173,13 +191,40 @@ final class RunLock
     private function reportHolder(): void
     {
         $this->output->writeln('');
+        if ($this->maxWaitSeconds > 0) {
+            $this->output->writeln(\sprintf('[QA Lock] Gave up waiting after %d seconds.', $this->maxWaitSeconds));
+        }
+
         $this->output->writeln('[QA Lock] Another QA run holds the lock:');
-        $this->output->writeln('[QA Lock]   ' . $this->describeRecord('holder details not written yet', static fn (LockInfoDto $holder): string => \sprintf(
+        $this->output->writeln('[QA Lock]   ' . $this->describeHolder());
+        $this->output->writeln('[QA Lock] Wait for it to finish. The lock is an flock, so it frees itself however that run ends.');
+    }
+
+    private function reportWaiting(): void
+    {
+        $this->output->writeln('');
+        $this->output->writeln(\sprintf('[QA Lock] Waiting for the QA lock (up to %d seconds); another QA run holds it:', $this->maxWaitSeconds));
+        $this->output->writeln('[QA Lock]   ' . $this->describeHolder());
+    }
+
+    private function describeHolder(): string
+    {
+        return $this->describeRecord('holder details not written yet', static fn (LockInfoDto $holder): string => \sprintf(
             '%s, started %s',
             $holder->describe(),
             date(self::TIME_FORMAT, $holder->startedAt),
-        )));
-        $this->output->writeln('[QA Lock] Wait for it to finish. The lock is an flock, so it frees itself however that run ends.');
+        ));
+    }
+
+    private function pause(): void
+    {
+        if ($this->sleeper instanceof Closure) {
+            ($this->sleeper)(self::POLL_SECONDS);
+
+            return;
+        }
+
+        \Safe\sleep(self::POLL_SECONDS);
     }
 
     private function reportAbandonedRecord(): void
