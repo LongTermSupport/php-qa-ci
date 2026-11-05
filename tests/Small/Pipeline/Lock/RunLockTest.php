@@ -44,6 +44,8 @@ final class RunLockTest extends TestCase
 
     private const string LOCK_DIR = '/qaConfig/.qa-lock';
 
+    private const string GITIGNORE_FILE = 'qaConfig/.qa-lock/.gitignore';
+
     private TempDir $project;
 
     private BufferedOutput $output;
@@ -73,7 +75,7 @@ final class RunLockTest extends TestCase
         self::assertSame('phpstan', $info->tool);
         self::assertSame('src', $info->path);
         self::assertSame(1_000_000, $info->startedAt);
-        self::assertStringContainsString('never tracked', $this->project->read('qaConfig/.qa-lock/.gitignore'));
+        self::assertStringContainsString('never tracked', $this->project->read(self::GITIGNORE_FILE));
         self::assertStringContainsString('[QA Lock] Acquired', $this->output->fetch());
     }
 
@@ -290,7 +292,7 @@ final class RunLockTest extends TestCase
     #[Test]
     public function aFailedGitignoreRenameLeavesNoStagingFileBehind(): void
     {
-        $this->project->mkdir('qaConfig/.qa-lock/.gitignore');
+        $this->project->mkdir(self::GITIGNORE_FILE);
 
         $failure = null;
         // The rename's own PHP warning is the expected failure here; Safe turns it into the exception.
@@ -306,6 +308,34 @@ final class RunLockTest extends TestCase
 
         self::assertInstanceOf(FilesystemException::class, $failure, 'the rename onto a directory fails');
         self::assertSame([], \Safe\glob($this->project->path . self::LOCK_DIR . '/.gitignore.*'));
+    }
+
+    #[Test]
+    public function aFailedStagingCleanupNeverReplacesTheOriginalFailure(): void
+    {
+        $this->project->mkdir(self::GITIGNORE_FILE);
+        $lock = new RunLock(
+            $this->project->path . self::LOCK_DIR,
+            $this->output,
+            discarder: static function (string $file): never {
+                throw new FilesystemException('cannot remove ' . basename($file));
+            },
+        );
+
+        $failure = null;
+        set_error_handler(static fn (): bool => true, \E_WARNING);
+
+        try {
+            $lock->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+        } catch (FilesystemException $filesystemException) {
+            $failure = $filesystemException;
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertInstanceOf(FilesystemException::class, $failure);
+        self::assertStringNotContainsString('cannot remove', $failure->getMessage(), 'the caller sees the write/rename failure');
+        self::assertStringContainsString('cannot remove .gitignore.', $this->output->fetch(), 'the cleanup failure is said, not lost');
     }
 
     #[Test]

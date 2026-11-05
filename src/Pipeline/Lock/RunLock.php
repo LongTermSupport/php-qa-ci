@@ -46,6 +46,7 @@ final class RunLock
         private readonly int $maxWaitSeconds = 0,
         private readonly ?Closure $sleeper = null,
         private readonly ?OutputInterface $waitNotice = null,
+        private readonly ?Closure $discarder = null,
     ) {
     }
 
@@ -213,11 +214,27 @@ final class RunLock
             \Safe\file_put_contents($staging, self::GITIGNORE);
             \Safe\rename($staging, $gitignore);
         } catch (FilesystemException $filesystemException) {
-            if (is_file($staging)) {
-                \Safe\unlink($staging);
-            }
+            $this->discard($staging);
 
             throw $filesystemException;
+        }
+    }
+
+    /**
+     * Remove a staging file after a failed write. The failure the caller sees
+     * is the write's, never the cleanup's: a cleanup that fails is said on the
+     * banner output instead.
+     */
+    private function discard(string $staging): void
+    {
+        if (!is_file($staging)) {
+            return;
+        }
+
+        try {
+            ($this->discarder ?? \Safe\unlink(...))($staging);
+        } catch (FilesystemException $filesystemException) {
+            $this->output->writeln(\sprintf('[QA Lock] Could not remove %s: %s', $staging, $filesystemException->getMessage()));
         }
     }
 
