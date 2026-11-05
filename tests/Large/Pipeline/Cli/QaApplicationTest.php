@@ -556,6 +556,14 @@ final class QaApplicationTest extends TestCase
         self::assertStringNotContainsString('FAILED', $this->stdout);
     }
 
+    #[Test]
+    public function aLockWaitThatIsNotAWholeNumberIsWarnedAboutNotSilentlyIgnored(): void
+    {
+        $this->qa(['QA_LOCK_WAIT_SECONDS' => '-5'], self::DASH_T, self::PROBE);
+
+        self::assertStringContainsString('qa: ignoring QA_LOCK_WAIT_SECONDS="-5": not a whole number of seconds; using the default wait.', $this->stderr);
+    }
+
     /** --json keeps stdout for the structured output, so every line of decoration goes to stderr. */
     #[Test]
     public function jsonModeSendsTheDecorationToStderr(): void

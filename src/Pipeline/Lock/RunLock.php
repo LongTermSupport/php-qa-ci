@@ -64,14 +64,7 @@ final class RunLock
      */
     public function acquire(string $tool, string $path, string $hostname, int $pid): bool
     {
-        if (!is_dir($this->lockDir)) {
-            \Safe\mkdir($this->lockDir, 0o777, true);
-        }
-
-        $gitignore = $this->lockDir . '/.gitignore';
-        if (!is_file($gitignore)) {
-            \Safe\file_put_contents($gitignore, self::GITIGNORE);
-        }
+        $this->prepareDirectory();
 
         // 'c' creates without truncating, so a contender can read the holder's
         // record. 'e' is close-on-exec: a child tool that inherited the
@@ -189,6 +182,34 @@ final class RunLock
         }
 
         return true;
+    }
+
+    /**
+     * Create the lock directory and its .gitignore. Runs that start together
+     * all find neither, so both steps tolerate a rival having made them in the
+     * meantime: a failed mkdir is an error only if the directory is still
+     * missing, and the .gitignore is renamed into place whole, never half-written.
+     */
+    private function prepareDirectory(): void
+    {
+        if (!is_dir($this->lockDir)) {
+            try {
+                \Safe\mkdir($this->lockDir, 0o777, true);
+            } catch (FilesystemException $filesystemException) {
+                if (!is_dir($this->lockDir)) {
+                    throw $filesystemException;
+                }
+            }
+        }
+
+        $gitignore = $this->lockDir . '/.gitignore';
+        if (is_file($gitignore)) {
+            return;
+        }
+
+        $staging = $gitignore . '.' . bin2hex(random_bytes(4));
+        \Safe\file_put_contents($staging, self::GITIGNORE);
+        \Safe\rename($staging, $gitignore);
     }
 
     private function reportHolder(): void

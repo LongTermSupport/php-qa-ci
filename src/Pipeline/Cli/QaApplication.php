@@ -103,6 +103,11 @@ final readonly class QaApplication
         // Installed before the first child process starts and for the rest of
         // the run, so an interrupt at any point stops the tools and frees the lock.
         $children   = new RunningProcesses();
+        $badWait    = $env->string(self::LOCK_WAIT_ENV);
+        if (null !== $badWait && null === $env->intOrNull(self::LOCK_WAIT_ENV)) {
+            new StreamOutput($this->stderrStream)->writeln(\sprintf('qa: ignoring %s="%s": not a whole number of seconds; using the default wait.', self::LOCK_WAIT_ENV, $badWait));
+        }
+
         $lockDir    = new LockDirectoryResolver(new SymfonyProcessRunner(new NullOutput(), $children))->resolve($this->projectRoot);
         $lock       = new RunLock(
             $lockDir,
