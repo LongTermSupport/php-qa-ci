@@ -32,8 +32,12 @@ final class LockDirectoryResolverTest extends TestCase
 
         self::assertSame('/srv/repo/.git/php-qa-ci-lock', $dir);
         self::assertSame(
-            ['git', 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
+            [
+                'env', '-u', 'GIT_DIR', '-u', 'GIT_WORK_TREE', '-u', 'GIT_COMMON_DIR', '-u', 'GIT_INDEX_FILE', '-u', 'GIT_PREFIX',
+                'git', 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir',
+            ],
             $runner->lastSpec()->command,
+            "git runs with the caller's repository-selecting variables removed, so the project root alone decides",
         );
         self::assertSame(self::PROJECT, $runner->lastSpec()->cwd);
     }
@@ -55,7 +59,7 @@ final class LockDirectoryResolverTest extends TestCase
     }
 
     #[Test]
-    public function unexpectedGitOutputFallsBack(): void
+    public function aRelativeCommonDirectoryFallsBack(): void
     {
         $runner = new FakeProcessRunner()->willReturn(new ProcessResultDto(0, "/tmp\n.git\n", "/tmp\n.git\n"));
 

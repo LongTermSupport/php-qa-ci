@@ -74,7 +74,9 @@ a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`.
 `QA_LOCK_WAIT_SECONDS`
 
 How long a run waits for another run's [lock](pipeline.md) before giving up with
-exit 75. Default: `900`. `0` gives up at once.
+exit 75. Default: `900`, or `60` in `--agent-mode` (whose caller is an edit hook with a timeout).
+`0` gives up at once. A waiting run prints one line saying so and naming the holder, in agent mode
+on stdout too.
 
 ##### Memory limit:
 

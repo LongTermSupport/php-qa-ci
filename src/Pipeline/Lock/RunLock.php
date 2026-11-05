@@ -45,6 +45,7 @@ final class RunLock
         private readonly ClockInterface $clock = new SystemClock(),
         private readonly int $maxWaitSeconds = 0,
         private readonly ?Closure $sleeper = null,
+        private readonly ?OutputInterface $waitNotice = null,
     ) {
     }
 
@@ -57,7 +58,9 @@ final class RunLock
      * Take the flock, waiting up to the configured maximum for a holder to
      * finish, or report the holder and return false. The wait polls the flock;
      * the holder's liveness is never judged by a pid or a clock. A record left
-     * by a run that died without releasing is noted and overwritten.
+     * by a run that died without releasing is noted and overwritten. The
+     * one-line waiting notice goes to $waitNotice when given (agent mode, whose
+     * ordinary banners are discarded), else to the banner output.
      */
     public function acquire(string $tool, string $path, string $hostname, int $pid): bool
     {
@@ -202,9 +205,11 @@ final class RunLock
 
     private function reportWaiting(): void
     {
-        $this->output->writeln('');
-        $this->output->writeln(\sprintf('[QA Lock] Waiting for the QA lock (up to %d seconds); another QA run holds it:', $this->maxWaitSeconds));
-        $this->output->writeln('[QA Lock]   ' . $this->describeHolder());
+        ($this->waitNotice ?? $this->output)->writeln(\sprintf(
+            '[QA Lock] Waiting for the QA lock (up to %d seconds); another QA run holds it: %s',
+            $this->maxWaitSeconds,
+            $this->describeHolder(),
+        ));
     }
 
     private function describeHolder(): string

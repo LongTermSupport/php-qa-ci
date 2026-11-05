@@ -59,6 +59,8 @@ final readonly class QaApplication
 
     private const int LOCK_WAIT_DEFAULT_SECONDS = 900;
 
+    private const int LOCK_WAIT_AGENT_SECONDS = 60;
+
     /**
      * @param list<string>          $argv         the arguments after the script name
      * @param array<string, string> $env
@@ -102,7 +104,12 @@ final readonly class QaApplication
         // the run, so an interrupt at any point stops the tools and frees the lock.
         $children   = new RunningProcesses();
         $lockDir    = new LockDirectoryResolver(new SymfonyProcessRunner(new NullOutput(), $children))->resolve($this->projectRoot);
-        $lock       = new RunLock($lockDir, $decoration, maxWaitSeconds: $env->int(self::LOCK_WAIT_ENV, self::LOCK_WAIT_DEFAULT_SECONDS));
+        $lock       = new RunLock(
+            $lockDir,
+            $decoration,
+            maxWaitSeconds: $env->int(self::LOCK_WAIT_ENV, $agentMode ? self::LOCK_WAIT_AGENT_SECONDS : self::LOCK_WAIT_DEFAULT_SECONDS),
+            waitNotice: $agentMode ? $stdout : null,
+        );
         $interrupts = new RunInterruptHandler($lock, $children, $decoration);
         $interrupts->install();
 

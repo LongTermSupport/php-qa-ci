@@ -22,6 +22,9 @@ final readonly class LockDirectoryResolver
 
     private const string FALLBACK = '/qaConfig/.qa-lock';
 
+    /** @var list<string> the environment variables that make git work on a repository other than the one at the cwd */
+    private const array REPOSITORY_VARIABLES = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_PREFIX'];
+
     public function __construct(private ProcessRunnerInterface $processes)
     {
     }
@@ -36,8 +39,17 @@ final readonly class LockDirectoryResolver
     /** The shared git directory, or null when the project is not the top of a work tree. */
     private function commonGitDirectory(string $projectRoot): ?string
     {
+        // `env -u` removes the variables that pick a repository for git, so a
+        // caller that exports them (a git hook, say) cannot make an unrelated
+        // project share this repository's lock: the project root alone decides.
+        $unset = [];
+        foreach (self::REPOSITORY_VARIABLES as $variable) {
+            $unset[] = '-u';
+            $unset[] = $variable;
+        }
+
         $result = $this->processes->run(new ProcessSpecDto(
-            ['git', 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
+            ['env', ...$unset, 'git', 'rev-parse', '--path-format=absolute', '--show-toplevel', '--git-common-dir'],
             $projectRoot,
             streamOutput: false,
         ));

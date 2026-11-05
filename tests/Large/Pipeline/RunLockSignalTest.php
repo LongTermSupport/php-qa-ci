@@ -117,6 +117,40 @@ final class RunLockSignalTest extends TestCase
     }
 
     /**
+     * A run waiting for a held lock is interrupted like any other: it exits
+     * 128 + the signal at once, and the holder's lock and record are untouched.
+     */
+    #[Test]
+    public function aSignalDuringTheWaitEndsTheWaitingRunWithoutTouchingTheHolder(): void
+    {
+        $holder = $this->lock();
+        self::assertTrue($holder->acquire('holder', '', 'h', 4242));
+
+        try {
+            $this->qa = $this->consumer->qa(['QA_LOCK_WAIT_SECONDS' => '120'], '-t', self::SLEEPER);
+            $this->qa->start();
+
+            $deadline = microtime(true) + self::WAIT_SECONDS;
+            while ($this->qa->isRunning() && !str_contains($this->qa->getOutput(), 'Waiting for the QA lock') && microtime(true) < $deadline) {
+                usleep(50_000);
+            }
+
+            self::assertStringContainsString('Waiting for the QA lock (up to 120 seconds)', $this->qa->getOutput() . $this->qa->getErrorOutput());
+            self::assertStringContainsString('pid 4242', $this->qa->getOutput());
+
+            $started = microtime(true);
+            $this->qa->signal(\SIGTERM);
+            $this->qa->wait();
+
+            self::assertSame(143, $this->qa->getExitCode(), $this->qa->getOutput() . $this->qa->getErrorOutput());
+            self::assertLessThan(30, microtime(true) - $started, 'the signal ended the wait, it did not run out');
+            self::assertSame(4242, $this->lock()->current()?->pid, 'the holder record is untouched');
+        } finally {
+            $holder->release(0);
+        }
+    }
+
+    /**
      * SIGKILL runs no handler, so the record stays and the child is orphaned.
      * The flock still goes with the process, and the lock file is opened
      * close-on-exec, so the orphan does not keep it: the next run takes the

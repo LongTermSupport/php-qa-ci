@@ -31,8 +31,9 @@ the release and its tag. The full rules are in
   repository's common git directory (`<git-common-dir>/php-qa-ci-lock/`), so it is never tracked.
   A project that is not the root of a git work tree keeps `qaConfig/.qa-lock/`. A run that finds
   the lock held now waits for it, printing that it is waiting and who holds it, instead of exiting
-  75 at once; it gives up with exit 75 after `QA_LOCK_WAIT_SECONDS` (default 900, `0` restores the
-  immediate refusal). Release on exit or crash is still the kernel's `flock`.
+  75 at once; it gives up with exit 75 after `QA_LOCK_WAIT_SECONDS` (default 900, 60 in agent
+  mode, where one waiting line reaches stdout; `0` restores the immediate refusal). The repository
+  is decided from the project root, whatever `GIT_DIR` or `GIT_WORK_TREE` the caller exports. Release on exit or crash is still the kernel's `flock`.
 
 ### Added
 

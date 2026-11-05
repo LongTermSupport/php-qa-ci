@@ -41,6 +41,8 @@ final class RunLockTest extends TestCase
 
     private const string LOCK_FILE = 'qaConfig/.qa-lock/qa-running.lock';
 
+    private const string LOCK_DIR = '/qaConfig/.qa-lock';
+
     private TempDir $project;
 
     private BufferedOutput $output;
@@ -232,7 +234,7 @@ final class RunLockTest extends TestCase
         $clock     = new MutableClock(1_000_000);
         $sleeps    = [];
         $contender = new RunLock(
-            $this->project->path . '/qaConfig/.qa-lock',
+            $this->project->path . self::LOCK_DIR,
             $this->output,
             $clock,
             maxWaitSeconds: 60,
@@ -255,6 +257,36 @@ final class RunLockTest extends TestCase
     }
 
     #[Test]
+    public function theWaitingNoticeIsOneLineOnTheNoticeOutputWhenOneIsGiven(): void
+    {
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $this->output->fetch();
+
+        $clock  = new MutableClock(1_000_000);
+        $notice = new BufferedOutput();
+        $quiet  = new BufferedOutput();
+        $lock   = new RunLock(
+            $this->project->path . self::LOCK_DIR,
+            $quiet,
+            $clock,
+            maxWaitSeconds: 2,
+            sleeper: static function (int $seconds) use ($clock): void {
+                $clock->now += $seconds;
+            },
+            waitNotice: $notice,
+        );
+
+        self::assertFalse($lock->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        $line = $notice->fetch();
+        self::assertSame(1, substr_count($line, "\n"), 'one line');
+        self::assertStringContainsString('Waiting for the QA lock (up to 2 seconds)', $line);
+        self::assertStringContainsString('host host-a, pid 42', $line);
+        self::assertStringNotContainsString('Waiting for the QA lock', $quiet->fetch(), 'the banner output does not get it twice');
+    }
+
+    #[Test]
     public function aContenderGivesUpWhenTheWaitExpires(): void
     {
         $holder = $this->lockAt(1_000_000);
@@ -264,7 +296,7 @@ final class RunLockTest extends TestCase
 
         $clock     = new MutableClock(1_000_000);
         $contender = new RunLock(
-            $this->project->path . '/qaConfig/.qa-lock',
+            $this->project->path . self::LOCK_DIR,
             $this->output,
             $clock,
             maxWaitSeconds: 5,
