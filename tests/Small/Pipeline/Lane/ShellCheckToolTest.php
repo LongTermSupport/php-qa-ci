@@ -33,6 +33,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\ShellFileFinder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\CapturedPhpOutputScanner::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\DaemonOwnedFiles::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\Dto\DaemonOwnedSplitDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(ProcessResultDto::class)]
@@ -98,6 +100,43 @@ final class ShellCheckToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::CI_BASH, self::BUILD), $this->factory->processes->lastSpec()->command);
         self::assertStringContainsString('2 shell file(s) checked', $this->factory->output->fetch());
+    }
+
+    /** A daemon stub and the install folder are third-party; a hand-written hook beside the stub is not. */
+    #[Test]
+    public function daemonOwnedFilesAreSkippedAndCountedWhileAHandWrittenHookBesideThemIsStillChecked(): void
+    {
+        $project = $this->factory->project;
+        $project->write('.claude/hooks/stop', "#!/bin/bash\n#\n# DAEMON-OWNED FILE - do not edit. Refreshed on every upgrade.\n#\nunused=1\n");
+        $project->write('.claude/hooks/mine.sh', "#!/bin/bash\nunused=1\n");
+        $project->write('.claude/hooks-daemon/run.bash', "#!/bin/bash\nunused=1\n");
+        $this->factory->processes
+            ->willSucceed(self::TRACKED . ".claude/hooks/stop\n.claude/hooks/mine.sh\n.claude/hooks-daemon/run.bash\n")
+            ->willSucceed(self::BANNER)
+            ->willSucceed('')
+        ;
+
+        $result = new ShellCheckTool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            $this->expectedCommand('.claude/hooks/mine.sh', self::CI_BASH, self::BUILD),
+            $this->factory->processes->lastSpec()->command,
+        );
+        self::assertStringContainsString(
+            '2 file(s) skipped: generated or installed by the Claude Code hooks daemon, which rewrites them on every upgrade',
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function nothingIsReportedAsSkippedWhenNoDaemonFileIsTracked(): void
+    {
+        $this->queue()->willSucceed('');
+
+        new ShellCheckTool()->run($this->factory->context());
+
+        self::assertStringNotContainsString('skipped', $this->factory->output->fetch());
     }
 
     #[Test]

@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 
 use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
 use LTS\PHPQA\Pipeline\Lane\ShellCheck\CapturedPhpOutputScanner;
+use LTS\PHPQA\Pipeline\Lane\ShellCheck\DaemonOwnedFiles;
 use LTS\PHPQA\Pipeline\Lane\ShellCheck\ShellFileFinder;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -49,6 +50,9 @@ final readonly class ShellCheckTool implements ToolInterface
     /** The run's one-line summary when such a line was found. */
     private const string CAPTURED_SUMMARY = "a command substitution captures PHP's output with its warnings on stdout";
 
+    /** Printed when files were left out as third-party, so the skip is never silent. */
+    private const string DAEMON_SKIPPED = '%d file(s) skipped: generated or installed by the Claude Code hooks daemon, which rewrites them on every upgrade';
+
     public function name(): string
     {
         return 'shellCheck';
@@ -86,7 +90,12 @@ final readonly class ShellCheckTool implements ToolInterface
             return $this->reportEmptyGlobs($context, ...$globs);
         }
 
-        $files     = $this->narrowToSpecifiedPath($context, ...$found);
+        $split = new DaemonOwnedFiles($paths->projectRoot)->partition(...$found);
+        if ([] !== $split->skipped) {
+            $context->writeln(\sprintf(self::DAEMON_SKIPPED, \count($split->skipped)));
+        }
+
+        $files     = $this->narrowToSpecifiedPath($context, ...$split->kept);
         $workflows = $this->narrowToSpecifiedPath($context, ...$finder->workflows($tracked, ...$context->config->pathsToIgnore));
         if ([] === $files && [] === $workflows) {
             $context->writeln('No shell files to check');
