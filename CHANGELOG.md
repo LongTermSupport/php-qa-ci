@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.14.0 — 2026-11-06
+
 ### Changed
 
 - The `shellCheck` lane no longer checks files the Claude Code hooks daemon owns: scripts it
