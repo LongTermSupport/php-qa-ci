@@ -36,7 +36,7 @@ daemon:
     enabled: true              # Validate hook inputs (recommended)
     strict_mode: true          # Fail-closed: return errors on validation failures
     log_validation_errors: true
-  expected_version: "3.71.0"  # daemon version this project expects; `provision.sh` installs exactly this
+  expected_version: "3.72.1"  # daemon version this project expects; `provision.sh` installs exactly this
 
 # Built-in handler configuration
 # Handlers run in priority order (lower number = earlier execution)
@@ -523,6 +523,46 @@ layout:
   source_dirs: ["src"]
   test_dirs: ["tests"]
   mode: additive
+
+# Branch hygiene (the branch guards, branch-sweep, cleanup_after_merge).
+# The default branch resolves from origin/HEAD (php8.5). The older release lines
+# are merge targets, never work: they are not counted toward the WIP cap and an
+# agent never deletes them remotely (CLAUDE/release-lines.md). No branch on the
+# remote is human-owned, so nothing is exempt.
+branches:
+  integration_lines: ["php8.4", "php8.3"]
+  exempt: []
+  cleanup_after_merge:
+    # Setting this list REPLACES the daemon's defaults, so the defaults come first,
+    # then the stores this project's worktrees rebuild: /bin/ and /var/. They are
+    # root-anchored because a bare name matches at any depth (vendor/bin/ too).
+    # vendor/ is deliberately absent, so a worktree holding one is never removed unasked.
+    regenerable:
+      - "untracked/venv-*/"
+      - "untracked/qa/"
+      - "untracked/docs-qa/"
+      - "untracked/branch-inventory/"
+      - "untracked/daemon-*"
+      - "untracked/events-*"
+      - "untracked/.venv-bootstrap*"
+      - "untracked/lsp-venv/"
+      - "untracked/repair.log"
+      - "untracked/repair.txt"
+      - "untracked/.python-cmd-cache"
+      - "untracked/context-sidecar/"
+      - "untracked/logs/"
+      - "untracked/acceptance/"
+      - "untracked/spend-ledger/"
+      - "/.coverage"
+      - "/.CLAUDE.md.pre-inject"
+      - ".claude/hooks-daemon/"
+      - "*.egg-info/"
+      - "__pycache__/"
+      - ".pytest_cache/"
+      - ".mypy_cache/"
+      - ".ruff_cache/"
+      - "/bin/"
+      - "/var/"
 
 # Documentation trees: agent-facing docs in CLAUDE/, human-facing in docs/.
 documentation:
