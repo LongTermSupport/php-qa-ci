@@ -179,7 +179,7 @@ namespace Composer\Util {
 }
 
 namespace Composer\Semver {
-    if (!\class_exists(Semver::class, false)) {
+    if (!\class_exists(Semver::class)) {
         final class Semver
         {
             public static function satisfies(string $version, string $constraints): bool

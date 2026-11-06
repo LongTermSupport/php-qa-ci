@@ -9,6 +9,7 @@ use LTS\PHPQA\Pipeline\Config\DependencyFreshnessPatterns;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\BranchOnlyProject;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\ComposerLock;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\Dto\StaleDependencyDto;
+use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\FirstPartyConstraintFreshness;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\Tracking;
 use LTS\PHPQA\Pipeline\Lane\DependencyFreshness\UpdateDryRunOutput;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
@@ -16,6 +17,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
+use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use RuntimeException;
 use Safe\Exceptions\SafeExceptionInterface;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
@@ -52,13 +54,13 @@ final readonly class DependencyFreshnessTool implements ToolInterface
     public const int TIMEOUT_SECONDS = 180;
 
     /** The registry name, also the name the skip line gives. */
-    private const string NAME = 'dependencyFreshness';
+    public const string NAME = 'dependencyFreshness';
+
+    /** No prompt from Composer or from the git it runs: a credential prompt nobody sees would hang the run. */
+    public const array ENVIRONMENT =['COMPOSER_NO_INTERACTION' => '1', 'GIT_TERMINAL_PROMPT' => '0'];
 
     /** The executable looked up on the PATH when no path was given. */
     private const string COMPOSER = 'composer';
-
-    /** No prompt from Composer or from the git it runs: a credential prompt nobody sees would hang the run. */
-    private const array ENVIRONMENT = ['COMPOSER_NO_INTERACTION' => '1', 'GIT_TERMINAL_PROMPT' => '0'];
 
     /** A dry run changes nothing; no scripts, no audit and no progress, so the only output is the answer. */
     private const array DRY_RUN_OPTIONS = ['--with-dependencies', '--dry-run', '--no-interaction', '--no-ansi', '--no-scripts', '--no-progress', '--no-audit'];
@@ -85,6 +87,39 @@ final readonly class DependencyFreshnessTool implements ToolInterface
     }
 
     public function run(ToolContext $context): ToolResultDto
+    {
+        $lockResult = $this->lockedPackages($context);
+        if (!$context->config->useFirstPartyConstraintFreshness) {
+            return $lockResult;
+        }
+
+        $constraintResult = new FirstPartyConstraintFreshness()->run($context, $this->composer());
+
+        return $this->combined($lockResult, $constraintResult);
+    }
+
+    /**
+     * One result for the two questions the lane asks: a failure of either
+     * fails the lane and keeps both summaries, else a skip of either skips it.
+     */
+    private function combined(ToolResultDto $lockResult, ToolResultDto $constraintResult): ToolResultDto
+    {
+        $failed = array_values(array_filter([$lockResult, $constraintResult], static fn (ToolResultDto $result): bool => ToolOutcomeEnum::Failed === $result->outcome));
+        if ([] !== $failed) {
+            return ToolResultDto::failed(implode('; ', array_map(static fn (ToolResultDto $result): string => $result->summary, $failed)));
+        }
+
+        foreach ([$lockResult, $constraintResult] as $result) {
+            if (ToolOutcomeEnum::Skipped === $result->outcome) {
+                return $result;
+            }
+        }
+
+        return $lockResult;
+    }
+
+    /** Whether the locked packages matching the freshness patterns are what `composer update` would install. */
+    private function lockedPackages(ToolContext $context): ToolResultDto
     {
         $root = $context->config->paths->projectRoot;
         $lock = $root . '/composer.lock';

@@ -25,6 +25,31 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- php-qa-ci now requires `composer/semver` (`^3.4`), which the first-party constraint check reads
+  version constraints with. Composer installs it with php-qa-ci; a project that pins a conflicting
+  `composer/semver` must widen that pin.
+
+### Added
+
+- The `dependencyFreshness` lane now also fails a first-party dependency whose constraint excludes a
+  newer release. With `"acme/widgets": "^0.2"` and a stable 0.3.0 out, `composer update` can never
+  reach 0.3.0, which the lock check cannot see because it judges the lock only within your
+  constraints. First-party vendors are those listed in `extra.php-qa-ci.firstPartyVendors` in
+  `composer.json`, else the vendor of the project's own `name`; a project with neither has none and
+  the lane says so. Every direct `require` and `require-dev` entry of such a vendor is compared
+  with the newest stable release `composer outdated --locked --direct` reports, a new 0.x minor and
+  a new major included. The failure names each package, its constraint and the newest release, and
+  says to widen the constraint (`^0.3`, or `^0.2 || ^0.3`) or to pin exactly. An exact pin
+  (`0.2.3`, `=0.2.3`) is reported and does not fail, and a branch constraint is left to the lock
+  check. When Composer cannot answer, the check is skipped with a named `SKIPPED dependencyFreshness`
+  line saying the constraints were not verified. It is on by default and asks Composer nothing
+  unless a first-party package is required directly. Narrow it by naming the vendors; turn it off
+  with `withFirstPartyConstraintFreshness(false)` in `qaConfig/qa.php` or
+  `useFirstPartyConstraintFreshness=0` for one run. See
+  [docs/tools/dependencyFreshness.md](docs/tools/dependencyFreshness.md#first-party-constraints).
+
 ## 85.14.0 — 2026-11-06
 
 ### Changed

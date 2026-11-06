@@ -14,6 +14,7 @@
     "ext-tokenizer": "*",
     "ext-xml": "*",
     "composer-plugin-api": "^2.0",
+    "composer/semver": "^3.4",
     "nette/neon": "^3.4.8",
     "nikic/php-parser": "^5.8",
     "phpstan/extension-installer": "^1.4.3",
