@@ -534,8 +534,9 @@ branches:
   exempt: []
   cleanup_after_merge:
     # Setting this list REPLACES the daemon's defaults, so the defaults come first,
-    # then the stores this project's worktrees rebuild: bin/ and var/. vendor/ is
-    # deliberately absent, so a worktree holding one is never removed unasked.
+    # then the stores this project's worktrees rebuild: /bin/ and /var/. They are
+    # root-anchored because a bare name matches at any depth (vendor/bin/ too).
+    # vendor/ is deliberately absent, so a worktree holding one is never removed unasked.
     regenerable:
       - "untracked/venv-*/"
       - "untracked/qa/"
@@ -560,8 +561,8 @@ branches:
       - ".pytest_cache/"
       - ".mypy_cache/"
       - ".ruff_cache/"
-      - "bin/"
-      - "var/"
+      - "/bin/"
+      - "/var/"
 
 # Documentation trees: agent-facing docs in CLAUDE/, human-facing in docs/.
 documentation:
