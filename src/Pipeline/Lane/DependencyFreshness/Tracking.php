@@ -116,11 +116,13 @@ final readonly class Tracking
     }
 
     /**
+     * The decoded composer.json; an object without keys when the file is missing.
+     *
      * @return array<array-key, mixed>
      *
      * @throws RuntimeException when composer.json exists and is not a JSON object
      */
-    private static function read(string $composerJson): array
+    public static function read(string $composerJson): array
     {
         if (!is_file($composerJson)) {
             return [];
@@ -137,6 +139,14 @@ final readonly class Tracking
         }
 
         return $json;
+    }
+
+    /** What one alternative of a constraint follows, without its `#reference`, `@stability` flag or `as` alias. */
+    public static function ref(string $alternative): string
+    {
+        $plain = \Safe\preg_replace(self::NOT_THE_REF, '', $alternative);
+
+        return trim(\is_string($plain) ? $plain : $alternative);
     }
 
     /**
@@ -181,13 +191,5 @@ final readonly class Tracking
         }
 
         return [$branches, $tag, $any];
-    }
-
-    /** What one alternative of a constraint follows, without its `#reference`, `@stability` flag or `as` alias. */
-    private static function ref(string $alternative): string
-    {
-        $plain = \Safe\preg_replace(self::NOT_THE_REF, '', $alternative);
-
-        return trim(\is_string($plain) ? $plain : $alternative);
     }
 }

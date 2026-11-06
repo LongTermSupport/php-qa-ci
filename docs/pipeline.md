@@ -89,7 +89,8 @@ A full run (no `-t`) then checks that the locked packages you keep current, `lts
 default, are what `composer update` would install: [Dependency Freshness](./tools/dependencyFreshness.md).
 Stale dependencies end the run before any phase, in aggregate mode too. When Composer cannot say
 (offline, a source unreachable), the check prints a named `SKIPPED dependencyFreshness` line and
-the run carries on.
+the run carries on. The same lane fails a first-party dependency whose loose constraint excludes a
+newer release, which `composer update` could never reach.
 
 ### 3. QA Tools (Four Phases)
 

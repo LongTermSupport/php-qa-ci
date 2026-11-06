@@ -42,6 +42,8 @@ use Symfony\Component\Process\Process;
 #[CoversClass(Tracking::class)]
 #[CoversClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshness\BranchOnlyProject::class)]
 #[CoversClass(DependencyFreshnessPatterns::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshness\FirstPartyConstraintFreshness::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\DependencyFreshness\FirstPartyVendors::class)]
 #[UsesClass(\LTS\PHPQA\ComposerPlugin\ChildExit::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
