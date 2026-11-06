@@ -60,6 +60,24 @@ still subtracts from whichever set was produced.
 A glob list that matches nothing **fails the lane**. Silence from a hand-written list is a broken
 configuration, not a clean result.
 
+## Files the Claude Code hooks daemon owns are skipped
+
+A project that uses the Claude Code hooks daemon tracks third-party files: the forwarder scripts
+the daemon generates in `.claude/hooks/`, rewritten on every upgrade, and sometimes its install
+folder, `.claude/hooks-daemon/`. A finding in one of them (typically SC2034, a variable assigned
+but never used) is one the project cannot fix, so the lane does not check them.
+
+Two things mark a file as daemon-owned:
+
+- a header comment line beginning `# DAEMON-OWNED FILE` within the first ten lines, which the
+  daemon writes into every file it generates. The marker decides, not the directory, so a
+  hand-written script in `.claude/hooks/` is still checked;
+- a path under `.claude/hooks-daemon/`, whatever the file says.
+
+The lane prints how many files it skipped and why, for example
+`2 file(s) skipped: generated or installed by the Claude Code hooks daemon, which rewrites them on every upgrade`,
+so the skip is never silent. The `withShellCheckGlobs()` set and `-p` are subject to the same skip.
+
 ## PHP output captured by a command substitution
 
 ShellCheck has no rule for this, so the lane reads the same scripts itself, and the tracked
@@ -125,5 +143,6 @@ looks unused to ShellCheck; exporting it states the contract instead of hiding t
 
 - Lane: [`ShellCheckTool`](../../src/Pipeline/Lane/ShellCheckTool.php).
 - Discovery: [`ShellFileFinder`](../../src/Pipeline/Lane/ShellCheck/ShellFileFinder.php).
+- Daemon-owned files: [`DaemonOwnedFiles`](../../src/Pipeline/Lane/ShellCheck/DaemonOwnedFiles.php).
 - Captured PHP output: [`CapturedPhpOutputScanner`](../../src/Pipeline/Lane/ShellCheck/CapturedPhpOutputScanner.php).
 - The pin, the path and the fetch command: [`ShellCheckBinary`](../../src/Pipeline/Config/ShellCheckBinary.php).

@@ -25,6 +25,14 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- The `shellCheck` lane no longer checks files the Claude Code hooks daemon owns: scripts it
+  generates (every one carries a `# DAEMON-OWNED FILE` header line, and they are rewritten on each
+  daemon upgrade, so a finding such as SC2034 in one cannot be fixed by the project) and anything
+  tracked under `.claude/hooks-daemon/`. Hand-written scripts, including those in `.claude/hooks/`,
+  are still checked. The lane prints how many files it skipped and why.
+
 ## 85.13.0 — 2026-11-05
 
 ### Changed
