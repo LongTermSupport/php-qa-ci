@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.15.0 — 2026-11-06
+
 ### Changed — breaking
 
 - php-qa-ci now requires `composer/semver` (`^3.4`), which the first-party constraint check reads
