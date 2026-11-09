@@ -525,12 +525,14 @@ layout:
   mode: additive
 
 # Branch hygiene (the branch guards, branch-sweep, cleanup_after_merge).
-# The default branch resolves from origin/HEAD (php8.5). The older release lines
-# are merge targets, never work: they are not counted toward the WIP cap and an
-# agent never deletes them remotely (CLAUDE/release-lines.md). No branch on the
-# remote is human-owned, so nothing is exempt.
+# The default branch resolves from origin/HEAD (php8.5). The live release lines
+# (php8.5, php8.4) are merge targets and protected names, never work: they are not
+# counted toward the WIP cap and an agent never deletes them
+# (CLAUDE/release-lines.md). No branch on the remote is human-owned, so nothing is
+# exempt.
 branches:
-  integration_lines: ["php8.4", "php8.3"]
+  protected_names: ["php8.5", "php8.4"]
+  integration_lines: ["php8.5", "php8.4"]
   exempt: []
   cleanup_after_merge:
     # Setting this list REPLACES the daemon's defaults, so the defaults come first,
