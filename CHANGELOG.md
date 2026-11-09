@@ -25,6 +25,20 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.16.0 — 2026-11-09
+
+### Changed
+
+- The shipped PHPUnit Rector configuration (`rector-phpunit.php`) now skips
+  `AllowMockObjectsWhereParentClassRector` and `AllowMockObjectsForDataProviderRector`. With
+  PHPUnit 12.5.2 or newer locked, they added `#[AllowMockObjectsWithoutExpectations]` to a subclass
+  of Symfony's `TypeTestCase` and to a data-provider test whose mock has no `expects()`, and the
+  `phpqaci.forbiddenAttribute` PHPStan rule then failed on it; removing it by hand did not hold,
+  because the next writable run added it back. A writable run no longer adds the attribute. Remove
+  any the earlier runs added, and use `createStub()` for a dependency without expectations. A
+  project `rector-phpunit.php` override should skip the same two rules. See
+  [docs/tools/rector.md](docs/tools/rector.md#rector-never-writes-code-phpstan-rejects).
+
 ## 85.15.0 — 2026-11-06
 
 ### Changed — breaking

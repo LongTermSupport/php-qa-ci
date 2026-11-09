@@ -110,6 +110,16 @@ skipped; the rest of its set still runs.
 rules, then runs PHPStan over the result and names each fixture that fails. A project config that
 includes the `php80` set, or `LevelSetList::UP_TO_PHP_85`, should skip the same rule.
 
+The shipped `rector-phpunit.php` follows the same rule. With PHPUnit 12.5.2 or newer locked,
+`PHPUnitSetList::COMPOSER_BASED` holds `AllowMockObjectsWhereParentClassRector` (any subclass of
+Symfony's `TypeTestCase`) and `AllowMockObjectsForDataProviderRector` (a `#[DataProvider]` test
+whose mock has a `->method()` with no `expects()`). Both add `#[AllowMockObjectsWithoutExpectations]`,
+which [`phpqaci.forbiddenAttribute`](../phpstan-rules/forbid-allow-mock-without-expectations.md)
+bans, so both are skipped. For a dependency without expectations, use `createStub()`; no attribute
+is needed. `ShippedPhpunitRectorAddsNoBannedAttributeTest` is the guard: it runs the shipped
+config over `tests/assets/rectorAllowMockAttribute/`, then runs the rule over the result. A project
+`rector-phpunit.php` override should skip the same two rules.
+
 ## A project config that sets its own cache
 
 Rector 2.7 removed `Rector\Caching\ValueObject\Storage\MemoryCacheStorage`. A project
