@@ -39,6 +39,8 @@
 /vendor-phar/turbo-ext/
 # ShellCheck update staging (TemporaryDirectory::besides); a killed update's is removed by the next
 /vendor-bin/.phpqa-shellcheck*/
+# ShellCheck builds for a host other than the committed linux.x86_64 (ShellCheckBinary::pathFor), fetched per host
+/vendor-bin/shellcheck.linux.*
 /cache/
 /.phive-home/
 /build/*/vendor/

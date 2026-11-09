@@ -53,6 +53,16 @@ final readonly class ShellCheckTool implements ToolInterface
     /** Printed when files were left out as third-party, so the skip is never silent. */
     private const string DAEMON_SKIPPED = '%d file(s) skipped: generated or installed by the Claude Code hooks daemon, which rewrites them on every upgrade';
 
+    /**
+     * @param string      $os      PHP_OS_FAMILY of the host the binary runs on
+     * @param string|null $machine php_uname('m') of that host; this host's when null
+     */
+    public function __construct(
+        private string $os = \PHP_OS_FAMILY,
+        private ?string $machine = null,
+    ) {
+    }
+
     public function name(): string
     {
         return 'shellCheck';
@@ -65,12 +75,18 @@ final readonly class ShellCheckTool implements ToolInterface
 
     public function run(ToolContext $context): ToolResultDto
     {
+        $machine      = $this->machine ?? php_uname('m');
+        $architecture = ShellCheckBinary::architectureFor($this->os, $machine);
+        if (null === $architecture) {
+            return $this->reportUnsupportedHost($context, $machine);
+        }
+
         $paths    = $context->config->paths;
-        $binary   = ShellCheckBinary::path($paths->libraryRoot);
+        $binary   = ShellCheckBinary::pathFor($paths->libraryRoot, $architecture);
         $pinned   = ShellCheckBinary::pinnedVersion($paths->libraryRoot);
         $unusable = ShellCheckBinary::ensureExecutable($binary);
         if (null !== $unusable || null === $pinned) {
-            return $this->reportBrokenInstall($context, $unusable ?? 'no pinned version recorded', $pinned);
+            return $this->reportBrokenInstall($context, $architecture, $unusable ?? 'no pinned version recorded', $pinned);
         }
 
         $tracked = $this->trackedFiles($context);
@@ -78,7 +94,7 @@ final readonly class ShellCheckTool implements ToolInterface
             return ToolResultDto::skipped('the project is not a git work tree, so there is no tracked file set to check');
         }
 
-        $mismatch = $this->versionMismatch($context, $binary, $pinned);
+        $mismatch = $this->versionMismatch($context, $architecture, $binary, $pinned);
         if ($mismatch instanceof ToolResultDto) {
             return $mismatch;
         }
@@ -196,7 +212,7 @@ final readonly class ShellCheckTool implements ToolInterface
     }
 
     /** A crash when the committed binary is not the pinned release, otherwise null. */
-    private function versionMismatch(ToolContext $context, string $binary, string $pinned): ?ToolResultDto
+    private function versionMismatch(ToolContext $context, string $architecture, string $binary, string $pinned): ?ToolResultDto
     {
         $result   = $this->probeVersion($context, $binary);
         $reported = ShellCheckBinary::reportedVersion($result->output);
@@ -211,7 +227,7 @@ final readonly class ShellCheckTool implements ToolInterface
         ));
         $context->writeln('One pinned build has to run in every environment, or QA and CI are not the same check.');
         $context->writeln('Restore it with:');
-        $context->writeln('  ' . ShellCheckBinary::fetchCommand($context->config->paths->libraryRoot, $pinned));
+        $context->writeln('  ' . ShellCheckBinary::fetchCommand($context->config->paths->libraryRoot, $pinned, $architecture));
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::crashed('the vendored ShellCheck does not match the pinned release');
@@ -226,17 +242,31 @@ final readonly class ShellCheckTool implements ToolInterface
         ));
     }
 
-    private function reportBrokenInstall(ToolContext $context, string $reason, ?string $pinned): ToolResultDto
+    /**
+     * Upstream publishes a static Linux build for x86_64 and aarch64 only, and
+     * exec'ing either anywhere else fails in a way that reads as a broken
+     * install, so the host is named instead.
+     */
+    private function reportUnsupportedHost(ToolContext $context, string $machine): ToolResultDto
+    {
+        $context->writeln(\sprintf('The vendored ShellCheck has no build for this host (%s %s).', $this->os, $machine));
+        $context->writeln(\sprintf('The lane runs on Linux with an x86_64 (%s) or aarch64 (%s) CPU.', ShellCheckBinary::ARCHITECTURE, ShellCheckBinary::ARCHITECTURE_AARCH64));
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::crashed('ShellCheck has no build for this host');
+    }
+
+    private function reportBrokenInstall(ToolContext $context, string $architecture, string $reason, ?string $pinned): ToolResultDto
     {
         $context->writeln(\sprintf('The vendored ShellCheck is not usable: %s', $reason));
         $context->writeln(\sprintf(
             'Expected: %s (%s)',
-            ShellCheckBinary::path($context->config->paths->libraryRoot),
-            ShellCheckBinary::ARCHITECTURE,
+            ShellCheckBinary::pathFor($context->config->paths->libraryRoot, $architecture),
+            $architecture,
         ));
         if (null !== $pinned) {
             $context->writeln('Restore it with:');
-            $context->writeln('  ' . ShellCheckBinary::fetchCommand($context->config->paths->libraryRoot, $pinned));
+            $context->writeln('  ' . ShellCheckBinary::fetchCommand($context->config->paths->libraryRoot, $pinned, $architecture));
         }
 
         $context->writeIdentifier(self::IDENTIFIER);

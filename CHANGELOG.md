@@ -25,6 +25,18 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Fixed
+
+- `shellCheck` runs on an aarch64 Linux host (issue #388). The committed binary is the
+  `linux.x86_64` build, which cannot execute there, so the lane failed with an unreadable version
+  rather than checking anything. On a host reporting `aarch64` or `arm64` it now uses upstream's
+  `linux.aarch64` build of the same pinned release at `vendor-bin/shellcheck.linux.aarch64`, which
+  is not committed or downloaded automatically: the first run crashes with the command that fetches
+  it. Any other host (macOS, Windows, another CPU) crashes with the host named instead of a version
+  error. `ShellCheckBinary` gains `ARCHITECTURE_AARCH64`, `architectureFor()` and `pathFor()`, and
+  `fetchCommand()` takes an optional architecture; the committed path and its default fetch command
+  are unchanged.
+
 ## 85.18.0 — 2026-11-09
 
 ### Changed
