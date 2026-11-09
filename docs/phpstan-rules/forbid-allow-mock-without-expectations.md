@@ -62,6 +62,10 @@ that is a judgement about what the test is asserting.
 
 Related: [`phpqaci.mockFinalClass`](forbid-mocking-final-class.md) covers *what* may be mocked.
 
+The shipped `rector-phpunit.php` skips the two PHPUnit Rector rules that add this attribute, so a
+writable run does not write what this rule bans; see
+[Rector never writes code PHPStan rejects](../tools/rector.md#rector-never-writes-code-phpstan-rejects).
+
 ## If you believe an instance is legitimate
 
 The usual case is a large test class where a few mocks are legitimately expectation-free.

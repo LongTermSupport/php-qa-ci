@@ -71,6 +71,17 @@ return static function (RectorConfig $rectorConfig): void {
     // normalisation for assertSame() is lost with it. A silently inverted assertion is the worse of
     // the two, since it fails on correct code and can pass on wrong code.
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\FlipAssertRector::class]);
+    // AllowMockObjectsWhereParentClassRector (any subclass of Symfony's TypeTestCase) and
+    // AllowMockObjectsForDataProviderRector (a #[DataProvider] test with a mock whose ->method() has no
+    // expects()) both add #[AllowMockObjectsWithoutExpectations], once the locked PHPUnit is 12.5.2 or
+    // newer. php-qa-ci's own PHPStan rule phpqaci.forbiddenAttribute bans that attribute: createStub()
+    // is the construction for a dependency without expectations. Rector re-adds the attribute on every
+    // writable run, so fixing one tool breaks the other, and for a TypeTestCase subclass nothing in the
+    // test satisfies both. PHPStan wins; both rules go.
+    $rectorConfig->skip([
+        Rector\PHPUnit\PHPUnit120\Rector\Class_\AllowMockObjectsWhereParentClassRector::class,
+        Rector\PHPUnit\PHPUnit120\Rector\Class_\AllowMockObjectsForDataProviderRector::class,
+    ]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,
