@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.18.1 — 2026-11-09
+
 ### Fixed
 
 - `shellCheck` runs on an aarch64 Linux host (issue #388). The committed binary is the
