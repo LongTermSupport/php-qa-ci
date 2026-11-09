@@ -532,6 +532,11 @@ layout:
 branches:
   integration_lines: ["php8.4", "php8.3"]
   exempt: []
+  # TEMPORARY: raised from the default 10 by the owner (typed instruction, 9 Nov) so two named
+  # branches can be cut: the Rector fix for #415 and the hooks daemon upgrade. Reset to 10 (delete
+  # this block) once the branch clean-up has brought the count under the default.
+  wip:
+    cap: 31
   cleanup_after_merge:
     # Setting this list REPLACES the daemon's defaults, so the defaults come first,
     # then the stores this project's worktrees rebuild: /bin/ and /var/. They are
