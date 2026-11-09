@@ -25,6 +25,18 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed
+
+- The shipped PHPUnit Rector configuration (`rector-phpunit.php`) now skips
+  `AddDoesNotPerformAssertionToNonAssertingTestRector`. It did not follow `parent::` calls, so a
+  test whose body only delegated to an asserting parent test (typically an override that attaches a
+  `#[DataProvider]`) was given `#[DoesNotPerformAssertions]`, and PHPUnit then reported it risky
+  and failed a run under `failOnRisky`; removing the attribute by hand did not hold, because the
+  next writable run added it back. A writable run no longer adds the attribute. Remove it from any
+  test that asserts, including through its parent, and add it by hand to a test that genuinely
+  asserts nothing. A project `rector-phpunit.php` override should skip the same rule. See
+  [docs/tools/rector.md](docs/tools/rector.md#rector-never-marks-an-asserting-test-as-not-asserting).
+
 ## 85.16.0 — 2026-11-09
 
 ### Changed
