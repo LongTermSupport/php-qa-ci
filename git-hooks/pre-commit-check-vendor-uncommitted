@@ -5,9 +5,21 @@
 # Git Pre-Commit Hook: Check Vendor Libraries for Uncommitted Changes
 #
 # PURPOSE:
-# Prevents git commits when vendor libraries (first-party dependencies) have
-# uncommitted changes. This prevents production failures where local changes
+# Prevents git commits when first-party vendor libraries (packages you author,
+# installed from source) have uncommitted changes or are off the commit
+# composer.lock records. This prevents production failures where local changes
 # work but production fails due to vendor/main synchronization issues.
+#
+# FIRST PARTY ONLY:
+# Only vendors you author are checked. They are the vendors named in
+# composer.json's extra.php-qa-ci.firstPartyVendors (for example ["acme"]);
+# when that key is absent, the vendor of the project's own "name" (the part
+# before the slash); an empty list means none. With no name and no key, no
+# vendor clone is checked and the hook says so in one NOTE line. A malformed
+# setting blocks the commit with an error. A third-party package installed
+# from source never blocks, even when it changes its own files (a Composer
+# plugin writing generated code into its own tree does). The decision is
+# php-qa-ci's bin/first-party-vendor-clones (LTS\PHPQA\GitHook\FirstPartyVendorClones).
 #
 # DEPLOYMENT:
 # Copy to .git/hooks/pre-commit in your project:
@@ -24,13 +36,16 @@
 #
 # DETECTION:
 # 1. Finds all vendor/*/* directories containing .git directories
-# 2. Checks each for uncommitted changes (git status --porcelain)
-# 3. Blocks commit if ANY vendor library has uncommitted changes
-# 4. Provides clear instructions on proper workflow
+# 2. Keeps the first-party ones (see FIRST PARTY ONLY above)
+# 3. Checks each for uncommitted changes (git status --porcelain), and a clean
+#    one for a HEAD that differs from its composer.lock reference
+# 4. Blocks commit if ANY first-party vendor library fails either check
+# 5. Provides clear instructions on proper workflow
 #
 # EXIT CODES:
-# 0 - Allow commit (all vendor libraries clean)
-# 1 - Block commit (uncommitted vendor changes detected)
+# 0 - Allow commit (all first-party vendor libraries clean and in sync)
+# 1 - Block commit (a first-party vendor library is dirty or out of sync, or
+#     the first-party setting cannot be read)
 
 set -euo pipefail
 
@@ -47,6 +62,55 @@ VENDOR_DIR="${PROJECT_ROOT}/vendor"
 # Check if vendor directory exists
 if [[ ! -d "$VENDOR_DIR" ]]; then
     # No vendor directory, nothing to check
+    exit 0
+fi
+
+# Every vendor/*/* clone (a directory holding a .git directory), as its
+# vendor/package name.
+CLONES=()
+declare -A IS_CLONE
+while IFS= read -r -d '' git_dir; do
+    # Quote the prefix so the pattern is treated literally (SC2295); an
+    # unquoted $VENDOR_DIR would be interpreted as a glob.
+    package_name="$(dirname "${git_dir#"$VENDOR_DIR"/}")"
+    CLONES+=("$package_name")
+    IS_CLONE["$package_name"]=1
+done < <(find "$VENDOR_DIR" -mindepth 3 -maxdepth 3 -type d -name ".git" -print0 2>/dev/null)
+
+if [[ ${#CLONES[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+# Which clones are first party is php-qa-ci's decision: where Composer puts
+# php-qa-ci, or this checkout when the project is php-qa-ci itself.
+FIRST_PARTY_PROGRAM="$VENDOR_DIR/lts/php-qa-ci/bin/first-party-vendor-clones"
+if [[ ! -f "$FIRST_PARTY_PROGRAM" ]] && [[ -f "$PROJECT_ROOT/git-hooks/pre-commit-check-vendor-uncommitted" ]]; then
+    FIRST_PARTY_PROGRAM="$PROJECT_ROOT/bin/first-party-vendor-clones"
+fi
+
+if [[ ! -f "$FIRST_PARTY_PROGRAM" ]]; then
+    echo "NOTE: php-qa-ci's bin/first-party-vendor-clones was not found (is lts/php-qa-ci installed?), so the pre-commit hook checks no vendor clone." >&2
+    exit 0
+fi
+
+# The program prints the first-party packages on stdout and any note or error
+# on stderr, which reaches the terminal as it is.
+if ! first_party_output="$(XDEBUG_MODE=off php -d display_errors=stderr "$FIRST_PARTY_PROGRAM" "$PROJECT_ROOT" "${CLONES[@]}")"; then
+    echo -e "${RED}COMMIT BLOCKED: cannot tell which vendor clones are first party; fix the error above in composer.json and retry.${NC}" >&2
+    exit 1
+fi
+
+# php can print more than its answer (a start-up warning on stdout, such as
+# the OPcache JIT's with Xdebug loaded): keep lines that name a clone only.
+FIRST_PARTY_CLONES=()
+while IFS= read -r line; do
+    # An empty key is a "bad array subscript" in bash, so test it first.
+    if [[ -n "$line" ]] && [[ -n "${IS_CLONE[$line]:-}" ]]; then
+        FIRST_PARTY_CLONES+=("$line")
+    fi
+done <<< "$first_party_output"
+
+if [[ ${#FIRST_PARTY_CLONES[@]} -eq 0 ]]; then
     exit 0
 fi
 
@@ -88,18 +152,11 @@ fi
 # above, so this is safe.
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE
 
-# Find all vendor/*/* directories that contain .git directories
-while IFS= read -r -d '' git_dir; do
-    # Get the repo directory (parent of .git)
-    repo_dir="$(dirname "$git_dir")"
-
-    # Get path relative to project root for display. Quote the prefix so the
-    # pattern is treated literally (SC2295); an unquoted $PROJECT_ROOT would be
-    # interpreted as a glob and mis-strip a path containing *, ?, or [.
-    relative_path="${repo_dir#"$PROJECT_ROOT"/}"
-
-    # Extract package name from path (vendor/org/package -> org/package)
-    package_name="${relative_path#vendor/}"
+# Check each first-party clone
+for package_name in "${FIRST_PARTY_CLONES[@]}"; do
+    repo_dir="$VENDOR_DIR/$package_name"
+    # Path relative to project root for display
+    relative_path="vendor/$package_name"
 
     cd "$repo_dir"
 
@@ -123,7 +180,7 @@ while IFS= read -r -d '' git_dir; do
             COMPOSER_OUT_OF_SYNC+=("${relative_path}|||${locked_commit}|||${current_commit}")
         fi
     fi
-done < <(find "$VENDOR_DIR" -mindepth 3 -maxdepth 3 -type d -name ".git" -print0 2>/dev/null)
+done
 
 # Return to project root
 cd "$PROJECT_ROOT"

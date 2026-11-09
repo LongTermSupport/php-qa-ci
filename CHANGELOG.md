@@ -28,6 +28,15 @@ the release and its tag. The full rules are in
 ### Changed
 
 - **Bundled tool versions updated** by the dependency update: infection 0.35.9 → 0.35.10; php-cs-fixer 3.95.28 → 3.95.29.
+- The deployed git pre-commit hook (`.git/hooks/pre-commit`, from
+  `git-hooks/pre-commit-check-vendor-uncommitted`) now checks only first-party vendor packages
+  installed from source; a third-party one never blocks a commit, even when it changes its own
+  files as a Composer plugin writing generated code does. List the vendors you author in
+  `composer.json` under `extra.php-qa-ci.firstPartyVendors` (for example `["acme"]`); without that
+  key the vendor of the project's own `name` is protected, and with no `name` either nothing is
+  checked and the hook prints one `NOTE` line. A malformed value blocks the commit with an `ERROR`
+  line. The hook reads the setting through the new `bin/first-party-vendor-clones`. See
+  [README.md](README.md#the-git-pre-commit-hook).
 
 ## 85.17.0 — 2026-11-09
 
