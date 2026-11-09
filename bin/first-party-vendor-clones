@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Prints which of the given vendor packages are first party, one per line, as
+ * extra.php-qa-ci.firstPartyVendors (or the project's own vendor) says. The
+ * pre-commit hook git-hooks/pre-commit-check-vendor-uncommitted calls it to
+ * choose the vendor clones it protects. The decision lives in
+ * LTS\PHPQA\GitHook\FirstPartyVendorClones, where it is unit-tested.
+ *
+ * Usage: first-party-vendor-clones <project-root> [<vendor/package>...]
+ */
+
+require __DIR__.'/bootstrap.php';
+
+$output = new \Symfony\Component\Console\Output\ConsoleOutput();
+
+die(\LTS\PHPQA\GitHook\FirstPartyVendorClones::main(
+    $output,
+    $output->getErrorOutput(),
+    $argv[1] ?? \LTS\PHPQA\Helper::getProjectRootDirectory(),
+    ...array_slice($argv ?? [], 2),
+));

@@ -421,6 +421,24 @@ This will:
   including its `subagent_full_qa_blocker` from daemon v3.67.0, which keeps the full pipeline with
   the coordinating session ([docs/hooks-daemon-full-qa-blocker.md](./docs/hooks-daemon-full-qa-blocker.md))
 - Migrate from legacy classic hooks if found
+- Install the git pre-commit hook at `.git/hooks/pre-commit`, unless another tool's hook is there
+  (see [The git pre-commit hook](#the-git-pre-commit-hook))
+
+### The git pre-commit hook
+
+The hook (`git-hooks/pre-commit-check-vendor-uncommitted`) blocks a commit while a first-party
+package installed from source in `vendor/` has uncommitted changes, or sits on a commit other than
+the one `composer.lock` records: code committed against an unpublished vendor change fails wherever
+`composer install` runs next.
+
+Only vendors you author are checked: those named in `extra.php-qa-ci.firstPartyVendors` in
+`composer.json`, or, without that key, the vendor of the project's own `name` (`acme` for
+`acme/app`). An empty list means none. A third-party package installed from source never blocks,
+even when it changes its own files, as a Composer plugin writing generated code into its own tree
+does. With no `name` and no key the hook checks nothing and prints one `NOTE` line saying so; a
+value that is not a list of vendor names blocks the commit with an `ERROR` line. The setting is the
+one the dependency freshness lane reads
+([dependencyFreshness.md](./docs/tools/dependencyFreshness.md#first-party-constraints)).
 
 ### Included Hooks
 

@@ -204,7 +204,8 @@ for `acme/app`). A project with no `name` and no key has no first-party vendors;
 `NOTE dependencyFreshness: no first-party vendors: composer.json has no "name" and ...` and checks
 no constraint. An empty list (`"firstPartyVendors": []`) also means none, and says so. A value that
 is not a list of vendor names (a package name such as `acme/widgets` is not one) fails the lane
-with an `ERROR` line rather than being guessed at.
+with an `ERROR` line rather than being guessed at. The same setting chooses the vendor clones the
+git pre-commit hook protects ([README](../../README.md#the-git-pre-commit-hook)).
 
 **What is checked.** Every package in `require` or `require-dev` whose vendor is first party. Packages
 that are only transitive are not. One `composer outdated --locked --direct --format=json` gives
