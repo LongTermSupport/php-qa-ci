@@ -34,26 +34,33 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 final readonly class QaConfigDto
 {
     /**
-     * @param list<string>             $pathsToCheck                absolute paths the path-supporting tools scan
-     * @param list<string>             $pathsToIgnore               project-relative paths excluded from scans
-     * @param list<string>             $arkitectExcludePaths        src-relative paths excluded from PHPArkitect
-     * @param list<string>             $twigDirectories             absolute; `templates/` on every platform, because
-     *                                                              twigCsFixer is gated on Twig rather than on Symfony
-     *                                                              and skips cleanly when the directory is absent
-     * @param list<string>             $yamlDirectories             absolute; `config/` on every platform, because
-     *                                                              yamlLint is gated on symfony/yaml rather than on
-     *                                                              Symfony and skips cleanly when the directory is absent
-     * @param list<string>             $shellCheckGlobs             project-relative globs replacing shellCheck's default
-     *                                                              discovery; empty means discover by extension and shebang
-     * @param list<string>             $changelogWatchedPaths       project-relative paths whose changes need a changelog
-     *                                                              entry; never empty when $useChangelogCheck is on
-     * @param array<array-key, string> $unanalysedPaths             project-relative path => the reason the PHP beneath
-     *                                                              it is deliberately not analysed; PHP makes the key
-     *                                                              of a path written in digits an int
-     * @param list<string>             $markdownFormatPaths         project-relative files and directories the
-     *                                                              markdownFormat lane formats; a directory is recursive
-     * @param list<string>             $dependencyFreshnessPatterns package-name patterns the dependencyFreshness
-     *                                                              lane checks; lts/php-qa-ci is always the first
+     * @param list<string>             $pathsToCheck                     absolute paths the path-supporting tools scan
+     * @param list<string>             $pathsToIgnore                    project-relative paths excluded from scans
+     * @param list<string>             $arkitectExcludePaths             src-relative paths excluded from PHPArkitect
+     * @param list<string>             $twigDirectories                  absolute; `templates/` on every platform, because
+     *                                                                   twigCsFixer is gated on Twig rather than on Symfony
+     *                                                                   and skips cleanly when the directory is absent
+     * @param list<string>             $yamlDirectories                  absolute; `config/` on every platform, because
+     *                                                                   yamlLint is gated on symfony/yaml rather than on
+     *                                                                   Symfony and skips cleanly when the directory is absent
+     * @param list<string>             $shellCheckGlobs                  project-relative globs replacing shellCheck's default
+     *                                                                   discovery; empty means discover by extension and shebang
+     * @param list<string>             $changelogWatchedPaths            project-relative paths whose changes need a changelog
+     *                                                                   entry; never empty when $useChangelogCheck is on
+     * @param array<array-key, string> $unanalysedPaths                  project-relative path => the reason the PHP beneath
+     *                                                                   it is deliberately not analysed; PHP makes the key
+     *                                                                   of a path written in digits an int
+     * @param list<string>             $markdownFormatPaths              project-relative files and directories the
+     *                                                                   markdownFormat lane formats; a directory is recursive
+     * @param list<string>             $dependencyFreshnessPatterns      package-name patterns the dependencyFreshness
+     *                                                                   lane checks; lts/php-qa-ci is always the first
+     * @param list<string>             $composerCooldownInternalVendors  vendors besides the root package's own that
+     *                                                                   the project releases itself; the composerChecks
+     *                                                                   cooldown assertion wants each exempted by a glob
+     * @param ?string                  $composerCooldownOptOutReason     why the project opted out of that assertion;
+     *                                                                   printed on every run; null when it has not
+     * @param bool                     $useFirstPartyConstraintFreshness whether the dependencyFreshness lane also fails a
+     *                                                                   first-party constraint that excludes a newer release
      */
     public function __construct(
         public ProjectPathsDto $paths,
@@ -89,6 +96,10 @@ final readonly class QaConfigDto
         public ReleaseVersionPolicy $releaseVersionPolicy = new ReleaseVersionPolicy(),
         public array $markdownFormatPaths = [],
         public array $dependencyFreshnessPatterns = [DependencyFreshnessPatterns::SELF_PACKAGE],
+        public bool $enforceComposerCooldown = false,
+        public array $composerCooldownInternalVendors = [],
+        public ?string $composerCooldownOptOutReason = null,
+        public bool $useFirstPartyConstraintFreshness = true,
     ) {
     }
 }

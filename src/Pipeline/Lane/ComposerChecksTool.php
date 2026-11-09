@@ -4,17 +4,23 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use Exception;
 use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownPolicyChecker;
+use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownReport;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector;
+use LTS\PHPQA\Pipeline\Lock\ClockInterface;
+use LTS\PHPQA\Pipeline\Lock\SystemClock;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 use Symfony\Component\Process\ExecutableFinder;
 
 /**
- * Composer hygiene, in five steps: `composer diagnose` (informational, never
- * fails), `composer audit` against the lock file (a known advisory fails the
+ * Composer hygiene, in six steps: `composer diagnose` (informational, never
+ * fails), the cooldown policy check (config.policy.cooldown and the installed
+ * Composer; report-only until withComposerCooldownEnforced(true)), `composer audit` against the lock file (a known advisory fails the
  * lane; abandoned packages are reported; off with withComposerAudit(false)),
  * no `suggest` entry may name a package the project already requires, the
  * composer.json must be normalised by the shipped composer-normalize PHAR (a
@@ -33,11 +39,19 @@ final readonly class ComposerChecksTool implements ToolInterface
 
     private const string COMPOSER = 'composer';
 
+    private const string COMPOSER_JSON = '/composer.json';
+
+    private const string UNREADABLE = 'composer.json could not be read: ';
+
+    private const string LIST_ITEM = '  - ';
+
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
     public function __construct(
         private ?string $composerPath = null,
         private RedundantSuggestDetector $redundantSuggests = new RedundantSuggestDetector(),
+        private CooldownPolicyChecker $cooldown = new CooldownPolicyChecker(),
+        private ClockInterface $clock = new SystemClock(),
     ) {
     }
 
@@ -65,6 +79,8 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('composer diagnose reported issues (shown above) — informational only, not failing the pipeline.');
         }
 
+        $pending = $this->cooldownStep($context, $composer);
+
         $context->writeln('');
         $context->writeln('');
         $context->writeln('Auditing Dependencies For Known Advisories');
@@ -74,24 +90,28 @@ final readonly class ComposerChecksTool implements ToolInterface
             $audit = $context->php->withoutXdebug($composer, ['audit', '--locked', '--abandoned=report', '--no-interaction'], $root);
             if (!$audit->succeeded()) {
                 $this->auditFailedGuidance($context);
-                $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::failed(\sprintf('composer audit found advisories or could not run (%s)', $audit->describeExit()));
+                return $this->failed($context, $pending, \sprintf('composer audit found advisories or could not run (%s)', $audit->describeExit()));
             }
         } else {
             $context->writeln('composer audit disabled for this project (withComposerAudit(false) / useComposerAudit=0) — skipping.');
         }
 
-        $redundant = $this->redundantSuggests->check(Helper::getComposerJsonDecoded($root . '/composer.json'));
-        if ([] !== $redundant) {
-            $this->redundantSuggestGuidance($context, ...$redundant);
-            $context->writeIdentifier(self::IDENTIFIER);
+        $manifest = $this->readManifest($root . self::COMPOSER_JSON);
+        if (\is_string($manifest)) {
+            $context->writeln('');
+            $context->writeln('Skipping the redundant-suggest check: ' . self::UNREADABLE . $manifest);
+        } else {
+            $redundant = $this->redundantSuggests->check($manifest);
+            if ([] !== $redundant) {
+                $this->redundantSuggestGuidance($context, ...$redundant);
 
-            return ToolResultDto::failed(\sprintf('%d suggest entry/entries duplicate a required package', \count($redundant)));
+                return $this->failed($context, $pending, \sprintf('%d suggest entry/entries duplicate a required package', \count($redundant)));
+            }
         }
 
         $normalizePhar = $context->config->paths->pharDir . '/' . self::NORMALIZE_PHAR;
-        $composerJson  = $root . '/composer.json';
+        $composerJson  = $root . self::COMPOSER_JSON;
         if ($context->config->readOnly) {
             $context->writeln('');
             $context->writeln('');
@@ -101,9 +121,8 @@ final readonly class ComposerChecksTool implements ToolInterface
             $normalize = $context->php->withoutXdebug($normalizePhar, ['--dry-run', $composerJson], $root);
             if (!$normalize->succeeded()) {
                 ReadOnlyGuidance::wouldModify($context, 'Composer Normalize', 'com');
-                $context->writeIdentifier(self::IDENTIFIER);
 
-                return ToolResultDto::failed('composer.json is not normalised (read-only run)');
+                return $this->failed($context, $pending, 'composer.json is not normalised (read-only run)');
             }
         } else {
             $context->writeln('');
@@ -113,9 +132,7 @@ final readonly class ComposerChecksTool implements ToolInterface
             $context->writeln('');
             $normalize = $context->php->withoutXdebug($normalizePhar, [$composerJson], $root);
             if (!$normalize->succeeded()) {
-                $context->writeIdentifier(self::IDENTIFIER);
-
-                return ToolResultDto::failed(\sprintf('composer-normalize failed (%s)', $normalize->describeExit()));
+                return $this->failed($context, $pending, \sprintf('composer-normalize failed (%s)', $normalize->describeExit()));
             }
         }
 
@@ -127,12 +144,126 @@ final readonly class ComposerChecksTool implements ToolInterface
 
         $dump = $context->php->withoutXdebug($composer, ['dump-autoload'], $root);
         if (!$dump->succeeded()) {
-            $context->writeIdentifier(self::IDENTIFIER);
+            return $this->failed($context, $pending, \sprintf('composer dump-autoload failed (%s)', $dump->describeExit()));
+        }
 
-            return ToolResultDto::failed(\sprintf('composer dump-autoload failed (%s)', $dump->describeExit()));
+        if (null !== $pending) {
+            return $this->failed($context, null, $pending);
         }
 
         return ToolResultDto::passed();
+    }
+
+    /**
+     * A failing step's summary, with a cooldown finding that was held back so
+     * the later steps could still run.
+     */
+    private function failed(ToolContext $context, ?string $pending, string $summary): ToolResultDto
+    {
+        $context->writeIdentifier(self::IDENTIFIER);
+
+        return ToolResultDto::failed(null === $pending ? $summary : $summary . '; ' . $pending);
+    }
+
+    /**
+     * Whether the project gets the protection of Composer's cooldown policy.
+     * Findings are printed; when enforcement is on, the summary that fails the
+     * lane is returned so the later steps still run and report.
+     */
+    private function cooldownStep(ToolContext $context, string $composer): ?string
+    {
+        $context->writeln('');
+        $context->writeln('');
+        $context->writeln('Checking Composer Cooldown Policy');
+        $context->writeln(self::RULE);
+        $context->writeln('');
+
+        $optOut = $context->config->composerCooldownOptOutReason;
+        if (null !== $optOut) {
+            $context->writeln('Composer cooldown check skipped for this project (withoutComposerCooldownCheck): ' . $optOut);
+
+            return null;
+        }
+
+        $root     = $context->config->paths->projectRoot;
+        $manifest = $this->readManifest($root . self::COMPOSER_JSON);
+        if (\is_string($manifest)) {
+            $context->writeln(self::UNREADABLE . $manifest);
+
+            return $this->enforcementOutcome($context, self::UNREADABLE . $manifest);
+        }
+
+        $probe  = $context->php->withoutXdebug($composer, ['--version', '--no-ansi'], $root, streamOutput: false);
+        $report = $this->cooldown->check(
+            $manifest,
+            $probe->succeeded() ? $probe->stdout : null,
+            gmdate('Y-m-d', $this->clock->now()),
+            ...$context->config->composerCooldownInternalVendors,
+        );
+
+        $this->printCooldownReport($context, $report);
+        if (!$report->hasProblems()) {
+            return null;
+        }
+
+        return $this->enforcementOutcome($context, \sprintf('%d Composer cooldown finding(s)', \count($report->problems)));
+    }
+
+    /**
+     * @return ?string $summary when enforcement is on, otherwise null after saying the finding does not fail the lane
+     */
+    private function enforcementOutcome(ToolContext $context, string $summary): ?string
+    {
+        if ($context->config->enforceComposerCooldown) {
+            return $summary;
+        }
+
+        $context->writeln('');
+        $context->writeln('Report-only: these findings do not fail the lane. withComposerCooldownEnforced(true) in');
+        $context->writeln('qaConfig/qa.php (or enforceComposerCooldown=1 for one run) makes them fail it; a project that');
+        $context->writeln("must not be held to the cooldown says why with withoutComposerCooldownCheck('<reason>').");
+
+        return null;
+    }
+
+    /**
+     * @return array<array-key, mixed>|string the decoded manifest, or why it could not be read
+     */
+    private function readManifest(string $path): array|string
+    {
+        if (!is_file($path)) {
+            return 'there is no such file: ' . $path;
+        }
+
+        try {
+            return Helper::getComposerJsonDecoded($path);
+        } catch (Exception $exception) {
+            return $exception->getMessage();
+        }
+    }
+
+    private function printCooldownReport(ToolContext $context, CooldownReport $report): void
+    {
+        if ($report->hasProblems()) {
+            $context->writeln(\sprintf('Composer cooldown policy has %d finding(s):', \count($report->problems)));
+            $context->writeln('');
+            foreach ($report->problems as $problem) {
+                $context->writeln(self::LIST_ITEM . $problem);
+            }
+        }
+
+        if ([] !== $report->overrides) {
+            $context->writeln('');
+            $context->writeln('Security overrides in force (config.policy.cooldown.ignore):');
+            foreach ($report->overrides as $override) {
+                $context->writeln(self::LIST_ITEM . $override);
+            }
+        }
+
+        if (!$report->hasProblems()) {
+            $context->writeln('');
+            $context->writeln('Composer cooldown policy is in place.');
+        }
     }
 
     private function composer(): string
@@ -152,7 +283,7 @@ final readonly class ComposerChecksTool implements ToolInterface
         $context->writeln('ERROR: composer.json suggests a package it already requires:');
         $context->writeln('');
         foreach ($redundant as $entry) {
-            $context->writeln('  - ' . $entry);
+            $context->writeln(self::LIST_ITEM . $entry);
         }
 
         $context->writeln('');

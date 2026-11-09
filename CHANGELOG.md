@@ -25,10 +25,6 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
-### Changed
-
-- **Bundled tool versions updated** by the dependency update: phpstan 2.3.2 → 2.3.4; composer-normalize 2.54.0 → 2.56.0; phpstan/phpstan (in rector.phar) 2.3.2 → 2.3.4; rector/rector 2.8.1 → 2.8.3.
-
 ### Fixed
 
 - `shellCheck` runs on an aarch64 Linux host (issue #388). The committed binary is the
@@ -40,6 +36,146 @@ the release and its tag. The full rules are in
   error. `ShellCheckBinary` gains `ARCHITECTURE_AARCH64`, `architectureFor()` and `pathFor()`, and
   `fetchCommand()` takes an optional architecture; the committed path and its default fetch command
   are unchanged.
+
+## 85.18.0 — 2026-11-09
+
+### Changed
+
+- **Bundled tool versions updated** by the dependency update: infection 0.35.9 → 0.35.10; php-cs-fixer 3.95.28 → 3.95.29.
+- The deployed git pre-commit hook (`.git/hooks/pre-commit`, from
+  `git-hooks/pre-commit-check-vendor-uncommitted`) now checks only first-party vendor packages
+  installed from source; a third-party one never blocks a commit, even when it changes its own
+  files as a Composer plugin writing generated code does. List the vendors you author in
+  `composer.json` under `extra.php-qa-ci.firstPartyVendors` (for example `["acme"]`); without that
+  key the vendor of the project's own `name` is protected, and with no `name` either nothing is
+  checked and the hook prints one `NOTE` line. A malformed value blocks the commit with an `ERROR`
+  line. The hook reads the setting through the new `bin/first-party-vendor-clones`. See
+  [README.md](README.md#the-git-pre-commit-hook).
+
+## 85.17.0 — 2026-11-09
+
+### Changed
+
+- The shipped PHPUnit Rector configuration (`rector-phpunit.php`) now skips
+  `AddDoesNotPerformAssertionToNonAssertingTestRector`. It did not follow `parent::` calls, so a
+  test whose body only delegated to an asserting parent test (typically an override that attaches a
+  `#[DataProvider]`) was given `#[DoesNotPerformAssertions]`, and PHPUnit then reported it risky
+  and failed a run under `failOnRisky`; removing the attribute by hand did not hold, because the
+  next writable run added it back. A writable run no longer adds the attribute. Remove it from any
+  test that asserts, including through its parent, and add it by hand to a test that genuinely
+  asserts nothing. A project `rector-phpunit.php` override should skip the same rule. See
+  [docs/tools/rector.md](docs/tools/rector.md#rector-never-marks-an-asserting-test-as-not-asserting).
+
+## 85.16.0 — 2026-11-09
+
+### Changed
+
+- The shipped PHPUnit Rector configuration (`rector-phpunit.php`) now skips
+  `AllowMockObjectsWhereParentClassRector` and `AllowMockObjectsForDataProviderRector`. With
+  PHPUnit 12.5.2 or newer locked, they added `#[AllowMockObjectsWithoutExpectations]` to a subclass
+  of Symfony's `TypeTestCase` and to a data-provider test whose mock has no `expects()`, and the
+  `phpqaci.forbiddenAttribute` PHPStan rule then failed on it; removing it by hand did not hold,
+  because the next writable run added it back. A writable run no longer adds the attribute. Remove
+  any the earlier runs added, and use `createStub()` for a dependency without expectations. A
+  project `rector-phpunit.php` override should skip the same two rules. See
+  [docs/tools/rector.md](docs/tools/rector.md#rector-never-writes-code-phpstan-rejects).
+
+## 85.15.0 — 2026-11-06
+
+### Changed — breaking
+
+- php-qa-ci now requires `composer/semver` (`^3.4`), which the first-party constraint check reads
+  version constraints with. Composer installs it with php-qa-ci; a project that pins a conflicting
+  `composer/semver` must widen that pin.
+
+### Added
+
+- The `dependencyFreshness` lane now also fails a first-party dependency whose constraint excludes a
+  newer release. With `"acme/widgets": "^0.2"` and a stable 0.3.0 out, `composer update` can never
+  reach 0.3.0, which the lock check cannot see because it judges the lock only within your
+  constraints. First-party vendors are those listed in `extra.php-qa-ci.firstPartyVendors` in
+  `composer.json`, else the vendor of the project's own `name`; a project with neither has none and
+  the lane says so. Every direct `require` and `require-dev` entry of such a vendor is compared
+  with the newest stable release `composer outdated --locked --direct` reports, a new 0.x minor and
+  a new major included. The failure names each package, its constraint and the newest release, and
+  says to widen the constraint (`^0.3`, or `^0.2 || ^0.3`) or to pin exactly. An exact pin
+  (`0.2.3`, `=0.2.3`) is reported and does not fail, and a branch constraint is left to the lock
+  check. When Composer cannot answer, the check is skipped with a named `SKIPPED dependencyFreshness`
+  line saying the constraints were not verified. It is on by default and asks Composer nothing
+  unless a first-party package is required directly. Narrow it by naming the vendors; turn it off
+  with `withFirstPartyConstraintFreshness(false)` in `qaConfig/qa.php` or
+  `useFirstPartyConstraintFreshness=0` for one run. See
+  [docs/tools/dependencyFreshness.md](docs/tools/dependencyFreshness.md#first-party-constraints).
+
+## 85.14.0 — 2026-11-06
+
+### Changed
+
+- The `shellCheck` lane no longer checks files the Claude Code hooks daemon owns: scripts it
+  generates (every one carries a `# DAEMON-OWNED FILE` header line, and they are rewritten on each
+  daemon upgrade, so a finding such as SC2034 in one cannot be fixed by the project) and anything
+  tracked under `.claude/hooks-daemon/`. Hand-written scripts, including those in `.claude/hooks/`,
+  are still checked. The lane prints how many files it skipped and why.
+
+## 85.13.0 — 2026-11-05
+
+### Changed
+
+- The QA run lock is now one per repository, shared by every git worktree of it: it lives in the
+  repository's common git directory (`<git-common-dir>/php-qa-ci-lock/`), so it is never tracked.
+  A project that is not the root of a git work tree keeps `qaConfig/.qa-lock/`. A run that finds
+  the lock held now waits for it, printing that it is waiting and who holds it, instead of exiting
+  75 at once; it gives up with exit 75 after `QA_LOCK_WAIT_SECONDS` (default 900, 60 in agent
+  mode, where one waiting line reaches stdout; `0` restores the immediate refusal; a value that is
+  not a whole number prints a warning on stderr and the default applies). The repository
+  is decided from the project root, whatever `GIT_DIR` or `GIT_WORK_TREE` the caller exports. Release on exit or crash is still the kernel's `flock`.
+- **Bundled tool versions updated** by the dependency update: infection 0.35.8 → 0.35.9; phpstan 2.3.4 → 2.3.5; php-cs-fixer 3.95.27 → 3.95.28; phpstan/phpstan (in rector.phar) 2.3.4 → 2.3.5; rector/rector 2.8.3 → 2.8.4.
+
+### Added
+
+- A `pull_request` run stops at once when the pull request head is behind its base branch, instead
+  of running the pipeline on a tree that will never be merged. The shipped `php-qa-ci.yml`
+  template gets an early step that fails with an "update the branch" message, and `qa-autofix.yml`
+  gets a `base-gate` job that `autofix` and `gate` wait for. The `versionPins` lane now fails a
+  workflow in `.github/workflows/` or `templates/github-actions/` that runs on `pull_request`
+  without that gate, with the gate after PHP setup or `composer install`, or with an installing job
+  that does not depend on it. Consumers copy the updated templates to receive the gate.
+
+## 85.12.0 — 2026-11-02
+
+### Added
+
+- The `composerChecks` lane checks that a project gets the protection of Composer's
+  `config.policy.cooldown`: Composer 2.11 or newer, a non-zero `period`, the cooldown not switched
+  off, and each internal vendor (the root package's own, plus `withComposerCooldownInternalVendors()`)
+  exempted by a `<vendor>/*` entry with a reason. Every other `ignore` entry is a security override
+  that must be one exact package with a reason in the one documented `SECURITY ...` form, and every
+  recognised entry is listed on every run; one that is malformed, a glob, narrowed by a `constraint`
+  or `on-block: false`, or past its date (judged against today's UTC date) is a finding, and so is a
+  `composer.json` that cannot be read. The findings are report-only, so a green build stays green
+  (an unreadable `composer.json` included): `withComposerCooldownEnforced(true)` (or
+  `enforceComposerCooldown=1`) makes them fail the lane after the audit and the later steps have
+  run and reported, and `withoutComposerCooldownCheck('<reason>')` opts out, printing the reason on every
+  run. See [docs/tools/composerChecks.md](docs/tools/composerChecks.md).
+
+## 85.11.0 — 2026-11-02
+
+### Changed
+
+- **Bundled tool versions updated** by the dependency update: phpstan 2.3.2 → 2.3.4; composer-normalize 2.54.0 → 2.56.0; phpstan/phpstan (in rector.phar) 2.3.2 → 2.3.4; rector/rector 2.8.1 → 2.8.3.
+
+### Fixed
+
+- `dependencyFreshness` follows Composer 2.11's `config.policy.cooldown` (issue #382). When the
+  cooldown makes Composer refuse the resolution because it withholds every version of a checked
+  package, the locked one included, the lane reports a `NOTE` that the package is held back
+  instead of a skip, and a package that is behind is still reported beside it. The lane never
+  passes `--no-cooldown`. A project with no policy is unchanged.
+- The shipped composer-normalize PHAR accepts a lock file written by Composer 2.11 when the
+  project's `composer.json` sets `config.policy` (issue #383). Before, the `composerChecks` lane
+  reported such a lock as not up to date although `composer update` had just written it. A test
+  now writes a lock with the installed Composer and runs the shipped PHAR over it, so a PHAR that
+  bundles an older Composer than the one in use fails the build.
 
 ## 85.10.3 — 2026-10-30
 

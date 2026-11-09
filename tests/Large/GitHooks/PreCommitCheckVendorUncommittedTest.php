@@ -13,9 +13,19 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
 /**
+ * The deployed pre-commit hook, run as git runs it in a project whose vendor/
+ * holds packages installed from source, with php-qa-ci where Composer puts it
+ * (vendor/lts/php-qa-ci, here a link to this checkout).
+ *
+ * Only first-party vendor clones are checked: the vendors named in
+ * `extra.php-qa-ci.firstPartyVendors`, or, when that key is absent, the vendor
+ * of the project's own name. A third-party package installed from source may
+ * change its own files (a Composer plugin writes generated code into its own
+ * tree) and is never the project's to commit, so it never blocks.
+ *
  * With OPcache JIT on, a PHP that loads Xdebug prints "JIT is incompatible with
  * third party extensions" on STDOUT at every start unless XDEBUG_MODE=off. The
- * hook reads a `php -r` map from stdout, so the warning must never reach it and
+ * hook reads answers from `php` stdout, so the warning must never reach it and
  * any other stray line must be ignored. A PATH shim stands in for that PHP.
  *
  * @internal
@@ -26,19 +36,36 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
 {
     private const string HOOK = __DIR__ . '/../../../git-hooks/pre-commit-check-vendor-uncommitted';
 
-    private const string PACKAGE = 'acme/widget';
+    private const string FIRST_PARTY = 'acme/widget';
 
-    private const string CLONE_DIR = 'vendor/acme/widget';
+    private const string FIRST_PARTY_DIR = 'vendor/acme/widget';
+
+    private const string THIRD_PARTY = 'thirdparty/installer';
+
+    private const string THIRD_PARTY_DIR = 'vendor/thirdparty/installer';
+
+    private const string OWN_NAME = 'acme/app';
 
     private const string INIT = 'init';
 
     private const string SEEN_LOG = 'php-seen.log';
+
+    private const string BLOCKED = 'COMMIT BLOCKED';
+
+    private const string UNCOMMITTED = 'Uncommitted changes in vendor libraries';
+
+    private const string OUT_OF_SYNC = 'composer.lock not tracking current vendor commits';
+
+    private const string CHANGED_FILE = '/a.txt';
 
     private TempDir $project;
 
     protected function setUp(): void
     {
         $this->project = TempDir::create('phpqa-hook');
+        $this->git($this->project->path, self::INIT, '-q');
+        $this->project->mkdir('vendor/lts');
+        \Safe\symlink(\dirname(__DIR__, 3), $this->project->path . '/vendor/lts/php-qa-ci');
     }
 
     protected function tearDown(): void
@@ -49,8 +76,9 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
     #[Test]
     public function everyPhpTheHookStartsRunsWithXdebugOff(): void
     {
-        $head = $this->installVendorClone();
-        $this->writeLock($head);
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $head = $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => $head]);
         $this->installPhpShim(warnUnlessXdebugOff: true);
 
         $result = $this->runHook();
@@ -68,8 +96,9 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
     #[Test]
     public function aStrayLineOnPhpStdoutIsNotTakenForAPackage(): void
     {
-        $head = $this->installVendorClone();
-        $this->writeLock($head);
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $head = $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => $head]);
         $this->installPhpShim(warnUnlessXdebugOff: false);
 
         $result = $this->runHook();
@@ -81,36 +110,164 @@ final class PreCommitCheckVendorUncommittedTest extends TestCase
     #[Test]
     public function aLockBehindTheCloneIsStillReportedThroughAStrayLine(): void
     {
-        $this->installVendorClone();
-        $this->writeLock(str_repeat('a', 40));
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => str_repeat('a', 40)]);
         $this->installPhpShim(warnUnlessXdebugOff: false);
 
         $result = $this->runHook();
 
-        self::assertSame(1, $result->getExitCode());
-        self::assertStringContainsString('composer.lock not tracking current vendor commits', $result->getOutput());
-        self::assertStringContainsString(self::CLONE_DIR, $result->getOutput());
+        self::assertSame(1, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringContainsString(self::OUT_OF_SYNC, $result->getOutput());
+        self::assertStringContainsString(self::FIRST_PARTY_DIR, $result->getOutput());
     }
 
-    private function installVendorClone(): string
+    /** A plugin writing generated code into its own source install is not the project's change. */
+    #[Test]
+    public function aDirtyThirdPartyCloneDoesNotBlock(): void
     {
-        $this->git($this->project->path, self::INIT, '-q');
-        $clone = $this->project->mkdir(self::CLONE_DIR);
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $head = $this->installVendorClone(self::THIRD_PARTY_DIR);
+        $this->writeLock([self::THIRD_PARTY => $head]);
+        $this->project->write(self::THIRD_PARTY_DIR . self::CHANGED_FILE, "generated\n");
+
+        $result = $this->runHook();
+
+        self::assertSame(0, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringNotContainsString(self::BLOCKED, $result->getOutput());
+    }
+
+    #[Test]
+    public function aDirtyCloneOfAListedFirstPartyVendorBlocks(): void
+    {
+        $this->writeManifest(['name' => 'example/site', 'extra' => ['php-qa-ci' => ['firstPartyVendors' => ['acme']]]]);
+        $firstParty = $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $thirdParty = $this->installVendorClone(self::THIRD_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => $firstParty, self::THIRD_PARTY => $thirdParty]);
+        $this->changeFirstPartyClone();
+        $this->project->write(self::THIRD_PARTY_DIR . self::CHANGED_FILE, "generated\n");
+
+        $result = $this->runHook();
+
+        self::assertSame(1, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringContainsString(self::UNCOMMITTED, $result->getOutput());
+        self::assertStringContainsString(self::FIRST_PARTY_DIR, $result->getOutput());
+        self::assertStringNotContainsString(self::THIRD_PARTY_DIR, $result->getOutput());
+    }
+
+    /** With no firstPartyVendors key, the vendor of the project's own name is first party. */
+    #[Test]
+    public function theProjectsOwnVendorIsProtectedByDefault(): void
+    {
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $head = $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => $head]);
+        $this->changeFirstPartyClone();
+
+        $result = $this->runHook();
+
+        self::assertSame(1, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringContainsString(self::UNCOMMITTED, $result->getOutput());
+        self::assertStringContainsString(self::FIRST_PARTY_DIR, $result->getOutput());
+    }
+
+    #[Test]
+    public function aLockOutOfSyncWithAThirdPartyCloneDoesNotBlockWhileAFirstPartyOneStillDoes(): void
+    {
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->installVendorClone(self::THIRD_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => str_repeat('a', 40), self::THIRD_PARTY => str_repeat('b', 40)]);
+
+        $result = $this->runHook();
+
+        self::assertSame(1, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringContainsString(self::OUT_OF_SYNC, $result->getOutput());
+        self::assertStringContainsString(self::FIRST_PARTY_DIR, $result->getOutput());
+        self::assertStringNotContainsString(self::THIRD_PARTY_DIR, $result->getOutput());
+    }
+
+    #[Test]
+    public function aLockOutOfSyncWithOnlyAThirdPartyCloneDoesNotBlock(): void
+    {
+        $this->writeManifest(['name' => self::OWN_NAME]);
+        $this->installVendorClone(self::THIRD_PARTY_DIR);
+        $this->writeLock([self::THIRD_PARTY => str_repeat('b', 40)]);
+
+        $result = $this->runHook();
+
+        self::assertSame(0, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringNotContainsString(self::BLOCKED, $result->getOutput());
+    }
+
+    /** A setting that cannot be read is an error, never a silent "nothing is first party". */
+    #[Test]
+    public function aMalformedSettingBlocksWithTheSettingsOwnMessage(): void
+    {
+        $this->writeManifest(['name' => self::OWN_NAME, 'extra' => ['php-qa-ci' => ['firstPartyVendors' => 'acme']]]);
+        $head = $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => $head]);
+
+        $result = $this->runHook();
+
+        self::assertSame(1, $result->getExitCode(), $result->getOutput() . $result->getErrorOutput());
+        self::assertStringContainsString(
+            'extra.php-qa-ci.firstPartyVendors must be a list of vendor names (the part of a package name before the slash), for example ["acme"]',
+            $result->getOutput() . $result->getErrorOutput(),
+        );
+    }
+
+    /** No name and no setting: nothing is first party, nothing blocks, and the hook says so once. */
+    #[Test]
+    public function aProjectWithNoNameAndNoSettingProtectsNothingAndSaysSo(): void
+    {
+        $this->writeManifest(['type' => 'project']);
+        $head = $this->installVendorClone(self::FIRST_PARTY_DIR);
+        $this->writeLock([self::FIRST_PARTY => $head]);
+        $this->changeFirstPartyClone();
+
+        $result = $this->runHook();
+        $output = $result->getOutput() . $result->getErrorOutput();
+
+        self::assertSame(0, $result->getExitCode(), $output);
+        self::assertStringNotContainsString(self::BLOCKED, $output);
+        self::assertSame(1, substr_count($output, 'NOTE:'), $output);
+        self::assertStringContainsString('extra.php-qa-ci.firstPartyVendors', $output);
+    }
+
+    /** @param array<string, mixed> $manifest */
+    private function writeManifest(array $manifest): void
+    {
+        $this->project->write('composer.json', \Safe\json_encode($manifest, \JSON_THROW_ON_ERROR));
+    }
+
+    /** @return string the clone's HEAD commit */
+    private function installVendorClone(string $directory): string
+    {
+        $clone = $this->project->mkdir($directory);
         $this->git($clone, self::INIT, '-q');
-        $this->project->write(self::CLONE_DIR . '/a.txt', "a\n");
+        $this->project->write($directory . self::CHANGED_FILE, "a\n");
         $this->git($clone, 'add', '.');
         $this->git($clone, 'commit', '-q', '-m', self::INIT);
 
         return trim($this->git($clone, 'rev-parse', 'HEAD'));
     }
 
-    private function writeLock(string $reference): void
+    private function changeFirstPartyClone(): void
     {
+        $this->project->write(self::FIRST_PARTY_DIR . self::CHANGED_FILE, "changed\n");
+    }
+
+    /** @param array<string, string> $references package name => locked source reference */
+    private function writeLock(array $references): void
+    {
+        $packages = [];
+        foreach ($references as $name => $reference) {
+            $packages[] = ['name' => $name, 'source' => ['type' => 'git', 'reference' => $reference]];
+        }
+
         $this->project->write('composer.lock', \Safe\json_encode([
-            'packages'     => [[
-                'name'   => self::PACKAGE,
-                'source' => ['type' => 'git', 'reference' => $reference],
-            ]],
+            'packages'     => $packages,
             'packages-dev' => [],
         ], \JSON_THROW_ON_ERROR));
     }

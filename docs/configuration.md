@@ -69,6 +69,16 @@ being applied, and the run defaults to [aggregate mode](pipeline.md#fail-fast-ag
 (`QA_FAIL_FAST=1` turns that off). `CI=true` alone does not make a run read-only: to reproduce
 a CI failure locally, run `QA_READONLY=1 vendor/bin/qa`.
 
+##### Run lock wait:
+
+`QA_LOCK_WAIT_SECONDS`
+
+How long a run waits for another run's [lock](pipeline.md) before giving up with
+exit 75. Default: `900`, or `60` in `--agent-mode` (whose caller is an edit hook with a timeout).
+`0` gives up at once. A value that is not a whole number (text, or negative) prints a warning on
+stderr and the default applies. A waiting run prints one line saying so and naming the holder, in agent mode
+on stdout too.
+
 ##### Memory limit:
 
 `phpqaMemoryLimit`
@@ -184,14 +194,16 @@ checks, the Twig and YAML lanes, the Markdown lanes, PHPUnit) do not read the se
 
 The settings most projects change:
 
-| To                                     | Call                                                                                                                                                                            |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Skip mutation testing                  | `withInfection(false)`                                                                                                                                                          |
-| Check another directory as well        | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the whole set for one run, so nothing added here is checked beside the named path) |
-| Exclude paths from every scanning lane | `withIgnoredPaths('tests/assets')`                                                                                                                                              |
-| Raise the memory limit                 | `withMemoryLimit('8G')`                                                                                                                                                         |
-| Turn off PHPArkitect                   | `withArkitect(false)`                                                                                                                                                           |
-| Keep your own packages current         | `withDependencyFreshnessPatterns('acme/*')` (adds to `lts/php-qa-ci`; see [dependencyFreshness.md](tools/dependencyFreshness.md))                                               |
+| To                                        | Call                                                                                                                                                                                                                                                    |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Skip mutation testing                     | `withInfection(false)`                                                                                                                                                                                                                                  |
+| Check another directory as well           | `withCheckedPaths('lib')` (appends to `src/` and `tests/`; `-p` on the command line replaces the whole set for one run, so nothing added here is checked beside the named path)                                                                         |
+| Exclude paths from every scanning lane    | `withIgnoredPaths('tests/assets')`                                                                                                                                                                                                                      |
+| Raise the memory limit                    | `withMemoryLimit('8G')`                                                                                                                                                                                                                                 |
+| Turn off PHPArkitect                      | `withArkitect(false)`                                                                                                                                                                                                                                   |
+| Keep your own packages current            | `withDependencyFreshnessPatterns('acme/*')` (adds to `lts/php-qa-ci`; see [dependencyFreshness.md](tools/dependencyFreshness.md))                                                                                                                       |
+| Turn off the first-party constraint check | `withFirstPartyConstraintFreshness(false)` (`useFirstPartyConstraintFreshness=0` for one run; to narrow it name the vendors in `extra.php-qa-ci.firstPartyVendors`; see [dependencyFreshness.md](tools/dependencyFreshness.md#first-party-constraints)) |
+| Hold dependencies to Composer's cooldown  | `withComposerCooldownEnforced(true)` (the findings are report-only until then; see [composerChecks.md](tools/composerChecks.md#the-cooldown-policy))                                                                                                    |
 
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at

@@ -49,11 +49,12 @@ final readonly class QaConfigBuilder
      * @param list<string>             $twigDirectories
      * @param list<string>             $yamlDirectories
      * @param list<string>             $shellCheckGlobs
-     * @param list<string>|null        $deadCodeEntryPoints         null until a project has listed them or opted out
+     * @param list<string>|null        $deadCodeEntryPoints             null until a project has listed them or opted out
      * @param list<string>             $changelogWatchedPaths
-     * @param array<array-key, string> $unanalysedPaths             project-relative path => reason; an int for a path in digits
+     * @param array<array-key, string> $unanalysedPaths                 project-relative path => reason; an int for a path in digits
      * @param list<string>             $markdownFormatPaths
      * @param list<string>             $dependencyFreshnessPatterns
+     * @param list<string>             $composerCooldownInternalVendors
      */
     public function __construct(
         private ProjectPathsDto $paths,
@@ -99,6 +100,10 @@ final readonly class QaConfigBuilder
         private array $unanalysedPaths = [],
         private array $markdownFormatPaths = self::DEFAULT_MARKDOWN_FORMAT_PATHS,
         private array $dependencyFreshnessPatterns = [DependencyFreshnessPatterns::SELF_PACKAGE],
+        private bool $enforceComposerCooldown = false,
+        private array $composerCooldownInternalVendors = [],
+        private ?string $composerCooldownOptOutReason = null,
+        private bool $useFirstPartyConstraintFreshness = true,
     ) {
     }
 
@@ -174,6 +179,8 @@ final readonly class QaConfigBuilder
             useChangelogCheck: $env->bool('useChangelogCheck', false),
             changelogWatchedPaths: [],
             releaseVersionPolicy: ReleaseVersionPolicy::semanticVersioning(),
+            enforceComposerCooldown: $env->bool('enforceComposerCooldown', false),
+            useFirstPartyConstraintFreshness: $env->bool('useFirstPartyConstraintFreshness', true),
         );
     }
 
@@ -254,6 +261,16 @@ final readonly class QaConfigBuilder
     public function withComposerAudit(bool $enabled): self
     {
         return $this->with(useComposerAudit: $enabled);
+    }
+
+    /**
+     * Whether the dependencyFreshness lane also fails a first-party
+     * dependency whose constraint excludes a newer release. On by default;
+     * `useFirstPartyConstraintFreshness=0` turns it off for one run.
+     */
+    public function withFirstPartyConstraintFreshness(bool $enabled): self
+    {
+        return $this->with(useFirstPartyConstraintFreshness: $enabled);
     }
 
     /**
@@ -417,6 +434,48 @@ final readonly class QaConfigBuilder
     }
 
     /**
+     * Whether the composerChecks cooldown findings (Composer older than 2.11,
+     * no `config.policy.cooldown.period`, the cooldown switched off, an
+     * internal vendor not exempted, a malformed or expired security override)
+     * fail the lane. Off by default: they are printed and the exit status is
+     * unchanged. `enforceComposerCooldown=1` does the same for one run.
+     */
+    public function withComposerCooldownEnforced(bool $enforced): self
+    {
+        return $this->with(enforceComposerCooldown: $enforced);
+    }
+
+    /**
+     * Vendors besides the root package's own whose packages the project
+     * releases itself: each must be exempted from the cooldown by a
+     * `<vendor>/*` entry in `config.policy.cooldown.ignore`, with a reason.
+     */
+    public function withComposerCooldownInternalVendors(string ...$vendors): self
+    {
+        foreach ($vendors as $vendor) {
+            if (1 !== \Safe\preg_match('/^[a-z0-9](?:[_.-]?[a-z0-9]+)*$/', $vendor)) {
+                throw new LogicException(\sprintf("withComposerCooldownInternalVendors('%s'): a vendor is the part of a package name before the slash, lower case (acme, acme-tools): no slash, no glob.", $vendor));
+            }
+        }
+
+        return $this->with(composerCooldownInternalVendors: [...$this->composerCooldownInternalVendors, ...array_values($vendors)]);
+    }
+
+    /**
+     * Opt out of the composerChecks cooldown assertion for this project. The
+     * reason is required and printed on every run, so the owner sees the
+     * decision stay in force.
+     */
+    public function withoutComposerCooldownCheck(string $reason): self
+    {
+        if ('' === trim($reason)) {
+            throw new LogicException('withoutComposerCooldownCheck() needs a non-empty reason: it is printed on every run, and is the only record of why this project is not held to the Composer cooldown.');
+        }
+
+        return $this->with(composerCooldownOptOutReason: trim($reason));
+    }
+
+    /**
      * How bin/changelog-release numbers releases, and so which tags the
      * changelog lane counts as releases. Semantic versioning unless set;
      * ReleaseVersionPolicy::lockedMajor() and lockedMajorFromPhpRequirement()
@@ -494,6 +553,10 @@ final readonly class QaConfigBuilder
             releaseVersionPolicy: $this->releaseVersionPolicy,
             markdownFormatPaths: $this->markdownFormatPaths,
             dependencyFreshnessPatterns: $this->dependencyFreshnessPatterns,
+            enforceComposerCooldown: $this->enforceComposerCooldown,
+            composerCooldownInternalVendors: $this->composerCooldownInternalVendors,
+            composerCooldownOptOutReason: $this->composerCooldownOptOutReason,
+            useFirstPartyConstraintFreshness: $this->useFirstPartyConstraintFreshness,
         );
     }
 
@@ -539,6 +602,7 @@ final readonly class QaConfigBuilder
      * @param array<array-key, string>|null $unanalysedPaths
      * @param list<string>|null             $markdownFormatPaths
      * @param list<string>|null             $dependencyFreshnessPatterns
+     * @param list<string>|null             $composerCooldownInternalVendors
      */
     private function with(
         ?array $pathsToCheck = null,
@@ -569,6 +633,10 @@ final readonly class QaConfigBuilder
         ?ReleaseVersionPolicy $releaseVersionPolicy = null,
         ?array $markdownFormatPaths = null,
         ?array $dependencyFreshnessPatterns = null,
+        ?bool $enforceComposerCooldown = null,
+        ?array $composerCooldownInternalVendors = null,
+        ?string $composerCooldownOptOutReason = null,
+        ?bool $useFirstPartyConstraintFreshness = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -598,23 +666,27 @@ final readonly class QaConfigBuilder
             infectionDiffMode: $infectionDiffMode                   ?? $this->infectionDiffMode,
             // A new mode brings its own base: null for Auto and Full, the ref for Ref.
             infectionDiffBase: $infectionDiffMode instanceof InfectionDiffModeEnum ? $infectionDiffBase : $this->infectionDiffBase,
-            infectionDiffCoveredMsi: $infectionDiffCoveredMsi         ?? $this->infectionDiffCoveredMsi,
-            useComposerAudit: $useComposerAudit                       ?? $this->useComposerAudit,
-            typeCoverage: $typeCoverage                               ?? $this->typeCoverage,
-            useArkitect: $useArkitect                                 ?? $this->useArkitect,
-            arkitectExcludePaths: $arkitectExcludePaths               ?? $this->arkitectExcludePaths,
-            useSensitiveParameterCheck: $useSensitiveParameterCheck   ?? $this->useSensitiveParameterCheck,
-            twigDirectories: $twigDirectories                         ?? $this->twigDirectories,
-            yamlDirectories: $yamlDirectories                         ?? $this->yamlDirectories,
-            shellCheckGlobs: $shellCheckGlobs                         ?? $this->shellCheckGlobs,
-            useDeadCode: $useDeadCode                                 ?? $this->useDeadCode,
-            deadCodeEntryPoints: $deadCodeEntryPoints                 ?? $this->deadCodeEntryPoints,
-            useChangelogCheck: $useChangelogCheck                     ?? $this->useChangelogCheck,
-            changelogWatchedPaths: $changelogWatchedPaths             ?? $this->changelogWatchedPaths,
-            releaseVersionPolicy: $releaseVersionPolicy               ?? $this->releaseVersionPolicy,
-            unanalysedPaths: $unanalysedPaths                         ?? $this->unanalysedPaths,
-            markdownFormatPaths: $markdownFormatPaths                 ?? $this->markdownFormatPaths,
-            dependencyFreshnessPatterns: $dependencyFreshnessPatterns ?? $this->dependencyFreshnessPatterns,
+            infectionDiffCoveredMsi: $infectionDiffCoveredMsi                   ?? $this->infectionDiffCoveredMsi,
+            useComposerAudit: $useComposerAudit                                 ?? $this->useComposerAudit,
+            typeCoverage: $typeCoverage                                         ?? $this->typeCoverage,
+            useArkitect: $useArkitect                                           ?? $this->useArkitect,
+            arkitectExcludePaths: $arkitectExcludePaths                         ?? $this->arkitectExcludePaths,
+            useSensitiveParameterCheck: $useSensitiveParameterCheck             ?? $this->useSensitiveParameterCheck,
+            twigDirectories: $twigDirectories                                   ?? $this->twigDirectories,
+            yamlDirectories: $yamlDirectories                                   ?? $this->yamlDirectories,
+            shellCheckGlobs: $shellCheckGlobs                                   ?? $this->shellCheckGlobs,
+            useDeadCode: $useDeadCode                                           ?? $this->useDeadCode,
+            deadCodeEntryPoints: $deadCodeEntryPoints                           ?? $this->deadCodeEntryPoints,
+            useChangelogCheck: $useChangelogCheck                               ?? $this->useChangelogCheck,
+            changelogWatchedPaths: $changelogWatchedPaths                       ?? $this->changelogWatchedPaths,
+            releaseVersionPolicy: $releaseVersionPolicy                         ?? $this->releaseVersionPolicy,
+            unanalysedPaths: $unanalysedPaths                                   ?? $this->unanalysedPaths,
+            markdownFormatPaths: $markdownFormatPaths                           ?? $this->markdownFormatPaths,
+            dependencyFreshnessPatterns: $dependencyFreshnessPatterns           ?? $this->dependencyFreshnessPatterns,
+            enforceComposerCooldown: $enforceComposerCooldown                   ?? $this->enforceComposerCooldown,
+            composerCooldownInternalVendors: $composerCooldownInternalVendors   ?? $this->composerCooldownInternalVendors,
+            composerCooldownOptOutReason: $composerCooldownOptOutReason         ?? $this->composerCooldownOptOutReason,
+            useFirstPartyConstraintFreshness: $useFirstPartyConstraintFreshness ?? $this->useFirstPartyConstraintFreshness,
         );
     }
 }

@@ -71,6 +71,26 @@ return static function (RectorConfig $rectorConfig): void {
     // normalisation for assertSame() is lost with it. A silently inverted assertion is the worse of
     // the two, since it fails on correct code and can pass on wrong code.
     $rectorConfig->skip([Rector\PHPUnit\CodeQuality\Rector\MethodCall\FlipAssertRector::class]);
+    // AllowMockObjectsWhereParentClassRector (any subclass of Symfony's TypeTestCase) and
+    // AllowMockObjectsForDataProviderRector (a #[DataProvider] test with a mock whose ->method() has no
+    // expects()) both add #[AllowMockObjectsWithoutExpectations], once the locked PHPUnit is 12.5.2 or
+    // newer. php-qa-ci's own PHPStan rule phpqaci.forbiddenAttribute bans that attribute: createStub()
+    // is the construction for a dependency without expectations. Rector re-adds the attribute on every
+    // writable run, so fixing one tool breaks the other, and for a TypeTestCase subclass nothing in the
+    // test satisfies both. PHPStan wins; both rules go.
+    $rectorConfig->skip([
+        Rector\PHPUnit\PHPUnit120\Rector\Class_\AllowMockObjectsWhereParentClassRector::class,
+        Rector\PHPUnit\PHPUnit120\Rector\Class_\AllowMockObjectsForDataProviderRector::class,
+    ]);
+    // AddDoesNotPerformAssertionToNonAssertingTestRector follows $this->m() and self::m() into the
+    // method called, but not parent::m(). A test that overrides an asserting parent test to attach a
+    // #[DataProvider], and whose body is only parent::<the same method>(), is given
+    // #[DoesNotPerformAssertions] although the parent asserts. PHPUnit then reports it risky ("This test
+    // is not expected to perform assertions but performed N assertions"), which fails a run under
+    // failOnRisky, and Rector re-adds the attribute on every writable run. Rector offers no narrower
+    // option, so the whole rule goes: a test that genuinely asserts nothing now carries the attribute by
+    // hand. A parent-aware replacement would be a separate change.
+    $rectorConfig->skip([Rector\PHPUnit\PHPUnit60\Rector\ClassMethod\AddDoesNotPerformAssertionToNonAssertingTestRector::class]);
     $rectorConfig->rules([
         Rector\PHPUnit\CodeQuality\Rector\Class_\PreferPHPUnitSelfCallRector::class,
         Rector\PHPUnit\CodeQuality\Rector\Class_\YieldDataProviderRector::class,

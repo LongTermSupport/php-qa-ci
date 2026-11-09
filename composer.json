@@ -14,6 +14,7 @@
     "ext-tokenizer": "*",
     "ext-xml": "*",
     "composer-plugin-api": "^2.0",
+    "composer/semver": "^3.4",
     "nette/neon": "^3.4.8",
     "nikic/php-parser": "^5.8",
     "phpstan/extension-installer": "^1.4.3",
@@ -34,7 +35,7 @@
     "symfony/yaml": "^8.1"
   },
   "replace": {
-    "phpstan/phpstan": "2.3.4"
+    "phpstan/phpstan": "2.3.5"
   },
   "suggest": {
     "larastan/larastan": "Laravel specific checks (PHPStan wrapper)",
@@ -124,6 +125,7 @@
     "bin/composer-require-checker",
     "bin/config-template-ignorelist-check",
     "bin/describe-exit",
+    "bin/first-party-vendor-clones",
     "bin/hooks-daemon-full-qa-blocker",
     "bin/hooks-daemon-required-handlers",
     "bin/infection",

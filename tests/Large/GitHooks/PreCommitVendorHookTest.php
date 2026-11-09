@@ -14,8 +14,9 @@ use RuntimeException;
 use Symfony\Component\Process\Process;
 
 /**
- * The deployed pre-commit hook in a project whose vendor/ holds a package
- * installed from source, run as git runs it. The hook reads composer.lock
+ * The deployed pre-commit hook in a project whose vendor/ holds a first-party
+ * package installed from source, run as git runs it, with php-qa-ci where
+ * Composer puts it (vendor/lts/php-qa-ci, here a link to this checkout). The hook reads composer.lock
  * through `php`, so anything that `php` prints besides its answer reaches the
  * hook too: the OPcache JIT's warning when Xdebug is loaded is printed on
  * stdout at the start of every process (#100).
@@ -81,6 +82,10 @@ final class PreCommitVendorHookTest extends TestCase
         $this->project = $project;
 
         $this->git($project->path, 'init');
+        // The hook checks first-party clones only: acme/lib is the project's own vendor.
+        $project->write('composer.json', \Safe\json_encode(['name' => 'acme/app']));
+        $project->mkdir('vendor/lts');
+        \Safe\symlink(\dirname(__DIR__, 3), $project->path . '/vendor/lts/php-qa-ci');
         $project->write(self::PACKAGE . '/src/Lib.php', "<?php\n");
         $package = $project->path . '/' . self::PACKAGE;
         $this->git($package, 'init');

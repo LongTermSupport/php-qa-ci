@@ -9,6 +9,7 @@
 !/bin/changelog-release
 !/bin/composer-require-checker
 !/bin/describe-exit
+!/bin/first-party-vendor-clones
 !/bin/hooks-daemon-full-qa-blocker
 !/bin/hooks-daemon-required-handlers
 !/bin/infection

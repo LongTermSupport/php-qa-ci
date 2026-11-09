@@ -15,6 +15,7 @@ use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Safe\Exceptions\FilesystemException;
 use Symfony\Component\Console\Output\BufferedOutput;
 
 /**
@@ -40,6 +41,10 @@ final class RunLockTest extends TestCase
     private const string TOOL_STAN = 'stan';
 
     private const string LOCK_FILE = 'qaConfig/.qa-lock/qa-running.lock';
+
+    private const string LOCK_DIR = '/qaConfig/.qa-lock';
+
+    private const string GITIGNORE_FILE = 'qaConfig/.qa-lock/.gitignore';
 
     private TempDir $project;
 
@@ -70,7 +75,7 @@ final class RunLockTest extends TestCase
         self::assertSame('phpstan', $info->tool);
         self::assertSame('src', $info->path);
         self::assertSame(1_000_000, $info->startedAt);
-        self::assertStringContainsString('never tracked', $this->project->read('qaConfig/.qa-lock/.gitignore'));
+        self::assertStringContainsString('never tracked', $this->project->read(self::GITIGNORE_FILE));
         self::assertStringContainsString('[QA Lock] Acquired', $this->output->fetch());
     }
 
@@ -219,6 +224,144 @@ final class RunLockTest extends TestCase
     public function theSystemClockReadsTheWallClock(): void
     {
         self::assertEqualsWithDelta(time(), new SystemClock()->now(), 2);
+    }
+
+    #[Test]
+    public function aContenderWaitsForTheHolderAndTakesTheLockWhenItIsReleased(): void
+    {
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $this->output->fetch();
+
+        $clock     = new MutableClock(1_000_000);
+        $sleeps    = [];
+        $contender = new RunLock(
+            $this->project->path . self::LOCK_DIR,
+            $this->output,
+            $clock,
+            maxWaitSeconds: 60,
+            sleeper: static function (int $seconds) use ($clock, $holder, &$sleeps): void {
+                $sleeps[] = $seconds;
+                $clock->now += $seconds;
+                if (3 === \count($sleeps)) {
+                    $holder->release(0);
+                }
+            },
+        );
+
+        self::assertTrue($contender->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        self::assertCount(3, $sleeps);
+        $printed = $this->output->fetch();
+        self::assertStringContainsString('Waiting for the QA lock (up to 60 seconds)', $printed);
+        self::assertStringContainsString('host host-a, pid 42, tool "unit"', $printed);
+        self::assertSame(1, substr_count($printed, 'Waiting for the QA lock'), 'announced once, not on every poll');
+        self::assertSame(43, $contender->current()?->pid);
+    }
+
+    #[Test]
+    public function theWaitingNoticeIsOneLineOnTheNoticeOutputWhenOneIsGiven(): void
+    {
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $this->output->fetch();
+
+        $clock  = new MutableClock(1_000_000);
+        $notice = new BufferedOutput();
+        $quiet  = new BufferedOutput();
+        $lock   = new RunLock(
+            $this->project->path . self::LOCK_DIR,
+            $quiet,
+            $clock,
+            maxWaitSeconds: 2,
+            sleeper: static function (int $seconds) use ($clock): void {
+                $clock->now += $seconds;
+            },
+            waitNotice: $notice,
+        );
+
+        self::assertFalse($lock->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        $line = $notice->fetch();
+        self::assertSame(1, substr_count($line, "\n"), 'one line');
+        self::assertStringContainsString('Waiting for the QA lock (up to 2 seconds)', $line);
+        self::assertStringContainsString('host host-a, pid 42', $line);
+        self::assertStringNotContainsString('Waiting for the QA lock', $quiet->fetch(), 'the banner output does not get it twice');
+    }
+
+    #[Test]
+    public function aFailedGitignoreRenameLeavesNoStagingFileBehind(): void
+    {
+        $this->project->mkdir(self::GITIGNORE_FILE);
+
+        $failure = null;
+        // The rename's own PHP warning is the expected failure here; Safe turns it into the exception.
+        set_error_handler(static fn (): bool => true, \E_WARNING);
+
+        try {
+            $this->lockAt(1)->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+        } catch (FilesystemException $filesystemException) {
+            $failure = $filesystemException;
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertInstanceOf(FilesystemException::class, $failure, 'the rename onto a directory fails');
+        self::assertSame([], \Safe\glob($this->project->path . self::LOCK_DIR . '/.gitignore.*'));
+    }
+
+    #[Test]
+    public function aFailedStagingCleanupNeverReplacesTheOriginalFailure(): void
+    {
+        $this->project->mkdir(self::GITIGNORE_FILE);
+        $lock = new RunLock(
+            $this->project->path . self::LOCK_DIR,
+            $this->output,
+            discarder: static function (string $file): never {
+                throw new FilesystemException('cannot remove ' . basename($file));
+            },
+        );
+
+        $failure = null;
+        set_error_handler(static fn (): bool => true, \E_WARNING);
+
+        try {
+            $lock->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+        } catch (FilesystemException $filesystemException) {
+            $failure = $filesystemException;
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertInstanceOf(FilesystemException::class, $failure);
+        self::assertStringNotContainsString('cannot remove', $failure->getMessage(), 'the caller sees the write/rename failure');
+        self::assertStringContainsString('cannot remove .gitignore.', $this->output->fetch(), 'the cleanup failure is said, not lost');
+    }
+
+    #[Test]
+    public function aContenderGivesUpWhenTheWaitExpires(): void
+    {
+        $holder = $this->lockAt(1_000_000);
+        $holder->acquire(self::TOOL_UNIT, '', self::HOST_A, 42);
+
+        $this->output->fetch();
+
+        $clock     = new MutableClock(1_000_000);
+        $contender = new RunLock(
+            $this->project->path . self::LOCK_DIR,
+            $this->output,
+            $clock,
+            maxWaitSeconds: 5,
+            sleeper: static function (int $seconds) use ($clock): void {
+                $clock->now += $seconds;
+            },
+        );
+
+        self::assertFalse($contender->acquire(self::TOOL_STAN, '', self::HOST_B, 43));
+        $printed = $this->output->fetch();
+        self::assertStringContainsString('Gave up waiting after 5 seconds', $printed);
+        self::assertStringContainsString('Another QA run holds the lock', $printed);
+        self::assertSame(42, $contender->current()?->pid, 'the holder record is left in place');
     }
 
     private function lockAt(int $now): RunLock

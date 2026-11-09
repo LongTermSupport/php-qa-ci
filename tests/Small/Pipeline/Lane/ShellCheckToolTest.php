@@ -33,6 +33,8 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\ShellFileFinder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\CapturedPhpOutputScanner::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\DaemonOwnedFiles::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\Dto\DaemonOwnedSplitDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
 #[UsesClass(ProcessResultDto::class)]
@@ -54,6 +56,14 @@ final class ShellCheckToolTest extends TestCase
     private const string PIN = 'v0.11.0';
 
     private const string LINUX = 'Linux';
+
+    private const string AARCH64 = 'aarch64';
+
+    private const string AARCH64_BUILD = '/vendor-bin/shellcheck.linux.aarch64';
+
+    private const string HAND_WRITTEN_HOOK = '.claude/hooks/mine.sh';
+
+    private const string DAEMON_SKIPPED_LINE = '2 file(s) skipped: generated or installed by the Claude Code hooks daemon, which rewrites them on every upgrade';
 
     private const string BUILD = 'scripts/build.bash';
 
@@ -106,6 +116,61 @@ final class ShellCheckToolTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame($this->expectedCommand(self::CI_BASH, self::BUILD), $this->factory->processes->lastSpec()->command);
         self::assertStringContainsString('2 shell file(s) checked', $this->factory->output->fetch());
+    }
+
+    /** A daemon stub and the install folder are third-party; a hand-written hook beside the stub is not. */
+    #[Test]
+    public function daemonOwnedFilesAreSkippedAndCountedWhileAHandWrittenHookBesideThemIsStillChecked(): void
+    {
+        $this->factory->processes
+            ->willSucceed(self::TRACKED . $this->writeDaemonHookFixtures())
+            ->willSucceed(self::BANNER)
+            ->willSucceed('')
+        ;
+
+        $result = $this->tool()->run($this->factory->context());
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            $this->expectedCommand(self::HAND_WRITTEN_HOOK, self::CI_BASH, self::BUILD),
+            $this->factory->processes->lastSpec()->command,
+        );
+        self::assertStringContainsString(self::DAEMON_SKIPPED_LINE, $this->factory->output->fetch());
+    }
+
+    /**
+     * The host's build and the daemon skip are decided independently: on an
+     * aarch64 host the daemon's files are still left out, and the files that
+     * remain are checked by the aarch64 build.
+     */
+    #[Test]
+    public function onAnAarch64HostDaemonOwnedFilesAreSkippedAndTheRestCheckedByTheAarch64Build(): void
+    {
+        $libraryRoot = $this->fakeLibrary(true);
+        $this->factory->processes
+            ->willSucceed(self::TRACKED . $this->writeDaemonHookFixtures())
+            ->willSucceed(self::BANNER)
+            ->willSucceed('')
+        ;
+
+        $result = new ShellCheckTool(self::LINUX, self::AARCH64)->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            $this->expectedCommandFor($libraryRoot . self::AARCH64_BUILD, self::HAND_WRITTEN_HOOK, self::CI_BASH, self::BUILD),
+            $this->factory->processes->lastSpec()->command,
+        );
+        self::assertStringContainsString(self::DAEMON_SKIPPED_LINE, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function nothingIsReportedAsSkippedWhenNoDaemonFileIsTracked(): void
+    {
+        $this->queue()->willSucceed('');
+
+        $this->tool()->run($this->factory->context());
+
+        self::assertStringNotContainsString('skipped', $this->factory->output->fetch());
     }
 
     #[Test]
@@ -456,9 +521,9 @@ final class ShellCheckToolTest extends TestCase
         $libraryRoot = $this->fakeLibrary(true);
         $this->queue()->willSucceed('');
 
-        $result = new ShellCheckTool(self::LINUX, 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        $result = new ShellCheckTool(self::LINUX, self::AARCH64)->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
-        $binary = $libraryRoot . '/vendor-bin/shellcheck.linux.aarch64';
+        $binary = $libraryRoot . self::AARCH64_BUILD;
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame([$binary, '--version'], $this->factory->processes->specs[1]->command);
         self::assertSame($binary, $this->factory->processes->lastSpec()->command[0]);
@@ -495,7 +560,7 @@ final class ShellCheckToolTest extends TestCase
             ->willSucceed(self::MISMATCHED_BANNER)
         ;
 
-        new ShellCheckTool(self::LINUX, 'aarch64')->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
+        new ShellCheckTool(self::LINUX, self::AARCH64)->run($this->factory->context($this->configWithLibraryRoot($libraryRoot)));
 
         self::assertStringContainsString(
             self::RESTORE_HEADING . '  ' . ShellCheckBinary::fetchCommand($libraryRoot, self::PIN, ShellCheckBinary::ARCHITECTURE_AARCH64) . "\n",
@@ -547,10 +612,20 @@ final class ShellCheckToolTest extends TestCase
      */
     private function expectedCommand(string ...$relative): array
     {
+        return $this->expectedCommandFor(ShellCheckBinary::path($this->factory->paths()->libraryRoot), ...$relative);
+    }
+
+    /**
+     * The same invocation made by the given binary.
+     *
+     * @return list<string>
+     */
+    private function expectedCommandFor(string $binary, string ...$relative): array
+    {
         $root = $this->factory->project->path;
 
         return [
-            ShellCheckBinary::path($this->factory->paths()->libraryRoot),
+            $binary,
             '--severity=' . ShellCheckBinary::SEVERITY,
             '--',
             ...array_map(static fn (string $file): string => $root . '/' . $file, array_values($relative)),
@@ -593,9 +668,23 @@ final class ShellCheckToolTest extends TestCase
     {
         $this->factory->project->write(self::FAKE_LIBRARY . '/' . ShellCheckBinary::VERSION_FILE, "v0.11.0\n");
         if ($withAarch64Build) {
-            $this->factory->project->write(self::FAKE_LIBRARY . '/vendor-bin/shellcheck.linux.aarch64', "#!/bin/sh\n");
+            $this->factory->project->write(self::FAKE_LIBRARY . self::AARCH64_BUILD, "#!/bin/sh\n");
         }
 
         return $this->factory->project->path . '/' . self::FAKE_LIBRARY;
+    }
+
+    /**
+     * A generated daemon stub, a file in the daemon's install folder and a
+     * hand-written hook beside the stub; returns their tracked-file lines.
+     */
+    private function writeDaemonHookFixtures(): string
+    {
+        $project = $this->factory->project;
+        $project->write('.claude/hooks/stop', "#!/bin/bash\n#\n# DAEMON-OWNED FILE - do not edit. Refreshed on every upgrade.\n#\nunused=1\n");
+        $project->write(self::HAND_WRITTEN_HOOK, "#!/bin/bash\nunused=1\n");
+        $project->write('.claude/hooks-daemon/run.bash', "#!/bin/bash\nunused=1\n");
+
+        return ".claude/hooks/stop\n" . self::HAND_WRITTEN_HOOK . "\n.claude/hooks-daemon/run.bash\n";
     }
 }

@@ -96,6 +96,7 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
         'bin/changelog-release',
         'bin/config-template-ignorelist-check',
         'bin/describe-exit',
+        'bin/first-party-vendor-clones',
         'bin/hooks-daemon-full-qa-blocker',
         'bin/hooks-daemon-required-handlers',
         'bin/infection-config-source-dirs-check',

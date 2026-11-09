@@ -5,7 +5,8 @@
 The first step of every full `bin/qa` run. It checks that the locked packages you have chosen to
 keep current are what `composer update` would install today. If they are not, the run stops
 before any other tool, because there is no point checking code with an out-of-date QA toolchain,
-or against out-of-date copies of your own packages.
+or against out-of-date copies of your own packages. The same lane also fails a first-party
+dependency whose constraint excludes a newer release, see [First-party constraints](#first-party-constraints).
 
 ## What it checks
 
@@ -119,6 +120,23 @@ Branch-following and tag-following packages are asked in separate dry runs; when
 cannot be reached for one of them, that one is skipped by name, and a stale answer from the other
 still fails the run.
 
+### Composer's cooldown policy
+
+The lane follows the project's `config.policy.cooldown` (Composer 2.11) and never passes
+`--no-cooldown`: a package is behind only when a newer version is installable under the policy.
+
+- A newer version the cooldown withholds is not available yet, so it does not fail the run.
+- When the cooldown withholds every version a package may take, the locked one included, Composer
+  cannot resolve at all (exit 2). That is not a skip and not a failure: the lane prints
+  `NOTE dependencyFreshness: <package> is held back by the cooldown policy` and carries on. This
+  applies only when every Problem Composer printed is such a refusal of a package the lane asked
+  about; a conflict beside it, a refusal of a dependency, or any other exit status is a skip by
+  name as for any failed run. When several packages were asked together, each is then asked alone
+  (the worst case for N packages is 1 + N Composer runs, each with its own timeout), so a withheld package
+  cannot hide another that is behind, and a real failure of one is still named as not verified.
+- A package on `policy.cooldown.ignore` (`vendor/*` wildcards included) is not withheld, so it is
+  judged immediately, as for a project with no policy.
+
 ## When it runs
 
 - **In a full run** (`vendor/bin/qa` with no `-t`): first, after the pre hook and the run lock,
@@ -157,7 +175,98 @@ The list lives in `qaConfig/qa.php`, not in `composer.json` `extra`, because it 
 configuration. It belongs with the other settings, as a typed method that fails at load time
 when misspelt.
 
-There is no environment variable or flag that skips the check.
+There is no environment variable or flag that skips the lock check. The
+[first-party constraint check](#first-party-constraints) below has its own switch.
+
+## First-party constraints
+
+The lock check judges the lock only within your own constraints. It cannot see a constraint that
+is itself the problem: with `"acme/widgets": "^0.2"` and a release 0.3.0 out, `composer update`
+can never move to 0.3.0, the lock check reports nothing, and the project keeps installing, shipping
+and testing the old version. The same lane therefore also checks the constraints on your
+first-party packages, on by default.
+
+**Who is first party.** The vendors you name in `composer.json`:
+
+```json
+{
+    "name": "acme/app",
+    "extra": {
+        "php-qa-ci": {
+            "firstPartyVendors": ["acme", "acme-labs"]
+        }
+    }
+}
+```
+
+Without that key the first-party vendor is your own: the part of `name` before the slash (`acme`
+for `acme/app`). A project with no `name` and no key has no first-party vendors; the lane prints
+`NOTE dependencyFreshness: no first-party vendors: composer.json has no "name" and ...` and checks
+no constraint. An empty list (`"firstPartyVendors": []`) also means none, and says so. A value that
+is not a list of vendor names (a package name such as `acme/widgets` is not one) fails the lane
+with an `ERROR` line rather than being guessed at. The same setting chooses the vendor clones the
+git pre-commit hook protects ([README](../../README.md#the-git-pre-commit-hook)).
+
+**What is checked.** Every package in `require` or `require-dev` whose vendor is first party. Packages
+that are only transitive are not. One `composer outdated --locked --direct --format=json` gives
+the newest stable release Composer would consider for each; the lane reads your constraint with
+Composer's own semver library and sets the two side by side:
+
+| The constraint                                                                                  | A newer stable release it excludes exists                         |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| loose (`^0.2`, `~1.2.0`, `>=0.2 <0.3`, `0.2.*`, a range with `\|\|`)                            | **fails**, naming the package, constraint, newest release, remedy |
+| admits the newest release (`^0.2 \|\| ^0.3`, `>=0.2`, `*`)                                      | passes: a newer release inside the constraint is the lock check's |
+| an **exact pin**: one version (`0.2.3`, `=0.2.3`, `v0.2.3`, `1.2`, `0.2.3@stable`, `0.2.3#ref`) | **reported, does not fail**                                       |
+| a branch (`dev-main`, `1.x-dev`, `dev-main as 1.0.0`, `dev-main@dev`)                           | left to the lock check; never failed here, never reported         |
+| one Composer's parser cannot read                                                               | **skipped** by name                                               |
+
+A new 0.x minor (`^0.2` and 0.3.0) and a new major (`^1.4` and 2.0.0) both count: the caret
+excludes them. Only a stable release counts as newer; a prerelease or a branch head does not. A
+release Composer's cooldown policy still withholds is not offered by `composer outdated` and so is
+not a finding.
+
+A failure looks like this:
+
+```text
+First-party dependency constraints exclude newer releases:
+
+  - acme/widgets: constraint "^0.2" excludes the newest release 0.3.0 (locked 0.2.1)
+      widen it to "^0.3", or to "^0.2 || ^0.3" to keep admitting the old line
+      or, to stay on purpose, pin it exactly: "0.2.1"
+
+`composer update` can never move to a release the constraint excludes, so the project
+keeps installing, shipping and testing the old version. Widen each constraint in
+composer.json, run `composer update acme/widgets --with-dependencies`, then run QA again.
+...
+🪪  phpqaci.dependencyFreshness  (vendor/bin/rule-doc phpqaci.dependencyFreshness)
+```
+
+The escape hatch is the exact pin: staying on an old release on purpose is then a decision visible
+in `composer.json`. A pinned package with a newer release is named on every run:
+
+```text
+NOTE dependencyFreshness: acme/widgets is pinned exactly to "=0.2.3" and a newer release exists (0.3.0): not failed, because an exact pin is deliberate.
+```
+
+(A pin with nothing newer is not mentioned.) This differs from the lock check, where a pin is
+discouraged: here widening the constraint is the fix, and the pin is the recorded decision to stay.
+
+**When Composer cannot answer** (no network, no `composer.lock`, a failure, no answer in 180
+seconds, an answer from a stale cache, output that is not Composer's JSON), the check is skipped by
+name and never fails:
+
+```text
+SKIPPED dependencyFreshness (phpqaci.dependencyFreshness): could not determine whether first-party dependency constraints are current: composer did not answer within 180 seconds. first-party constraints were NOT verified for: acme/widgets.
+```
+
+**Cost.** It is quiet when everything is fine, and asks Composer nothing unless the project requires
+a first-party package directly: a project whose first-party vendor has no direct dependency (this
+repository's, for one) passes without a Composer call. When it does ask, it is one `composer outdated`
+beside the lock check's dry runs.
+
+**Narrow or disable it.** Narrow it by naming the vendors (`extra.php-qa-ci.firstPartyVendors`
+above; the list replaces the own-vendor default). Turn it off with `->withFirstPartyConstraintFreshness(false)`
+in `qaConfig/qa.php`, or `useFirstPartyConstraintFreshness=0` for one run. Neither touches the lock check.
 
 ## How to fix a failure
 
@@ -191,3 +300,7 @@ stops receiving the gates and fixes it exists to deliver.
 - The lane is [DependencyFreshnessTool](./../../src/Pipeline/Lane/DependencyFreshnessTool.php);
   the patterns are
   [DependencyFreshnessPatterns](./../../src/Pipeline/Config/DependencyFreshnessPatterns.php).
+  The first-party step is
+  [FirstPartyConstraintFreshness](./../../src/Pipeline/Lane/DependencyFreshness/FirstPartyConstraintFreshness.php),
+  with [FirstPartyVendors](./../../src/Pipeline/Lane/DependencyFreshness/FirstPartyVendors.php) and
+  [FirstPartyConstraintJudge](./../../src/Pipeline/Lane/DependencyFreshness/FirstPartyConstraintJudge.php).
