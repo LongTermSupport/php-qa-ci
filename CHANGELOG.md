@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.18.0 — 2026-11-09
+
 ### Changed
 
 - **Bundled tool versions updated** by the dependency update: infection 0.35.9 → 0.35.10; php-cs-fixer 3.95.28 → 3.95.29.
