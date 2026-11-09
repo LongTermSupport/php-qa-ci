@@ -52,8 +52,6 @@ final readonly class FirstPartyVendorClones
                 'extra.' . FirstPartyVendors::EXTRA_NAMESPACE,
                 FirstPartyVendors::EXTRA_KEY,
             ), OutputInterface::OUTPUT_RAW);
-
-            return self::ANSWERED;
         }
 
         foreach ($packages as $package) {

@@ -31,8 +31,6 @@ final class FirstPartyVendorClonesTest extends TestCase
 
     private const string THIRD_PARTY = 'thirdparty/installer';
 
-    private const string SETTING = 'extra.php-qa-ci.firstPartyVendors';
-
     private const string OWN_NAME = 'acme/app';
 
     private TempDir $project;
@@ -79,10 +77,12 @@ final class FirstPartyVendorClonesTest extends TestCase
 
         self::assertSame(0, $this->ask(self::FIRST_PARTY));
         self::assertSame('', $this->stdout->fetch());
-        $note = $this->stderr->fetch();
-        self::assertStringStartsWith('NOTE: ', $note);
-        self::assertSame(1, substr_count($note, "\n"), $note);
-        self::assertStringContainsString(self::SETTING, $note);
+        self::assertSame(
+            'NOTE: no first-party vendors: composer.json has no "name" and no extra.php-qa-ci.firstPartyVendors,'
+            . ' so the pre-commit hook checks no vendor clone; extra.php-qa-ci.firstPartyVendors in composer.json'
+            . " names the vendors you author.\n",
+            $this->stderr->fetch(),
+        );
     }
 
     #[Test]
@@ -102,7 +102,11 @@ final class FirstPartyVendorClonesTest extends TestCase
 
         self::assertSame(1, $this->ask(self::FIRST_PARTY));
         self::assertSame('', $this->stdout->fetch());
-        self::assertStringContainsString(self::SETTING . ' must be a list of vendor names', $this->stderr->fetch());
+        self::assertSame(
+            'ERROR: extra.php-qa-ci.firstPartyVendors must be a list of vendor names'
+            . ' (the part of a package name before the slash), for example ["acme"]' . "\n",
+            $this->stderr->fetch(),
+        );
     }
 
     #[Test]
