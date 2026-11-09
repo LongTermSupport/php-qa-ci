@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.17.0 — 2026-11-09
+
 ### Changed
 
 - The shipped PHPUnit Rector configuration (`rector-phpunit.php`) now skips
