@@ -78,6 +78,7 @@ final class ShippedPhpunitRectorAddsNoBannedAttributeTest extends TestCase
                 $version = ltrim($package['version'], 'v');
             }
         }
+
         self::assertNotNull($version, 'composer.lock locks no phpunit/phpunit.');
         [$major, $minor, $patch] = array_map(intval(...), explode('.', $version)) + [0, 0, 0];
         self::assertGreaterThanOrEqual(self::FIRST_PHPUNIT_WITH_THE_RULES, $major * 10_000 + $minor * 100 + $patch, 'Locked PHPUnit is older than 12.5.2: Rector never adds the attribute, so this test would pass vacuously.');
@@ -169,11 +170,13 @@ final class ShippedPhpunitRectorAddsNoBannedAttributeTest extends TestCase
                 if (self::RULE_IDENTIFIER !== ($message['identifier'] ?? null)) {
                     continue;
                 }
+
                 self::assertIsScalar($message['line'] ?? null);
                 self::assertIsScalar($message['message'] ?? null);
                 $findings[] = basename((string)$file) . ':' . $message['line'] . ': ' . $message['message'];
             }
         }
+
         sort($findings);
 
         return $findings;
