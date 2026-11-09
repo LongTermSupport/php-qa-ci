@@ -110,6 +110,34 @@ skipped; the rest of its set still runs.
 rules, then runs PHPStan over the result and names each fixture that fails. A project config that
 includes the `php80` set, or `LevelSetList::UP_TO_PHP_85`, should skip the same rule.
 
+The shipped `rector-phpunit.php` follows the same rule. With PHPUnit 12.5.2 or newer locked,
+`PHPUnitSetList::COMPOSER_BASED` holds `AllowMockObjectsWhereParentClassRector` (any subclass of
+Symfony's `TypeTestCase`) and `AllowMockObjectsForDataProviderRector` (a `#[DataProvider]` test
+whose mock has a `->method()` with no `expects()`). Both add `#[AllowMockObjectsWithoutExpectations]`,
+which [`phpqaci.forbiddenAttribute`](../phpstan-rules/forbid-allow-mock-without-expectations.md)
+bans, so both are skipped. For a dependency without expectations, use `createStub()`; no attribute
+is needed. `ShippedPhpunitRectorAddsNoBannedAttributeTest` is the guard: it runs the shipped
+config over `tests/assets/rectorAllowMockAttribute/`, then runs the rule over the result. A project
+`rector-phpunit.php` override should skip the same two rules.
+
+## Rector never marks an asserting test as not asserting
+
+The shipped `rector-phpunit.php` also skips `AddDoesNotPerformAssertionToNonAssertingTestRector`,
+which `PHPUnitSetList::COMPOSER_BASED` holds for PHPUnit 6.0 and newer. The rule follows
+`$this->m()` and `self::m()` into the method called, but not `parent::m()`. A test that overrides
+an asserting parent test to attach a `#[DataProvider]`, and whose body is only
+`parent::<the same method>()`, is given `#[DoesNotPerformAssertions]`, and PHPUnit then reports
+it risky ("This test is not expected to perform assertions but performed N assertions"), which
+fails a run under `failOnRisky`. Rector re-adds the attribute on every writable run, and it offers
+no narrower option, so the whole rule is skipped. A test that genuinely asserts nothing carries
+`#[DoesNotPerformAssertions]` by hand.
+
+`ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest` is the guard: it runs the shipped
+config over `tests/assets/rectorDoesNotPerformAssertions/`, checks the delegating tests are left
+unmarked, and runs PHPUnit with `--fail-on-risky` over the result. It also runs the rule on its own
+over the same fixtures and fails if the rule stops misfiring, as a sign that a Rector release fixed
+it and the skip can go. A project `rector-phpunit.php` override should skip the same rule.
+
 ## A project config that sets its own cache
 
 Rector 2.7 removed `Rector\Caching\ValueObject\Storage\MemoryCacheStorage`. A project

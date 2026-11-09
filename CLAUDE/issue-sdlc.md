@@ -63,10 +63,13 @@ The monitor's other lines start with `ISSUE MONITOR:`:
 
 One issue at a time. If work is already in flight, finish the step in hand before taking it up.
 
-1. **Read it**, with `gh issue view <N> --comments`.
+1. **Read it**, with `gh issue view <N> --json title,body,state,comments` (`--comments` alone
+   drops the body).
 2. **Check and claim it.** Run `.claude/hooks-daemon/bin/hooks-daemon issue-validity <N>`, then
    `.claude/hooks-daemon/bin/hooks-daemon issue-validity <N> --claim`. Claiming assigns it to this account, which also
-   stops the monitor announcing it. An issue assigned to someone else is theirs: leave it.
+   stops the monitor announcing it. An issue assigned to someone else is theirs: leave it, unless
+   this seat is a repository admin and every assignee is not, when `--claim` performs a recorded
+   takeover.
 3. **Acknowledge it** with a comment saying what was reproduced and what happens next, every
    reference a clickable link ([`gh-links` skill](../.claude/skills/gh-links/SKILL.md)).
 4. **Detector first.** Write a test or detector that fails on the defect and commit it red,
