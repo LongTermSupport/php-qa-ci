@@ -47,7 +47,7 @@ final readonly class WorkflowPhaseGroupsDetector
             return [];
         }
 
-        $deferred = $this->deferred($comments);
+        $deferred = $this->deferred(...$comments);
         $problems = [];
         foreach ($groups as $group) {
             if (\in_array($group, $run, true) || \in_array($group, $deferred, true)) {
@@ -87,15 +87,15 @@ final readonly class WorkflowPhaseGroupsDetector
         $matches = [];
         \Safe\preg_match_all(self::TARGET_PATTERN, $code, $matches);
 
-        return array_values($matches[1] ?? []);
+        $words = $matches[1] ?? [];
+
+        return \is_array($words) ? array_values(array_filter($words, is_string(...))) : [];
     }
 
     /**
-     * @param list<string> $comments
-     *
      * @return list<string> the groups a comment declares left out, with a reason
      */
-    private function deferred(array $comments): array
+    private function deferred(string ...$comments): array
     {
         $groups = [];
         foreach ($comments as $comment) {

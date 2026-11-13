@@ -17,7 +17,15 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class WorkflowPhaseGroupsDetectorTest extends TestCase
 {
-    private const array GROUPS = ['allCS', 'allLints', 'allStatic', 'allTests'];
+    private const string CS = 'allCS';
+
+    private const string LINTS = 'allLints';
+
+    private const string STATIC = 'allStatic';
+
+    private const string TESTS = 'allTests';
+
+    private const array GROUPS = [self::CS, self::LINTS, self::STATIC, self::TESTS];
 
     private WorkflowPhaseGroupsDetector $detector;
 
@@ -37,13 +45,13 @@ final class WorkflowPhaseGroupsDetectorTest extends TestCase
     #[Test]
     public function aWorkflowThatRunsEveryPhaseGroupPasses(): void
     {
-        self::assertSame([], $this->detector->check($this->runningEach(self::GROUPS), ...self::GROUPS));
+        self::assertSame([], $this->detector->check($this->runningEach(...self::GROUPS), ...self::GROUPS));
     }
 
     #[Test]
     public function aGateThatRunsCodingStandardsAndStaticAnalysisButNotLintsIsReported(): void
     {
-        $yaml = $this->runningEach(['allCS', 'allStatic']) . $this->deferral('allTests', 'a suite needs services');
+        $yaml = $this->runningEach(self::CS, self::STATIC) . $this->deferral(self::TESTS, 'a suite needs services');
 
         self::assertSame(
             ['runs qa phase groups but not allLints: add a step that runs `qa -t allLints`, or say why it is left out with a comment line `# qa-phase-deferred: allLints - <reason>`'],
@@ -54,18 +62,18 @@ final class WorkflowPhaseGroupsDetectorTest extends TestCase
     #[Test]
     public function everyOmittedGroupIsReportedOnItsOwn(): void
     {
-        $problems = $this->detector->check($this->runningEach(['allCS']), ...self::GROUPS);
+        $problems = $this->detector->check($this->runningEach(self::CS), ...self::GROUPS);
 
         self::assertCount(3, $problems);
-        self::assertStringContainsString('allLints', $problems[0]);
-        self::assertStringContainsString('allStatic', $problems[1]);
-        self::assertStringContainsString('allTests', $problems[2]);
+        self::assertStringContainsString(self::LINTS, $problems[0]);
+        self::assertStringContainsString(self::STATIC, $problems[1]);
+        self::assertStringContainsString(self::TESTS, $problems[2]);
     }
 
     #[Test]
     public function aGroupLeftOutWithAReasonPasses(): void
     {
-        $yaml = $this->runningEach(['allCS', 'allLints', 'allStatic']) . $this->deferral('allTests', 'a suite usually needs services not on the runner');
+        $yaml = $this->runningEach(self::CS, self::LINTS, self::STATIC) . $this->deferral(self::TESTS, 'a suite usually needs services not on the runner');
 
         self::assertSame([], $this->detector->check($yaml, ...self::GROUPS));
     }
@@ -73,7 +81,7 @@ final class WorkflowPhaseGroupsDetectorTest extends TestCase
     #[Test]
     public function aGroupLeftOutWithoutAReasonIsReported(): void
     {
-        $yaml = $this->runningEach(['allCS', 'allLints', 'allStatic']) . "# qa-phase-deferred: allTests\n# qa-phase-deferred: allTests -   \n";
+        $yaml = $this->runningEach(self::CS, self::LINTS, self::STATIC) . "# qa-phase-deferred: allTests\n# qa-phase-deferred: allTests -   \n";
 
         self::assertSame(
             ['runs qa phase groups but not allTests: add a step that runs `qa -t allTests`, or say why it is left out with a comment line `# qa-phase-deferred: allTests - <reason>`'],
@@ -84,21 +92,21 @@ final class WorkflowPhaseGroupsDetectorTest extends TestCase
     #[Test]
     public function aCommentThatMentionsAGroupDoesNotRunIt(): void
     {
-        $yaml = $this->runningEach(['allCS', 'allStatic']) . "# - The gate runs `qa -t allLints` and `qa -t allTests`.\n";
+        $yaml = $this->runningEach(self::CS, self::STATIC) . "# - The gate runs `qa -t allLints` and `qa -t allTests`.\n";
 
         $problems = $this->detector->check($yaml, ...self::GROUPS);
 
         self::assertCount(2, $problems);
-        self::assertStringContainsString('allLints', $problems[0]);
-        self::assertStringContainsString('allTests', $problems[1]);
+        self::assertStringContainsString(self::LINTS, $problems[0]);
+        self::assertStringContainsString(self::TESTS, $problems[1]);
     }
 
     #[Test]
     public function aGroupWhoseNameOnlyStartsWithAnotherIsNotThatGroup(): void
     {
-        $yaml = $this->runningEach(['allCS', 'allStatic']) . "      - run: bin/qa -t allLintsAndMore\n";
+        $yaml = $this->runningEach(self::CS, self::STATIC) . "      - run: bin/qa -t allLintsAndMore\n";
 
-        self::assertStringContainsString('allLints', $this->detector->check($yaml, ...self::GROUPS)[0]);
+        self::assertStringContainsString(self::LINTS, $this->detector->check($yaml, ...self::GROUPS)[0]);
     }
 
     #[Test]
@@ -106,29 +114,34 @@ final class WorkflowPhaseGroupsDetectorTest extends TestCase
     {
         $yaml = "      - run: '\"\$(composer config bin-dir)/qa\" -t allCS'\n      - run: bin/qa -t \"allStatic\"\n";
 
-        $problems = $this->detector->check($yaml, 'allCS', 'allStatic');
+        self::assertSame([], $this->detector->check($yaml, self::CS, self::STATIC));
+    }
 
-        self::assertSame([], $problems);
+    #[Test]
+    public function twoGroupsOnOneLineAreBothRecognised(): void
+    {
+        $yaml = "      - run: bin/qa -t allCS && bin/qa -t allLints\n";
+
+        self::assertSame([], $this->detector->check($yaml, self::CS, self::LINTS));
     }
 
     #[Test]
     public function aDeferralReasonMayFollowAnyOfTheAcceptedSeparators(): void
     {
         foreach ([' - ', ' -- ', ': ', ' — '] as $separator) {
-            $yaml = $this->runningEach(['allCS']) . '# qa-phase-deferred: allStatic' . $separator . "slow\n";
+            $yaml = $this->runningEach(self::CS) . '# qa-phase-deferred: allStatic' . $separator . "slow\n";
 
-            self::assertCount(1, $this->detector->check($yaml, 'allCS', 'allStatic', 'allLints'), 'separator "' . $separator . '"');
+            self::assertCount(1, $this->detector->check($yaml, self::CS, self::STATIC, self::LINTS), 'separator "' . $separator . '"');
         }
     }
 
     #[Test]
     public function noGroupsToRequireMeansNothingToReport(): void
     {
-        self::assertSame([], $this->detector->check($this->runningEach(['allCS'])));
+        self::assertSame([], $this->detector->check($this->runningEach(self::CS)));
     }
 
-    /** @param list<string> $groups */
-    private function runningEach(array $groups): string
+    private function runningEach(string ...$groups): string
     {
         $yaml = "jobs:\n  gate:\n    steps:\n";
         foreach ($groups as $group) {

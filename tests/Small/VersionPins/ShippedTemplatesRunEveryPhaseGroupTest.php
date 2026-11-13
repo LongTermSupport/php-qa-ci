@@ -51,6 +51,7 @@ final class ShippedTemplatesRunEveryPhaseGroupTest extends TestCase
         self::assertNotSame([], $templates);
 
         foreach ($templates as $template) {
+            self::assertIsString($template);
             self::assertSame(
                 [],
                 new WorkflowPhaseGroupsDetector()->check(\Safe\file_get_contents($template), ...$this->phaseGroups()),
