@@ -106,6 +106,11 @@ final readonly class PhpunitTool implements ToolInterface
 
         $this->seedBootstrap($context);
 
+        // Infection reuses a coverage-xml directory that exists after this lane; one a project's
+        // phpunit.xml does not rewrite must not survive from an earlier run, whatever the lane then does.
+        $logDir = $context->logDir(self::LOG_DIR);
+        DirectoryTree::remove($logDir . '/' . self::COVERAGE_XML_DIRECTORY);
+
         $phpunitBinary = $paths->binDir . '/phpunit';
         $coverage      = $config->phpUnit->coverage;
 
@@ -132,11 +137,7 @@ final readonly class PhpunitTool implements ToolInterface
             );
         }
 
-        $logDir   = $context->logDir(self::LOG_DIR);
         $junitLog = $logDir . '/' . self::JUNIT_LOG;
-        // Infection reuses a coverage-xml directory that exists after this lane; one a project's
-        // phpunit.xml does not rewrite must not survive from an earlier run.
-        DirectoryTree::remove($logDir . '/' . self::COVERAGE_XML_DIRECTORY);
         if (null !== $config->specifiedPath) {
             $context->writeln('Running PHPUnit on specified paths: ' . implode(' ', $config->pathsToCheck));
         }

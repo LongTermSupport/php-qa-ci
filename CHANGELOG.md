@@ -53,7 +53,7 @@ the release and its tag. The full rules are in
 
 - A full run no longer lets Infection score a branch against coverage left on disk by an earlier
   `qa -t infection` run (issue #392). The `phpunit` lane now removes `var/qa/phpunit_logs/coverage-xml`
-  before it runs, so the directory Infection reuses is one this run's PHPUnit wrote (when the
+  first thing on every run, whatever the mode and even if the lane then fails, so the directory Infection reuses is one this run's PHPUnit wrote (when the
   project's own `phpunit.xml` writes an XML coverage report there) and is otherwise regenerated.
   Before, newly added tests were invisible to the mutation run, which reported their code as not
   covered and could return a false MSI of 0%, or a false green from coverage of tests since removed.
