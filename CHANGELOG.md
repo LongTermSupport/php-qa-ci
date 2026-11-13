@@ -57,6 +57,13 @@ the release and its tag. The full rules are in
   project's own `phpunit.xml` writes an XML coverage report there) and is otherwise regenerated.
   Before, newly added tests were invisible to the mutation run, which reported their code as not
   covered and could return a false MSI of 0%, or a false green from coverage of tests since removed.
+- The package's `.gitignore` now ignores `vendor-phar/turbo-ext` when it is a symlink, not only when it
+  is a directory (issue #402). The entry ended in a slash, which matches directories only, so in a
+  checkout where the installed Turbo binaries are a link (a worktree seeded from another checkout's
+  dependencies) `git status` listed `?? vendor-phar/turbo-ext`, and the shipped vendor pre-commit hook
+  refused every commit there. A test now creates each path an installer writes, as a real entry and as
+  a symlink, and requires git to ignore both. The `php8.4` line, whose `.gitignore` has no such entry
+  at all, is a separate change.
 
 ## 85.18.1 — 2026-11-09
 
