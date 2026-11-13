@@ -112,7 +112,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
             }
 
             if (1 === \Safe\preg_match(self::CALL_PATTERN, $line) && !str_contains($line, '--retry')) {
-                $calls[] = preg_replace('/^.*?(curl\s)/', 'curl ', $trimmed) ?? $trimmed;
+                $calls[] = $trimmed;
             }
         }
 
