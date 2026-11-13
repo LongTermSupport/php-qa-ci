@@ -131,7 +131,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
         return $files;
     }
 
-    /** @return list<string> every logical line that calls curl without `--retry` */
+    /** @return list<string> every logical line with more curl calls than `--retry` flags */
     private function callsWithoutRetry(string $contents): array
     {
         $calls = [];
@@ -141,7 +141,8 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
                 continue;
             }
 
-            if (1 === \Safe\preg_match(self::CALL_PATTERN, $line) && 1 !== \Safe\preg_match(self::RETRY_PATTERN, $line)) {
+            // One retry per call: a Dockerfile RUN chains several downloads on one logical line.
+            if (\Safe\preg_match_all(self::CALL_PATTERN, $line) > \Safe\preg_match_all(self::RETRY_PATTERN, $line)) {
                 $calls[] = $trimmed;
             }
         }

@@ -161,7 +161,7 @@ final readonly class ShellCheckBinary
         // "No such file or directory" that says nothing about the cause.
         return \sprintf(
             'mkdir -p %4$s'
-            . ' && curl -fsSL https://github.com/koalaman/shellcheck/releases/download/%1$s/shellcheck-%1$s.%2$s.tar.xz'
+            . ' && curl -fsSL --retry 5 https://github.com/koalaman/shellcheck/releases/download/%1$s/shellcheck-%1$s.%2$s.tar.xz'
             . ' | tar -xJO shellcheck-%1$s/shellcheck > %3$s'
             . ' && chmod 0755 %3$s',
             $version,

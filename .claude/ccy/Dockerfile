@@ -27,7 +27,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
-    curl -fsSLo /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb && \
+    curl -fsSL --retry 5 -o /tmp/debsuryorg-archive-keyring.deb https://packages.sury.org/debsuryorg-archive-keyring.deb && \
     dpkg -i /tmp/debsuryorg-archive-keyring.deb && \
     rm /tmp/debsuryorg-archive-keyring.deb && \
     echo "deb [signed-by=/usr/share/keyrings/debsuryorg-archive-keyring.gpg] https://packages.sury.org/php/ $(. /etc/os-release && echo "$VERSION_CODENAME") main" \
@@ -51,8 +51,8 @@ ENV XDEBUG_MODE=off
 # ----------------------------------------------------------------------------
 # Composer (installer verified against the published SHA-384 signature)
 # ----------------------------------------------------------------------------
-RUN EXPECTED_SIG="$(curl -fsSL https://composer.github.io/installer.sig)" && \
-    curl -fsSLo /tmp/composer-setup.php https://getcomposer.org/installer && \
+RUN EXPECTED_SIG="$(curl -fsSL --retry 5 https://composer.github.io/installer.sig)" && \
+    curl -fsSL --retry 5 -o /tmp/composer-setup.php https://getcomposer.org/installer && \
     echo "${EXPECTED_SIG}  /tmp/composer-setup.php" | sha384sum -c - && \
     php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer && \
     rm /tmp/composer-setup.php && \
@@ -61,8 +61,8 @@ RUN EXPECTED_SIG="$(curl -fsSL https://composer.github.io/installer.sig)" && \
 # ----------------------------------------------------------------------------
 # PHIVE (GPG-verified) — used by scripts/tool-install.bash for PHAR tools
 # ----------------------------------------------------------------------------
-RUN curl -fsSLo /usr/local/bin/phive https://phar.io/releases/phive.phar && \
-    curl -fsSLo /tmp/phive.phar.asc https://phar.io/releases/phive.phar.asc && \
+RUN curl -fsSL --retry 5 -o /usr/local/bin/phive https://phar.io/releases/phive.phar && \
+    curl -fsSL --retry 5 -o /tmp/phive.phar.asc https://phar.io/releases/phive.phar.asc && \
     gpg --keyserver hkps://keys.openpgp.org --recv-keys 0x6AF725270AB81E04D79442549D8A98B29B2D5D79 && \
     gpg --verify /tmp/phive.phar.asc /usr/local/bin/phive && \
     rm /tmp/phive.phar.asc && \
