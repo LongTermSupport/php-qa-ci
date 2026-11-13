@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(PhpunitArguments::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestIncompatibleException::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
