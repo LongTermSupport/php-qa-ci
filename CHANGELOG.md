@@ -41,7 +41,9 @@ the release and its tag. The full rules are in
   and #409). It ran only `allCS` and `allStatic`, so a project that copied it got a green check while
   every linting lane (`composerChecks`, `versionPins`, `shellCheck`, `markdownLinks`, `yamlLint` and
   the rest) was skipped, and a defect they catch was found only by a developer's local full run.
-  The template's notes now state which phase groups the gate runs and which it leaves out (tests).
+  The template's notes now state which phase groups the gate runs and which it leaves out (tests),
+  and the gate's checkout now fetches full history (`fetch-depth: 0`), because the linting group
+  includes the opt-in changelog check, which refuses a shallow clone.
   The template is copied, not updated automatically: a project that copied it earlier changes only
   when it copies the file again, and its pull requests then fail on lint findings that used to
   surface only locally.

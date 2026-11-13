@@ -309,9 +309,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the (possibly auto-fixed) tip
+        # Full history: the linting group includes the opt-in changelog check, which
+        # reads git history and refuses a shallow clone.
         uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref || github.ref }}
+          fetch-depth: 0
 
       - name: Detect PHP version from composer.json
         id: php

@@ -66,8 +66,14 @@ The separator may be `-`, `--`, `—` or `:`, and the reason is required. A comm
 mentions a group does not run it, and a template that runs the whole `qa`, or single tools, selects
 no group and is not judged. The check
 ([`WorkflowPhaseGroupsDetector`](../../src/VersionPins/WorkflowPhaseGroupsDetector.php)) reads only
-the templates in `templates/github-actions/`, so it affects this repository's own templates and
-not a consuming project's workflows, which may split the phases across files as they like.
+the files in a project's `templates/github-actions/` directory. That directory exists in this
+repository, which ships the templates; a consuming project has it only if it ships templates of
+its own, and the workflows in `.github/workflows/` are never judged, so they may split the phases
+across files as they like.
+
+The check reads a template as a whole, not job by job, and does not evaluate it: a group named by
+a step in any job counts as run, including a step that never executes (`if: false`) and one that
+only echoes the command.
 
 Fix a finding by adding the step the message names (`qa -t <group>`) to the template, or by adding
 the `qa-phase-deferred` line with its reason.
