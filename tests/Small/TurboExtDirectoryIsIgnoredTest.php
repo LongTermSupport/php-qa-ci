@@ -69,20 +69,20 @@ final class TurboExtDirectoryIsIgnoredTest extends TestCase
         self::assertSame(0, $this->checkIgnore(self::TURBO_DIRECTORY), self::TURBO_DIRECTORY . ' is not ignored (' . ($asSymlink ? 'a symlink' : 'a directory') . '); add /vendor-phar/turbo-ext to .gitignore');
     }
 
-    #[Test]
-    public function theTrackedManifestBesideTheDirectoryIsNotIgnored(): void
-    {
-        file_put_contents($this->repository . '/' . self::TURBO_DIRECTORY . '.json', '{}');
-
-        self::assertSame(1, $this->checkIgnore(self::TURBO_DIRECTORY . '.json'), 'vendor-phar/turbo-ext.json is a tracked file and must not be ignored');
-    }
-
     /** @return Iterator<string, array{bool}> */
     public static function shapes(): Iterator
     {
         yield 'a real directory' => [false];
 
         yield 'a symlink to a directory' => [true];
+    }
+
+    #[Test]
+    public function theTrackedManifestBesideTheDirectoryIsNotIgnored(): void
+    {
+        file_put_contents($this->repository . '/' . self::TURBO_DIRECTORY . '.json', '{}');
+
+        self::assertSame(1, $this->checkIgnore(self::TURBO_DIRECTORY . '.json'), 'vendor-phar/turbo-ext.json is a tracked file and must not be ignored');
     }
 
     private function checkIgnore(string $path): int
