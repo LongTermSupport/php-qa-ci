@@ -130,17 +130,36 @@ final class ChangelogCheckGitTest extends TestCase
     }
 
     #[Test]
-    public function aChangelogLineInTheSubjectParagraphIsReportedButTheSubjectIsNot(): void
+    public function theWholeSubjectParagraphIsTheSubjectAsGitReadsItAndIsNotJudged(): void
     {
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// wrapped subject\n", "Fix the parser so the\nChangelog: lane reads every entry", 'Body prose.', self::CO_AUTHOR);
+        self::assertSame("Fix the parser so the Changelog: lane reads every entry\n", $this->headAs('%s'));
         $this->sandbox->commit(self::TEST_FILE, "<?php\n// subject paragraph\n", "Tidy the tests\nChangelog: none — tests only, in the subject paragraph");
-        $commit = $this->head();
+        self::assertSame("\n", $this->headAs('%(trailers:key=Changelog)'));
         $this->sandbox->commit(self::TEST_FILE, "<?php\n// subject prose\n", 'Changelog: file the entry for the fix');
+        $this->sandbox->commit(self::TEST_FILE, "<?php\n// below the subject\n", self::TIDY_TESTS, 'Changelog: none — tests only, below the subject', self::CO_AUTHOR);
+
+        $commit = $this->head();
 
         $problem = $this->onlyProblem();
 
         self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
-        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, in the subject paragraph', $problem);
-        self::assertStringNotContainsString('file the entry', $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, below the subject', $problem);
+    }
+
+    #[Test]
+    public function aMessageThatBeginsWithABlankLineHasGitsSubjectAndBodyJudgedAsGitReadsThem(): void
+    {
+        $this->commitVerbatim("\nChangelog: tidy the entry for the fix\n\nBody prose.\n");
+        self::assertSame("Changelog: tidy the entry for the fix\n", $this->headAs('%s'));
+        $this->commitVerbatim("\n\nTidy the tests\nChangelog: none — wrapped after leading blank lines\n\nBody prose.\n");
+        $this->commitVerbatim("\nTidy the tests\n\nChangelog: none — tests only, after a leading blank line\n\n" . self::CO_AUTHOR . "\n");
+        $commit = $this->head();
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, after a leading blank line', $problem);
     }
 
     #[Test]
@@ -249,6 +268,20 @@ final class ChangelogCheckGitTest extends TestCase
         self::assertCount(1, $problems, implode("\n", $problems));
 
         return $problems[0];
+    }
+
+    /** Commit a test-file change with $message kept byte for byte, as `git commit-tree` would, leading blank lines included. */
+    private function commitVerbatim(string $message): void
+    {
+        $this->sandbox->root->write('work/' . self::TEST_FILE, "<?php\n// " . str_replace("\n", ' ', $message) . "\n");
+        $this->sandbox->git('add', '-A');
+        $this->sandbox->git('commit', '--cleanup=verbatim', '-m', $message);
+    }
+
+    /** The HEAD commit as git formats it: git's own reading of the message, to compare the check with. */
+    private function headAs(string $format): string
+    {
+        return $this->sandbox->git('log', '-1', '--format=' . $format);
     }
 
     private function head(): string
