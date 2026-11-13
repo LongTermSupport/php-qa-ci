@@ -52,12 +52,18 @@ final class RunningProcesses
     {
         $this->add($process);
 
-        $async = pcntl_async_signals(false);
+        $async   = pcntl_async_signals(false);
+        $started = false;
         try {
             $process->start($callback);
+            $started = true;
         } finally {
             pcntl_async_signals($async);
-            pcntl_signal_dispatch();
+            if (!$started) {
+                $process->stop(0);
+            }
+
+            \Safe\pcntl_signal_dispatch();
         }
     }
 

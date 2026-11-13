@@ -41,6 +41,8 @@ final class RunningProcessesTest extends TestCase
 
     private const string DESCENDANT = 'descendant ';
 
+    private ?Process $signalledProcess = null;
+
     #[Test]
     public function stopAllTerminatesEveryRegisteredRunningProcess(): void
     {
@@ -286,33 +288,30 @@ final class RunningProcessesTest extends TestCase
     #[Test]
     public function aSignalRaisedWhileAProcessIsStartingIsHandledOnceItIsStarted(): void
     {
-        $running         = new RunningProcesses();
-        $process         = $this->sleeper();
-        $runningAtHandle = null;
-        $previousAsync   = pcntl_async_signals(true);
-        $previous        = pcntl_signal_get_handler(\SIGUSR1);
+        $running                = new RunningProcesses();
+        $this->signalledProcess = $this->sleeper();
+        $process                = $this->signalledProcess;
+        $runningAtHandle        = null;
+        $previousAsync          = pcntl_async_signals(true);
+        $previous               = pcntl_signal_get_handler(\SIGUSR1);
         \Safe\pcntl_signal(\SIGUSR1, static function () use (&$runningAtHandle, $process): void {
             $runningAtHandle = $process->isRunning();
         });
 
         try {
-            $process->setInput(self::signalOnRewind());
-            $running->start($process);
+            $this->signalledProcess->setInput($this->signalOnRewind());
+            $running->start($this->signalledProcess);
 
             self::assertTrue($runningAtHandle, 'the handler ran while the process was still being started, so it could not see it');
         } finally {
-            \Safe\pcntl_signal(\SIGUSR1, \is_callable($previous) || \is_int($previous) ? $previous : \SIG_DFL);
+            \Safe\pcntl_signal(\SIGUSR1, $previous);
             pcntl_async_signals($previousAsync);
-            $process->stop(0);
         }
     }
 
-    /** @return Generator<int, string> */
-    private static function signalOnRewind(): Generator
+    protected function tearDown(): void
     {
-        \Safe\posix_kill(getmypid(), \SIGUSR1);
-
-        yield '';
+        $this->signalledProcess?->stop(0);
     }
 
     #[Test]
@@ -383,6 +382,14 @@ final class RunningProcessesTest extends TestCase
 
         self::assertSame(0, $result->exitCode);
         self::assertSame(0, $running->stopAll(5.0));
+    }
+
+    /** @return Generator<int, string> */
+    private function signalOnRewind(): Generator
+    {
+        \Safe\posix_kill(\Safe\getmypid(), \SIGUSR1);
+
+        yield '';
     }
 
     /**
