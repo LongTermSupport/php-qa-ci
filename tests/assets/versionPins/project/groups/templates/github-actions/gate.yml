@@ -1,0 +1,8 @@
+name: gate
+on: push
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - run: '"$(composer config bin-dir)/qa" -t allCS'
+      - run: '"$(composer config bin-dir)/qa" -t allStatic'

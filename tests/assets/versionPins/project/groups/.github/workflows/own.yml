@@ -1,0 +1,7 @@
+name: own
+on: push
+jobs:
+  style:
+    runs-on: ubuntu-latest
+    steps:
+      - run: '"$(composer config bin-dir)/qa" -t allCS'

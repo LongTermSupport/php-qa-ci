@@ -48,7 +48,7 @@
 #   need runtime env absent in CI. The php-qa-ci plugin still runs (plugin event).
 # - "Install SSH deploy keys" step — a NO-OP unless the CI_SSH_DEPLOY_BUNDLE secret
 #   is set (see below); private-dependency repos work, public-only repos unaffected.
-# - The gate runs coding-standards + static analysis (tests deferred — see NOTES).
+# - The gate runs coding standards, linting and static analysis (tests deferred — see NOTES).
 #
 # COMPOSER BIN-DIR
 # ----------------
@@ -75,9 +75,12 @@
 #
 # NOTES
 # -----
-# - Tests are deferred: the gate runs `qa -t allCS` + `qa -t allStatic` only, because
-#   a PHPUnit suite usually needs a DB / services not on the runner. When your suite
-#   runs without external services, add a tests step + a `services:` block to `gate`.
+# - The gate runs three of the four phase groups: `qa -t allCS`, `qa -t allLints` and
+#   `qa -t allStatic`. Tests are deferred, because a PHPUnit suite usually needs a DB /
+#   services not on the runner. When your suite runs without external services, add a
+#   tests step + a `services:` block to `gate`. The versionPins check reads this line to
+#   know the omission is on purpose, and requires a reason on it:
+# qa-phase-deferred: allTests - a PHPUnit suite usually needs a database or services that are not on the runner
 #
 # INSTALLATION
 # ------------
@@ -423,15 +426,20 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
       # Read-only gate (GITHUB_ACTIONS=true → fixers run --dry-run and FAIL on any
-      # pending change). Defaults to coding-standards + static analysis: a PHPUnit
-      # suite usually needs a DB / services not present on the runner, so tests are
-      # deferred. When your suite runs WITHOUT external services, add a tests step
-      # (`qa -t allTests`, or the full `qa`, run as above) plus a `services:`
-      # block to this job.
+      # pending change). Runs coding standards, linting and static analysis, in the
+      # pipeline's own order: a PHPUnit suite usually needs a DB / services not
+      # present on the runner, so tests are deferred. When your suite runs WITHOUT
+      # external services, add a tests step (`qa -t allTests`, or the full `qa`,
+      # run as above) plus a `services:` block to this job.
       - name: Coding standards — read-only check (Rector + PHP CS Fixer)
         env:
           CI: 'true'
         run: '"$(composer config bin-dir)/qa" -t allCS'
+
+      - name: Linting (composer, version pins, shell, markdown, YAML, PHP syntax)
+        env:
+          CI: 'true'
+        run: '"$(composer config bin-dir)/qa" -t allLints'
 
       - name: Static analysis (PHPStan + PHPArkitect)
         env:
