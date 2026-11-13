@@ -96,7 +96,9 @@ locate_box() {
     fi
     echo -e "${YELLOW}Box not found — downloading pinned box ${BOX_VERSION}...${NC}" >&2
     mkdir -p "$( dirname "$BOX_CACHE" )"
-    if ! curl -fSL -o "$BOX_CACHE" \
+    # --retry: a transient 408/429/5xx (a 504 failed a daily update once) is retried
+    # with a growing wait instead of failing the whole run.
+    if ! curl -fSL --retry 5 -o "$BOX_CACHE" \
         "https://github.com/box-project/box/releases/download/${BOX_VERSION}/box.phar"; then
         echo -e "${RED}ERROR: failed to download Box ${BOX_VERSION}.${NC}" >&2
         echo "Install Box manually and set BOX_PHAR, or put 'box' on PATH." >&2
