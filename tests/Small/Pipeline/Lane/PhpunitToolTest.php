@@ -141,6 +141,21 @@ final class PhpunitToolTest extends TestCase
     }
 
     #[Test]
+    public function coverageLeftByAnEarlierRunIsRemovedSoInfectionCannotReuseIt(): void
+    {
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
+        $this->factory->project->write('var/qa/phpunit_logs/coverage-xml/stale.xml', '<phpunit/>');
+        $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
+
+        new PhpunitTool()->run($this->context($this->factory->builder(ci: true)));
+
+        self::assertDirectoryDoesNotExist(
+            $this->root . '/var/qa/phpunit_logs/coverage-xml',
+            'a coverage-xml directory present after the phpunit lane must be one this run wrote',
+        );
+    }
+
+    #[Test]
     public function aNoCoverageRunStripsXdebugAndAddsTheNoCoverageFlags(): void
     {
         $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
