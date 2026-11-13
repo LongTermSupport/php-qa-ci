@@ -152,7 +152,7 @@ Read the [PHPQA PHPStan docs](./phpstan.md) for more information.
 
 The lane is `LTS\PHPQA\Pipeline\Lane\PhpunitTool` (identifier `phpqaci.phpunit`); the argv it builds lives in `PhpunitArguments` so every mode is unit-tested without running anything.
 
-1. A missing `tests/bootstrap.php` is seeded with a documented placeholder.
+1. A missing `tests/bootstrap.php` is seeded with a documented placeholder, and `var/qa/phpunit_logs/coverage-xml` is removed, in every mode and before anything can fail, so any coverage Infection finds there afterwards was written by this run's PHPUnit.
 2. The project's `vendor/bin/phpunit` is probed for its major version; `vendor/bin/paratest` is used instead when installed (its `--help` is probed first, see [Paratest](#paratest)).
 3. With coverage on, the Xdebug-enabled PHP binary runs under `XDEBUG_MODE=coverage` (so Infection can reuse the result); otherwise Xdebug is stripped and `XDEBUG_MODE=off`. `phpUnitQuickTests` is passed through as `1`/`0`.
 4. Flags: `--strict-global-state --fail-on-risky --fail-on-warning --log-junit`, the PHPUnit 10+ `--display-*` flags, then the mode flags (iterative, no-coverage, coverage in CI, coverage interactively) and the `-p` paths.

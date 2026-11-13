@@ -24,6 +24,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(PhpunitArguments::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestIncompatibleException::class)]
+#[UsesClass(\LTS\PHPQA\Filesystem\DirectoryTree::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -138,6 +139,36 @@ final class PhpunitToolTest extends TestCase
         new PhpunitTool()->run($this->context($this->factory->builder()));
 
         self::assertStringEndsWith("Result: Tests: 3, Assertions: 7.\n", $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function coverageLeftByAnEarlierRunIsRemovedSoInfectionCannotReuseIt(): void
+    {
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
+        $this->factory->project->write('var/qa/phpunit_logs/coverage-xml/stale.xml', '<phpunit/>');
+        $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
+
+        new PhpunitTool()->run($this->context($this->factory->builder(ci: true)));
+
+        self::assertDirectoryDoesNotExist(
+            $this->root . '/var/qa/phpunit_logs/coverage-xml',
+            'a coverage-xml directory present after the phpunit lane must be one this run wrote',
+        );
+    }
+
+    #[Test]
+    public function coverageLeftByAnEarlierRunIsRemovedEvenWhenThePhpunitVersionProbeFails(): void
+    {
+        $this->factory->project->write('var/qa/phpunit_logs/coverage-xml/stale.xml', '<phpunit/>');
+        $this->factory->processes->willFail(1, "  Could not open input file\n");
+
+        $result = new PhpunitTool()->run($this->context($this->factory->builder()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertDirectoryDoesNotExist(
+            $this->root . '/var/qa/phpunit_logs/coverage-xml',
+            'a read-only run goes on to Infection after a failed phpunit lane, which must not find this',
+        );
     }
 
     #[Test]

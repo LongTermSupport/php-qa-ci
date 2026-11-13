@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Lane;
 
+use LTS\PHPQA\Filesystem\DirectoryTree;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestCapabilities;
 use LTS\PHPQA\Pipeline\Lane\Phpunit\ParatestIncompatibleException;
@@ -34,6 +35,8 @@ final readonly class PhpunitTool implements ToolInterface
     private const string JUNIT_LOG = 'phpunit.junit.xml';
 
     private const string STDOUT_LOG = 'phpunit.log';
+
+    private const string COVERAGE_XML_DIRECTORY = 'coverage-xml';
 
     private const string BOOTSTRAP_PLACEHOLDER = <<<'PHP_WRAP'
         <?php
@@ -103,6 +106,11 @@ final readonly class PhpunitTool implements ToolInterface
 
         $this->seedBootstrap($context);
 
+        // Infection reuses a coverage-xml directory that exists after this lane; one a project's
+        // phpunit.xml does not rewrite must not survive from an earlier run, whatever the lane then does.
+        $logDir = $context->logDir(self::LOG_DIR);
+        DirectoryTree::remove($logDir . '/' . self::COVERAGE_XML_DIRECTORY);
+
         $phpunitBinary = $paths->binDir . '/phpunit';
         $coverage      = $config->phpUnit->coverage;
 
@@ -129,7 +137,6 @@ final readonly class PhpunitTool implements ToolInterface
             );
         }
 
-        $logDir   = $context->logDir(self::LOG_DIR);
         $junitLog = $logDir . '/' . self::JUNIT_LOG;
         if (null !== $config->specifiedPath) {
             $context->writeln('Running PHPUnit on specified paths: ' . implode(' ', $config->pathsToCheck));
