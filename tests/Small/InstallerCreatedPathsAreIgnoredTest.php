@@ -29,6 +29,10 @@ use function Safe\symlink;
  * file or a symlink to one (a worktree seeded from another checkout's installed dependencies makes
  * it a symlink, and a pattern ending in a slash matches directories only).
  *
+ * The paths are the rows of createdPaths(), taken from the installers' own constants. Nothing ties an
+ * installer to that list, so an installer that gains a new output is checked only once its path is
+ * added there.
+ *
  * @internal
  */
 #[CoversNothing]
