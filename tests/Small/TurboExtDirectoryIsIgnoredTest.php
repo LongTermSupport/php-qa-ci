@@ -28,8 +28,9 @@ use function Safe\symlink;
  * vendor checkout as uncommitted work and refuses every commit until it is deleted by hand.
  *
  * A directory and a symlink to one (a worktree seeded from another checkout's installed
- * dependencies) must both be ignored, and the tracked manifest `vendor-phar/turbo-ext.json` must not
- * be.
+ * dependencies) must both be ignored. `vendor-phar/turbo-ext.json`, a manifest the `php8.5` line
+ * tracks beside that directory, must not be: the entry names the directory, not everything that
+ * starts with its name.
  *
  * @internal
  */
@@ -51,7 +52,6 @@ final class TurboExtDirectoryIsIgnoredTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->git('worktree', 'prune');
         new Process(['rm', '-rf', '--', $this->repository])->mustRun();
     }
 
@@ -78,11 +78,11 @@ final class TurboExtDirectoryIsIgnoredTest extends TestCase
     }
 
     #[Test]
-    public function theTrackedManifestBesideTheDirectoryIsNotIgnored(): void
+    public function aFileWhoseNameStartsWithTheDirectoryNameIsNotIgnored(): void
     {
         file_put_contents($this->repository . '/' . self::TURBO_DIRECTORY . '.json', '{}');
 
-        self::assertSame(1, $this->checkIgnore(self::TURBO_DIRECTORY . '.json'), 'vendor-phar/turbo-ext.json is a tracked file and must not be ignored');
+        self::assertSame(1, $this->checkIgnore(self::TURBO_DIRECTORY . '.json'), 'vendor-phar/turbo-ext.json (tracked on the php8.5 line) must not be ignored: the entry is the directory name only');
     }
 
     private function checkIgnore(string $path): int
