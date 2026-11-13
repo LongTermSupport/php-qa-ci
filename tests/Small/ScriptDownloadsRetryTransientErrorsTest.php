@@ -93,6 +93,15 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
     }
 
     #[Test]
+    public function everyCurlOnALogicalLineNeedsItsOwnRetry(): void
+    {
+        $oneRetryForTwoCalls = "RUN curl -fsSL --retry 5 https://example.test/a && \\\n    curl -fsSLo /tmp/b https://example.test/b\n";
+
+        self::assertCount(1, $this->callsWithoutRetry($oneRetryForTwoCalls));
+        self::assertSame([], $this->callsWithoutRetry("RUN curl -fsSL --retry 5 https://example.test/a && curl -fsSL --retry 5 https://example.test/b\n"));
+    }
+
+    #[Test]
     public function aCurlInsideAConditionOrAPipeIsFound(): void
     {
         self::assertCount(1, $this->callsWithoutRetry("if ! curl -fSL https://example.test/a; then exit 1; fi\n"));
