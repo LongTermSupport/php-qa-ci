@@ -32,6 +32,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
         'git-hooks'                => '*',
         '.github/workflows'        => '*.y*ml',
         'templates/github-actions' => '*.y*ml',
+        '.claude/ccy'              => 'Dockerfile*',
     ];
 
     private const string CALL_PATTERN = '/(?:^|[\s|&;(!`])curl\s+(?:-|["\']?https?:)/';
@@ -92,6 +93,15 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
     }
 
     #[Test]
+    public function everyCurlOnALogicalLineNeedsItsOwnRetry(): void
+    {
+        $oneRetryForTwoCalls = "RUN curl -fsSL --retry 5 https://example.test/a && \\\n    curl -fsSLo /tmp/b https://example.test/b\n";
+
+        self::assertCount(1, $this->callsWithoutRetry($oneRetryForTwoCalls));
+        self::assertSame([], $this->callsWithoutRetry("RUN curl -fsSL --retry 5 https://example.test/a && curl -fsSL --retry 5 https://example.test/b\n"));
+    }
+
+    #[Test]
     public function aCurlInsideAConditionOrAPipeIsFound(): void
     {
         self::assertCount(1, $this->callsWithoutRetry("if ! curl -fSL https://example.test/a; then exit 1; fi\n"));
@@ -121,7 +131,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
         return $files;
     }
 
-    /** @return list<string> every logical line that calls curl without `--retry` */
+    /** @return list<string> every logical line with more curl calls than `--retry` flags */
     private function callsWithoutRetry(string $contents): array
     {
         $calls = [];
@@ -131,7 +141,8 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
                 continue;
             }
 
-            if (1 === \Safe\preg_match(self::CALL_PATTERN, $line) && 1 !== \Safe\preg_match(self::RETRY_PATTERN, $line)) {
+            // One retry per call: a Dockerfile RUN chains several downloads on one logical line.
+            if (\Safe\preg_match_all(self::CALL_PATTERN, $line) > \Safe\preg_match_all(self::RETRY_PATTERN, $line)) {
                 $calls[] = $trimmed;
             }
         }

@@ -64,6 +64,13 @@ the release and its tag. The full rules are in
   refused every commit there. A test now creates each path an installer writes, as a real entry and as
   a symlink, and requires git to ignore both. The `php8.4` line, whose `.gitignore` has no such entry
   at all, is a separate change.
+- The `curl` command printed for fetching the pinned ShellCheck build now carries `--retry 5`
+  (issue #431), so a transient 5xx from GitHub is retried instead of failing the fetch. The
+  `shellCheck` lane prints it when the build for the host is missing or unusable, and
+  `bin/shellcheck-install` prints it when the committed build is broken. The command is otherwise
+  unchanged.
+  The test that requires every download in this repository's scripts and workflows to retry now also
+  reads the CCY container's Dockerfile and judges each `curl` on its own, not a whole line at once.
 
 ## 85.18.1 — 2026-11-09
 

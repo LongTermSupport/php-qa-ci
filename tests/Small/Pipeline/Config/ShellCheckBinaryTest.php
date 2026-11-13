@@ -120,7 +120,7 @@ final class ShellCheckBinaryTest extends TestCase
 
         self::assertSame(
             'mkdir -p /somewhere/php-qa-ci/vendor-bin'
-            . ' && curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v9.9.9/shellcheck-v9.9.9.linux.aarch64.tar.xz'
+            . ' && curl -fsSL --retry 5 https://github.com/koalaman/shellcheck/releases/download/v9.9.9/shellcheck-v9.9.9.linux.aarch64.tar.xz'
             . ' | tar -xJO shellcheck-v9.9.9/shellcheck > /somewhere/php-qa-ci/vendor-bin/shellcheck.linux.aarch64'
             . ' && chmod 0755 /somewhere/php-qa-ci/vendor-bin/shellcheck.linux.aarch64',
             $command,
