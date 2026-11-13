@@ -71,6 +71,13 @@ the release and its tag. The full rules are in
   unchanged.
   The test that requires every download in this repository's scripts and workflows to retry now also
   reads the CCY container's Dockerfile and judges each `curl` on its own, not a whole line at once.
+- A run interrupted the instant a tool is starting no longer exits with that tool left running
+  (issue #432). A signal (Ctrl-C, `kill`, a TaskStop) handled between the tool being forked and
+  Symfony Process recording it as started found nothing running to stop, so the run printed
+  `stopped 0 running tool process(es)`, released the lock and exited 128 + the signal while the tool
+  carried on as an orphan. A tool is now started with signal handling held, and a signal that arrives
+  meanwhile is handled once the tool is known and can be stopped. The window is a few instructions
+  wide, so it showed only on a loaded host.
 
 ## 85.18.1 — 2026-11-09
 
