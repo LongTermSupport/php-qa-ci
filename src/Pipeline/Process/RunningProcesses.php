@@ -39,6 +39,34 @@ final class RunningProcesses
         $this->processes[spl_object_id($process)] = $process;
     }
 
+    /**
+     * Registers $process and starts it, handling no signal until it is started.
+     * A handler that runs between the fork and Symfony marking the process
+     * started finds a registered process that is "not running" and cannot stop
+     * it, so the run would exit with the child orphaned. A signal that arrives
+     * meanwhile is held and handled once the process is known.
+     *
+     * @param (callable(string, string): void)|null $callback
+     */
+    public function start(Process $process, ?callable $callback = null): void
+    {
+        $this->add($process);
+
+        $async   = pcntl_async_signals(false);
+        $started = false;
+        try {
+            $process->start($callback);
+            $started = true;
+        } finally {
+            pcntl_async_signals($async);
+            if (!$started) {
+                $process->stop(0);
+            }
+
+            \Safe\pcntl_signal_dispatch();
+        }
+    }
+
     public function remove(Process $process): void
     {
         unset($this->processes[spl_object_id($process)]);

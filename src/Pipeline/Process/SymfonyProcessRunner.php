@@ -65,10 +65,9 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
         $captured = '';
         $stdout   = '';
         $signaled = null;
-        $this->running->add($process);
 
         try {
-            $process->run(function (string $type, string $buffer) use ($spec, &$captured, &$stdout): void {
+            $this->running->start($process, function (string $type, string $buffer) use ($spec, &$captured, &$stdout): void {
                 $captured .= $buffer;
                 if (Process::OUT === $type) {
                     $stdout .= $buffer;
@@ -78,6 +77,7 @@ final readonly class SymfonyProcessRunner implements ProcessRunnerInterface
                     $this->output->write($buffer, false, OutputInterface::OUTPUT_RAW);
                 }
             });
+            $process->wait();
         } catch (ProcessSignaledException $processSignaledException) {
             $signaled = $processSignaledException;
         } finally {

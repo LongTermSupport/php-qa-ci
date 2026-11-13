@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Pipeline\Process;
 
+use Generator;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
@@ -39,6 +40,13 @@ final class RunningProcessesTest extends TestCase
     private const string EXEC_SLEEP = 'exec sleep 60';
 
     private const string DESCENDANT = 'descendant ';
+
+    private ?Process $signalledProcess = null;
+
+    protected function tearDown(): void
+    {
+        $this->signalledProcess?->stop(0);
+    }
 
     #[Test]
     public function stopAllTerminatesEveryRegisteredRunningProcess(): void
@@ -275,6 +283,37 @@ final class RunningProcessesTest extends TestCase
         }
     }
 
+    /**
+     * A signal handled between the child being forked and Symfony marking it
+     * started finds a registered process that "is not running", so stopAll()
+     * skips it and the run exits with the tool orphaned. The input iterator
+     * raises SIGUSR1 inside Process::start(), where an async signal handler
+     * would run at once; the handler must run only after start() has returned.
+     */
+    #[Test]
+    public function aSignalRaisedWhileAProcessIsStartingIsHandledOnceItIsStarted(): void
+    {
+        $running                = new RunningProcesses();
+        $this->signalledProcess = $this->sleeper();
+        $process                = $this->signalledProcess;
+        $runningAtHandle        = null;
+        $previousAsync          = pcntl_async_signals(true);
+        $previous               = pcntl_signal_get_handler(\SIGUSR1);
+        \Safe\pcntl_signal(\SIGUSR1, static function () use (&$runningAtHandle, $process): void {
+            $runningAtHandle = $process->isRunning();
+        });
+
+        try {
+            $this->signalledProcess->setInput($this->signalOnRewind());
+            $running->start($this->signalledProcess);
+
+            self::assertTrue($runningAtHandle, 'the handler ran while the process was still being started, so it could not see it');
+        } finally {
+            \Safe\pcntl_signal(\SIGUSR1, $previous);
+            pcntl_async_signals($previousAsync);
+        }
+    }
+
     #[Test]
     public function aRemovedOrFinishedProcessIsNotCounted(): void
     {
@@ -343,6 +382,14 @@ final class RunningProcessesTest extends TestCase
 
         self::assertSame(0, $result->exitCode);
         self::assertSame(0, $running->stopAll(5.0));
+    }
+
+    /** @return Generator<int, string> */
+    private function signalOnRewind(): Generator
+    {
+        \Safe\posix_kill(\Safe\getmypid(), \SIGUSR1);
+
+        yield '';
     }
 
     /**
