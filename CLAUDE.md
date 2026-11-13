@@ -114,7 +114,7 @@ dir) prints its page offline.
 - `typeCoverage.propertyTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `typeCoverage.constantTypeCoverage` — a rule from `tomasvotruba/type-coverage`
 - `phpstan/phpstan-deprecation-rules` — 2 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
-- `phpstan/phpstan-phpunit` — 15 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
+- `phpstan/phpstan-phpunit` — 16 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpstan/phpstan-strict-rules` — 45 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `tomasvotruba/type-coverage` — 7 rules from this PHPStan extension; their findings carry PHPStan identifiers, which `rule-doc` routes
 - `phpqaci.dependencyFreshness` — locked packages (lts/php-qa-ci, plus withDependencyFreshnessPatterns()) are what composer update would install, and first-party constraints exclude no newer release; first in a full run (`docs/tools/dependencyFreshness.md`)
