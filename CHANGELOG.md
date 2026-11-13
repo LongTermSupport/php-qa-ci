@@ -48,6 +48,8 @@ the release and its tag. The full rules are in
   when it copies the file again, and its pull requests then fail on lint findings that used to
   surface only locally.
 
+- **Bundled tool versions updated** by the dependency update: php-cs-fixer 3.95.29 → 3.95.30; composer-normalize 2.56.0 → 2.57.0.
+
 ## 85.18.1 — 2026-11-09
 
 ### Fixed
