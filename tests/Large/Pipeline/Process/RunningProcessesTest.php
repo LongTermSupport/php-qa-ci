@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Large\Pipeline\Process;
 
+use Generator;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessTree;
@@ -273,6 +274,45 @@ final class RunningProcessesTest extends TestCase
                 \Safe\rmdir($proc);
             }
         }
+    }
+
+    /**
+     * A signal handled between the child being forked and Symfony marking it
+     * started finds a registered process that "is not running", so stopAll()
+     * skips it and the run exits with the tool orphaned. The input iterator
+     * raises SIGUSR1 inside Process::start(), where an async signal handler
+     * would run at once; the handler must run only after start() has returned.
+     */
+    #[Test]
+    public function aSignalRaisedWhileAProcessIsStartingIsHandledOnceItIsStarted(): void
+    {
+        $running         = new RunningProcesses();
+        $process         = $this->sleeper();
+        $runningAtHandle = null;
+        $previousAsync   = pcntl_async_signals(true);
+        $previous        = pcntl_signal_get_handler(\SIGUSR1);
+        \Safe\pcntl_signal(\SIGUSR1, static function () use (&$runningAtHandle, $process): void {
+            $runningAtHandle = $process->isRunning();
+        });
+
+        try {
+            $process->setInput(self::signalOnRewind());
+            $running->start($process);
+
+            self::assertTrue($runningAtHandle, 'the handler ran while the process was still being started, so it could not see it');
+        } finally {
+            \Safe\pcntl_signal(\SIGUSR1, \is_callable($previous) || \is_int($previous) ? $previous : \SIG_DFL);
+            pcntl_async_signals($previousAsync);
+            $process->stop(0);
+        }
+    }
+
+    /** @return Generator<int, string> */
+    private static function signalOnRewind(): Generator
+    {
+        \Safe\posix_kill(getmypid(), \SIGUSR1);
+
+        yield '';
     }
 
     #[Test]

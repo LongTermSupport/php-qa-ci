@@ -39,6 +39,13 @@ final class RunningProcesses
         $this->processes[spl_object_id($process)] = $process;
     }
 
+    /** Registers $process and starts it. */
+    public function start(Process $process): void
+    {
+        $this->add($process);
+        $process->start();
+    }
+
     public function remove(Process $process): void
     {
         unset($this->processes[spl_object_id($process)]);
