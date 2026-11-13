@@ -43,6 +43,11 @@ final class RunningProcessesTest extends TestCase
 
     private ?Process $signalledProcess = null;
 
+    protected function tearDown(): void
+    {
+        $this->signalledProcess?->stop(0);
+    }
+
     #[Test]
     public function stopAllTerminatesEveryRegisteredRunningProcess(): void
     {
@@ -307,11 +312,6 @@ final class RunningProcessesTest extends TestCase
             \Safe\pcntl_signal(\SIGUSR1, $previous);
             pcntl_async_signals($previousAsync);
         }
-    }
-
-    protected function tearDown(): void
-    {
-        $this->signalledProcess?->stop(0);
     }
 
     #[Test]
