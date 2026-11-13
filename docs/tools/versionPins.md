@@ -3,8 +3,10 @@
 **Identifier**: `phpqaci.versionPins`
 
 An always-on check that every version pin in the project's QA configuration matches the toolchain
-actually in use, and that a workflow running on `pull_request` stops when the pull request head is
-behind its base (see "Up-to-date-with-base gate" below). One lane covers three pins:
+actually in use, that a workflow running on `pull_request` stops when the pull request head is
+behind its base (see "Up-to-date-with-base gate" below), and that a shipped workflow template
+which selects phase groups runs every one or says why not (see "Phase groups in a shipped
+template" below). One lane covers three pins:
 
 | Pin                                                                                                                         | Compared against                                                  | Detector                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -46,6 +48,36 @@ Fix it by adding the gate step right after the checkout (which needs `fetch-dept
 `base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and
 `qa-autofix.yml` templates show both. Findings carry the same identifier as the version pins.
 
+## Phase groups in a shipped template
+
+A workflow that runs `qa -t allCS` and `qa -t allStatic` reads as complete coverage, but the
+linting phase (`allLints`) is then never run, so a green check does not mean the lint lanes ran:
+a `composer.json` out of order, a stale version pin or a broken shell script merges green and is
+found only by a developer's local full run. A shipped template that selects phase groups by name
+must therefore run every phase the pipeline defines (`allCS`, `allLints`, `allStatic`,
+`allTests`, read from the pipeline's own phases, so a phase added later is required at once),
+or state that it leaves one out and why, on a comment line of its own:
+
+```yaml
+# qa-phase-deferred: allTests - a PHPUnit suite usually needs a database or services not on the runner
+```
+
+The separator may be `-`, `--`, `—` or `:`, and the reason is required. A comment that merely
+mentions a group does not run it, and a template that runs the whole `qa`, or single tools, selects
+no group and is not judged. The check
+([`WorkflowPhaseGroupsDetector`](../../src/VersionPins/WorkflowPhaseGroupsDetector.php)) reads only
+the files in a project's `templates/github-actions/` directory. That directory exists in this
+repository, which ships the templates; a consuming project has it only if it ships templates of
+its own, and the workflows in `.github/workflows/` are never judged, so they may split the phases
+across files as they like.
+
+The check reads a template as a whole, not job by job, and does not evaluate it: a group named by
+a step in any job counts as run, including a step that never executes (`if: false`) and one that
+only echoes the command.
+
+Fix a finding by adding the step the message names (`qa -t <group>`) to the template, or by adding
+the `qa-phase-deferred` line with its reason.
+
 ## How it runs
 
 - In the full pipeline, in the linting phase, immediately after the Analysed Paths check.
@@ -77,7 +109,7 @@ Each message names the file, the pin and the exact replacement:
 ## Implementation
 
 - Decisions: the three detectors above, each pure over text and a version string, and
-  `WorkflowBaseGateDetector`, pure over a workflow's text.
+  `WorkflowBaseGateDetector` and `WorkflowPhaseGroupsDetector`, pure over a workflow's text.
 - Runner: [`VersionPinsCheck`](../../src/VersionPins/VersionPinsCheck.php), which reads the
   config files, prefixes each finding with the file it came from, maps the verdict to output and
   exit code, and prints the identifier.

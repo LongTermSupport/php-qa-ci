@@ -167,9 +167,11 @@ skipped run — cosmetic.)
   by default) and Settings → Actions → General → "Read and write permissions".
 - A custom composer `bin-dir` (e.g. `bin`) needs no edit: every step runs
   `"$(composer config bin-dir)/qa"`.
-- The gate runs `qa -t allCS` + `qa -t allStatic` (tests deferred — a PHPUnit suite usually
-  needs a DB / services not on the runner). When your suite runs without external services,
-  add a tests step plus a `gate.services` block.
+- The gate runs `qa -t allCS`, `qa -t allLints` and `qa -t allStatic` (tests deferred — a
+  PHPUnit suite usually needs a DB / services not on the runner). When your suite runs without
+  external services, add a tests step plus a `gate.services` block. The `versionPins` check
+  fails a shipped template that selects phase groups and leaves one out without a
+  `# qa-phase-deferred: <group> - <reason>` comment line.
 - **Private first-party deps**: the template ships a guarded "Install SSH deploy keys" step
   that is a no-op unless the `CI_SSH_DEPLOY_BUNDLE` secret is set. If `composer.lock` pins any
   dep to a `github_deploy_*` SSH alias (CI's `GITHUB_TOKEN` can't clone private sibling repos),

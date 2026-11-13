@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\VersionPins;
 
+use LTS\PHPQA\Pipeline\Tool\Dto\PhaseDto;
+use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use LTS\PHPQA\VersionPins\PhpUnitConfigDetector;
 use LTS\PHPQA\VersionPins\SafeScanFilesDetector;
 use LTS\PHPQA\VersionPins\VersionPinsCheck;
 use LTS\PHPQA\VersionPins\WorkflowBaseGateDetector;
+use LTS\PHPQA\VersionPins\WorkflowPhaseGroupsDetector;
 use LTS\PHPQA\VersionPins\WorkflowPhpVersionDetector;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -24,6 +27,9 @@ use PHPUnit\Runner\Version;
 #[UsesClass(SafeScanFilesDetector::class)]
 #[UsesClass(WorkflowPhpVersionDetector::class)]
 #[UsesClass(WorkflowBaseGateDetector::class)]
+#[UsesClass(WorkflowPhaseGroupsDetector::class)]
+#[UsesClass(PhaseEnum::class)]
+#[UsesClass(PhaseDto::class)]
 #[Small]
 final class VersionPinsCheckTest extends TestCase
 {
@@ -32,6 +38,8 @@ final class VersionPinsCheckTest extends TestCase
     private const string CURRENT = self::PROJECTS . '/current';
 
     private const string STALE = self::PROJECTS . '/stale';
+
+    private const string GROUPS = self::PROJECTS . '/groups';
 
     private const string PHPUNIT_XML = '/qaConfig/phpunit.xml';
 
@@ -65,6 +73,27 @@ final class VersionPinsCheckTest extends TestCase
 
         self::expectOutputString($expected);
         self::assertSame(1, $this->check()->run(self::STALE, $phpunit, $crc));
+    }
+
+    #[Test]
+    public function aShippedTemplateThatSelectsPhaseGroupsMustRunEachOrSayWhyNot(): void
+    {
+        $expected = \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull_request workflow has no up-to-date-base gate' . \PHP_EOL
+            . '------------------------------------------------------------------------------------------------------------------' . \PHP_EOL
+            . 'Installed: PHPUnit 13.3.2, PHP 8.5' . \PHP_EOL . \PHP_EOL
+            . '  - templates/github-actions/gate.yml: runs qa phase groups but not allLints: add a step that runs `qa -t allLints`, or say why it is left out with a comment line `# qa-phase-deferred: allLints - <reason>`' . \PHP_EOL
+            . '  - templates/github-actions/gate.yml: runs qa phase groups but not allTests: add a step that runs `qa -t allTests`, or say why it is left out with a comment line `# qa-phase-deferred: allTests - <reason>`' . \PHP_EOL
+            . \PHP_EOL . '🪪  ' . VersionPinsCheck::IDENTIFIER . '  (vendor/bin/rule-doc ' . VersionPinsCheck::IDENTIFIER . ')' . \PHP_EOL;
+
+        self::expectOutputString($expected);
+        self::assertSame(1, $this->check()->run(self::GROUPS, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
+    }
+
+    #[Test]
+    public function aProjectsOwnWorkflowMayRunOnlySomeOfThePhaseGroups(): void
+    {
+        $this->expectOutputRegex('#^(?!.*own\.yml)#s');
+        self::assertSame(1, $this->check()->run(self::GROUPS, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
     #[Test]

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\VersionPins;
 
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
 use PHPUnit\Runner\Version;
 
 /**
@@ -22,7 +23,9 @@ use PHPUnit\Runner\Version;
  * the PHP or PHPUnit requirement moves on. Thin I/O around the detectors.
  *
  * The lane also holds the workflow shape rule that a `pull_request` run stops
- * when its head is behind the base branch ({@see WorkflowBaseGateDetector}).
+ * when its head is behind the base branch ({@see WorkflowBaseGateDetector}), and
+ * the one that a shipped template selecting phase groups runs each of them or
+ * says why not ({@see WorkflowPhaseGroupsDetector}).
  *
  * @internal
  */
@@ -47,6 +50,7 @@ final readonly class VersionPinsCheck
         private SafeScanFilesDetector $safeScanFilesDetector = new SafeScanFilesDetector(),
         private WorkflowPhpVersionDetector $workflowDetector = new WorkflowPhpVersionDetector(),
         private WorkflowBaseGateDetector $baseGateDetector = new WorkflowBaseGateDetector(),
+        private WorkflowPhaseGroupsDetector $phaseGroupsDetector = new WorkflowPhaseGroupsDetector(),
     ) {
     }
 
@@ -139,6 +143,10 @@ final readonly class VersionPinsCheck
                 $problems[] = $relative . ': ' . $problem;
             }
 
+            foreach ($this->phaseGroupProblems($relative, $yaml) as $problem) {
+                $problems[] = $relative . ': ' . $problem;
+            }
+
             if (null === $required || !$this->workflowDetector->detectsPhpVersion($yaml)) {
                 continue;
             }
@@ -159,6 +167,25 @@ final readonly class VersionPinsCheck
         }
 
         return $problems;
+    }
+
+    /**
+     * The phase groups a shipped template selects must be every phase the pipeline
+     * defines. Only the templates this repository ships are judged: a consumer's own
+     * workflows may split the phases across files as they like.
+     *
+     * @return list<string>
+     */
+    private function phaseGroupProblems(string $relative, string $yaml): array
+    {
+        if (!str_starts_with($relative, ltrim(self::TEMPLATES_DIR, '/') . '/')) {
+            return [];
+        }
+
+        return $this->phaseGroupsDetector->check($yaml, ...array_map(
+            static fn (PhaseEnum $phase): string => $phase->phase()->runnerAliases[0],
+            PhaseEnum::cases(),
+        ));
     }
 
     /** The major.minor from composer.json's php constraint, or null when absent. */

@@ -25,6 +25,29 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Added
+
+- `versionPins` fails a shipped workflow template that selects phase groups (`qa -t allCS`,
+  `qa -t allStatic`) and leaves one of the pipeline's phases out, so a green check cannot silently
+  skip a whole phase. A template that leaves a phase out on purpose says so on a comment line,
+  `# qa-phase-deferred: <group> - <reason>`, and the reason is required. The groups are read from
+  the pipeline's own phases, so a phase added later is required at once. Only the templates in
+  `templates/github-actions/` are judged; a project's own workflows are not. See
+  [docs/tools/versionPins.md](docs/tools/versionPins.md#phase-groups-in-a-shipped-template).
+
+### Changed
+
+- The shipped `qa-autofix.yml` template's `gate` job now also runs `qa -t allLints` (issues #397
+  and #409). It ran only `allCS` and `allStatic`, so a project that copied it got a green check while
+  every linting lane (`composerChecks`, `versionPins`, `shellCheck`, `markdownLinks`, `yamlLint` and
+  the rest) was skipped, and a defect they catch was found only by a developer's local full run.
+  The template's notes now state which phase groups the gate runs and which it leaves out (tests),
+  and the gate's checkout now fetches full history (`fetch-depth: 0`), because the linting group
+  includes the opt-in changelog check, which refuses a shallow clone.
+  The template is copied, not updated automatically: a project that copied it earlier changes only
+  when it copies the file again, and its pull requests then fail on lint findings that used to
+  surface only locally.
+
 ## 85.18.1 — 2026-11-09
 
 ### Fixed
