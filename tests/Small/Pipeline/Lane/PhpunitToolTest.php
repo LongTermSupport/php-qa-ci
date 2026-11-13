@@ -157,6 +157,21 @@ final class PhpunitToolTest extends TestCase
     }
 
     #[Test]
+    public function coverageLeftByAnEarlierRunIsRemovedEvenWhenThePhpunitVersionProbeFails(): void
+    {
+        $this->factory->project->write('var/qa/phpunit_logs/coverage-xml/stale.xml', '<phpunit/>');
+        $this->factory->processes->willFail(1, "  Could not open input file\n");
+
+        $result = new PhpunitTool()->run($this->context($this->factory->builder()));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertDirectoryDoesNotExist(
+            $this->root . '/var/qa/phpunit_logs/coverage-xml',
+            'a read-only run goes on to Infection after a failed phpunit lane, which must not find this',
+        );
+    }
+
+    #[Test]
     public function aNoCoverageRunStripsXdebugAndAddsTheNoCoverageFlags(): void
     {
         $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
