@@ -27,14 +27,17 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
 
     /** @var array<string, string> directory => file pattern, both relative to the project root */
     private const array SCANNED = [
-        'scripts'                  => '*.bash',
-        'scripts/lib'              => '*.bash',
+        'scripts'                  => '*',
+        'scripts/lib'              => '*',
         'git-hooks'                => '*',
-        '.github/workflows'        => '*.yml',
-        'templates/github-actions' => '*.yml',
+        '.github/workflows'        => '*.y*ml',
+        'templates/github-actions' => '*.y*ml',
     ];
 
     private const string CALL_PATTERN = '/(?:^|[\s|&;(!`])curl\s+(?:-|["\']?https?:)/';
+
+    // `--retry` followed by a count of at least one: `--retry 0` and `--retry-delay` retry nothing.
+    private const string RETRY_PATTERN = '/--retry\s+[1-9]/';
 
     #[Test]
     public function everyDownloadInAScriptOrWorkflowRetriesATransientError(): void
@@ -65,6 +68,23 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
     }
 
     #[Test]
+    public function theScanCoversAnExtensionlessScriptAndAYamlWorkflow(): void
+    {
+        $files = $this->scannedFiles();
+
+        self::assertContains(self::ROOT . '/scripts/issue-monitor', $files);
+        self::assertSame([], array_filter($files, static fn (string $path): bool => str_ends_with($path, '.md')));
+    }
+
+    #[Test]
+    public function aRetryThatRetriesNothingDoesNotCount(): void
+    {
+        self::assertCount(1, $this->callsWithoutRetry("curl -fSL --retry 0 https://example.test/a\n"));
+        self::assertCount(1, $this->callsWithoutRetry("curl -fSL --retry-delay 3 https://example.test/a\n"));
+        self::assertCount(1, $this->callsWithoutRetry("curl -fSL --retry https://example.test/a\n"));
+    }
+
+    #[Test]
     public function aCurlWhoseRetryIsOnAContinuationLineIsAccepted(): void
     {
         self::assertSame([], $this->callsWithoutRetry("curl -fSL --retry 5 -o \"\$CACHE\" \\\n    https://example.test/box.phar\n"));
@@ -92,7 +112,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
         $files = [];
         foreach (self::SCANNED as $directory => $pattern) {
             foreach (\Safe\glob(self::ROOT . '/' . $directory . '/' . $pattern) as $path) {
-                if (\is_string($path) && is_file($path)) {
+                if (\is_string($path) && is_file($path) && !str_ends_with($path, '.md')) {
                     $files[] = $path;
                 }
             }
@@ -111,7 +131,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
                 continue;
             }
 
-            if (1 === \Safe\preg_match(self::CALL_PATTERN, $line) && !str_contains($line, '--retry')) {
+            if (1 === \Safe\preg_match(self::CALL_PATTERN, $line) && 1 !== \Safe\preg_match(self::RETRY_PATTERN, $line)) {
                 $calls[] = $trimmed;
             }
         }
