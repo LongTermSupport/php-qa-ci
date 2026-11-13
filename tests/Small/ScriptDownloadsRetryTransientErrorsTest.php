@@ -32,6 +32,7 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
         'git-hooks'                => '*',
         '.github/workflows'        => '*.y*ml',
         'templates/github-actions' => '*.y*ml',
+        '.claude/ccy'              => 'Dockerfile*',
     ];
 
     private const string CALL_PATTERN = '/(?:^|[\s|&;(!`])curl\s+(?:-|["\']?https?:)/';
