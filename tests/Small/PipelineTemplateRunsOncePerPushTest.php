@@ -204,23 +204,61 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     }
 
     /**
-     * An expression in a shell script is substituted before the shell parses it, so a branch
-     * name, an input or a title written by someone else becomes shell syntax. A value reaches a
-     * script through `env:` and is read as a variable.
+     * An expression in a shell script (`run:`) or in the JavaScript of a github-script step
+     * (`script:`) is substituted before the interpreter parses it, so a branch name, an input or a
+     * title written by someone else becomes shell or JavaScript syntax. A value reaches a script
+     * through `env:` and is read as a variable.
      */
     #[Test]
     public function noScriptOfAWorkflowOrTemplateHoldsAnExpression(): void
     {
         $found = [];
         foreach ($this->workflowFiles() as $file) {
-            foreach (WorkflowNode::ofFile($file)->stringsUnderKey('run') as $script) {
-                foreach ($this->expressionsIn($script) as $expression) {
-                    $found[] = basename($file) . ': ' . $expression;
-                }
+            foreach ($this->expressionsInScriptsOf(WorkflowNode::ofFile($file)) as $expression) {
+                $found[] = basename($file) . ': ' . $expression;
             }
         }
 
         self::assertSame([], $found, 'Pass the value to the script through env: and read it as a shell variable.');
+    }
+
+    #[Test]
+    public function theGuardFindsAnExpressionInAScript(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              build:
+                steps:
+                  - run: echo "${{ github.head_ref }}"
+                  - run: echo "$HEAD"
+                    env:
+                      HEAD: ${{ github.head_ref }}
+            YAML);
+
+        self::assertSame(['${{ github.head_ref }}'], $this->expressionsInScriptsOf($workflow));
+    }
+
+    #[Test]
+    public function theGuardFindsAnExpressionInAGithubScriptInput(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              comment:
+                steps:
+                  - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+                    with:
+                      script: |
+                        const title = '${{ github.event.pull_request.title }}';
+                        const run = `${context.runId}`;
+                  - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+                    env:
+                      TITLE: ${{ github.event.pull_request.title }}
+                    with:
+                      script: |
+                        const title = process.env.TITLE;
+            YAML);
+
+        self::assertSame(['${{ github.event.pull_request.title }}'], $this->expressionsInScriptsOf($workflow));
     }
 
     /**
@@ -234,6 +272,19 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
             $branches,
             static fn (string $branch): bool => '**' === $branch || \in_array(rtrim($branch, '/*'), $prefixes, true),
         ));
+    }
+
+    /** @return list<string> every expression that sits inside a script of the workflow: those of every `run:` first, then those of every `script:` */
+    private function expressionsInScriptsOf(WorkflowNode $workflow): array
+    {
+        $found = [];
+        foreach (['run', 'script'] as $key) {
+            foreach ($workflow->stringsUnderKey($key) as $script) {
+                $found = [...$found, ...$this->expressionsIn($script)];
+            }
+        }
+
+        return $found;
     }
 
     /** @return list<string> */
