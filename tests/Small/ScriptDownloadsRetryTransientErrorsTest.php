@@ -28,12 +28,14 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
 
     /** @var array<string, string> directory => file pattern, both relative to the project root */
     private const array SCANNED = [
-        'scripts'                  => '*',
-        'scripts/lib'              => '*',
-        'git-hooks'                => '*',
-        '.github/workflows'        => '*.y*ml',
-        'templates/github-actions' => '*.y*ml',
-        '.claude/ccy'              => 'Dockerfile*',
+        'scripts'                    => '*',
+        'scripts/lib'                => '*',
+        'git-hooks'                  => '*',
+        '.github/workflows'          => '*.y*ml',
+        '.github/actions/*'          => 'action.y*ml',
+        'templates/github-actions'   => '*.y*ml',
+        'templates/github-actions/*' => 'action.y*ml',
+        '.claude/ccy'                => 'Dockerfile*',
     ];
 
     private const string CALL_PATTERN = '/(?:^|[\s|&;(!`])curl\s+(?:-|["\']?https?:)/';
