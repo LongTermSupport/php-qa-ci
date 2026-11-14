@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\WorkflowFiles;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -165,11 +166,7 @@ final class GitHubActionsTemplatesTest extends TestCase
     private function executedLinesMatching(string $pattern): array
     {
         $hits = [];
-        foreach (\Safe\glob(self::TEMPLATES . '/*.yml') as $file) {
-            if (!\is_string($file)) {
-                continue;
-            }
-
+        foreach (WorkflowFiles::in(self::TEMPLATES) as $file) {
             foreach (explode("\n", \Safe\file_get_contents($file)) as $index => $line) {
                 if (!str_starts_with(ltrim($line), '#') && 1 === \Safe\preg_match($pattern, $line)) {
                     $hits[] = \sprintf('%s:%d: %s', basename($file), $index + 1, trim($line));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small;
 
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\BranchNamePolicyDecision;
+use LTS\PHPQA\Tests\Support\WorkflowFiles;
 use LTS\PHPQA\Tests\Support\WorkflowNode;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
@@ -318,12 +319,11 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     private function workflowFiles(): array
     {
         $files = [
-            ...\Safe\glob(self::REPOSITORY . '/.github/workflows/*.yml'),
-            ...\Safe\glob(self::REPOSITORY . '/.github/actions/*/action.yml'),
-            ...\Safe\glob(self::REPOSITORY . '/templates/github-actions/*.yml'),
-            ...\Safe\glob(self::REPOSITORY . '/templates/github-actions/*/action.yml'),
+            ...WorkflowFiles::in(self::REPOSITORY . '/.github/workflows'),
+            ...WorkflowFiles::actionsIn(self::REPOSITORY . '/.github/actions'),
+            ...WorkflowFiles::in(self::REPOSITORY . '/templates/github-actions'),
+            ...WorkflowFiles::actionsIn(self::REPOSITORY . '/templates/github-actions'),
         ];
-        self::assertContainsOnlyString($files);
         sort($files);
 
         return $files;

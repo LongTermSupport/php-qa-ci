@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\VersionPins;
 
 use LTS\PHPQA\Pipeline\Tool\PhaseEnum;
+use LTS\PHPQA\Tests\Support\WorkflowFiles;
 use LTS\PHPQA\VersionPins\WorkflowPhaseGroupsDetector;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
@@ -47,11 +48,10 @@ final class ShippedTemplatesRunEveryPhaseGroupTest extends TestCase
     #[Test]
     public function everyShippedTemplatePassesTheDetector(): void
     {
-        $templates = \Safe\glob(self::TEMPLATES . '/*.yml');
+        $templates = WorkflowFiles::in(self::TEMPLATES);
         self::assertNotSame([], $templates);
 
         foreach ($templates as $template) {
-            self::assertIsString($template);
             self::assertSame(
                 [],
                 new WorkflowPhaseGroupsDetector()->check(\Safe\file_get_contents($template), ...$this->phaseGroups()),
