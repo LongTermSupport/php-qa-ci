@@ -77,6 +77,21 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
     }
 
     #[Test]
+    public function theScanReadsTheCompositeActionsOfTheWorkflowsAndOfTheTemplates(): void
+    {
+        $tree = TempDir::create('download-retry-scan');
+
+        try {
+            $action   = $tree->write('.github/actions/one/action.yml', "runs:\n  steps:\n    - run: curl -fSL https://example.test/a\n");
+            $template = $tree->write('templates/github-actions/two/action.yaml', "runs:\n  steps:\n    - run: curl -fSL https://example.test/a\n");
+
+            self::assertEqualsCanonicalizing([$action, $template], $this->scannedFiles($tree->path));
+        } finally {
+            $tree->remove();
+        }
+    }
+
+    #[Test]
     public function aCurlWithoutRetryIsFound(): void
     {
         self::assertSame(
