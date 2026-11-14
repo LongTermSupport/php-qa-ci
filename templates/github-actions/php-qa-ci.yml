@@ -289,6 +289,6 @@ jobs:
 
       - name: Add Coverage PR Comment
         if: hashFiles('code-coverage-results.md') != ''
-        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           path: code-coverage-results.md
