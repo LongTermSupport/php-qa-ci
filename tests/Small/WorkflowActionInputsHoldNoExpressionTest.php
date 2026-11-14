@@ -138,7 +138,7 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
         $allowed = ['actions/cache' => ['key', 'path'], 'unused/action' => ['input']];
 
         self::assertSame(
-            ['unused/action: input', 'actions/cache: path'],
+            ['actions/cache: path', 'unused/action: input'],
             $this->staleAllowances($allowed, 'actions/cache: key'),
         );
     }
@@ -151,7 +151,14 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
      */
     private function expressionInputsOf(WorkflowNode $workflow): array
     {
-        return [];
+        return array_values(array_filter(
+            $this->inputsWithAnExpressionIn($workflow),
+            static function (string $pair): bool {
+                [$action, $input] = explode(': ', $pair, 2);
+
+                return !\in_array($input, self::PLAIN_DATA[$action] ?? [], true);
+            },
+        ));
     }
 
     /**
@@ -161,7 +168,17 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
      */
     private function inputsWithAnExpressionIn(WorkflowNode $workflow): array
     {
-        return [];
+        $found = [];
+        foreach ($this->stepsPassingInputs($workflow) as $step) {
+            $action = explode('@', $step->child(self::USES)->text())[0];
+            foreach ($step->child(self::WITH)->stringMap() as $input => $value) {
+                if (str_contains($value, '${{')) {
+                    $found[] = $action . ': ' . $input;
+                }
+            }
+        }
+
+        return $found;
     }
 
     /**
@@ -173,7 +190,31 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
      */
     private function staleAllowances(array $allowed, string ...$used): array
     {
-        return [];
+        $stale = [];
+        foreach ($allowed as $action => $inputs) {
+            foreach ($inputs as $input) {
+                if (!\in_array($action . ': ' . $input, $used, true)) {
+                    $stale[] = $action . ': ' . $input;
+                }
+            }
+        }
+
+        return $stale;
+    }
+
+    /** @return list<WorkflowNode> every step, at any depth, that names an action and passes it inputs */
+    private function stepsPassingInputs(WorkflowNode $node): array
+    {
+        $found = [];
+        if (null !== $node->child(self::USES)->string() && $node->child(self::WITH)->isCollection()) {
+            $found[] = $node;
+        }
+
+        foreach ($node->entries() as $child) {
+            $found = [...$found, ...$this->stepsPassingInputs($child)];
+        }
+
+        return $found;
     }
 
     /** @return list<string> */
