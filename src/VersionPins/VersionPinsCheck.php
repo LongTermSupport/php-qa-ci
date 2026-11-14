@@ -43,6 +43,8 @@ final readonly class VersionPinsCheck
 
     private const string RUN_WORKFLOW = self::WORKFLOWS_DIR . '/qa.yml';
 
+    private const array WORKFLOW_EXTENSIONS = ['yml', 'yaml'];
+
     public function __construct(
         private string $installedPhpUnitVersion,
         private string $phpMajorMinor,
@@ -224,15 +226,33 @@ final readonly class VersionPinsCheck
                 continue;
             }
 
-            foreach (\Safe\glob($absolute . '/*.yml') as $path) {
-                if (!\is_string($path)) {
-                    continue;
-                }
-
+            foreach ($this->workflowPaths($absolute) as $path) {
                 $files[ltrim($dir, '/') . '/' . basename($path)] = \Safe\file_get_contents($path);
             }
         }
 
         return $files;
+    }
+
+    /**
+     * The workflow files directly in a directory, in either extension GitHub runs, sorted so the
+     * report order does not depend on the filesystem.
+     *
+     * @return list<string>
+     */
+    private function workflowPaths(string $directory): array
+    {
+        $paths = [];
+        foreach (self::WORKFLOW_EXTENSIONS as $extension) {
+            foreach (\Safe\glob($directory . '/*.' . $extension) as $path) {
+                if (\is_string($path)) {
+                    $paths[] = $path;
+                }
+            }
+        }
+
+        sort($paths);
+
+        return $paths;
     }
 }
