@@ -114,6 +114,53 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
         );
     }
 
+    #[Test]
+    public function theGuardReportsALevelGitHubDoesNotKnow(): void
+    {
+        $allowed = [self::GUARD_FILE => ['deploy' => ['contents']]];
+
+        self::assertSame(
+            ['grants contents at the top with a level that is not read, write or none'],
+            $this->problems(WorkflowNode::ofYaml("permissions:\n  contents: Write\n"), self::GUARD_FILE, $allowed),
+        );
+        self::assertSame(
+            ['job deploy grants contents with a level that is not read, write or none'],
+            $this->problems(
+                WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions:\n      contents: true\n"),
+                self::GUARD_FILE,
+                $allowed,
+            ),
+        );
+        self::assertSame(
+            [],
+            $this->problems(
+                WorkflowNode::ofYaml("permissions:\n  contents: none\njobs:\n  deploy:\n    permissions:\n      contents: read\n"),
+                self::GUARD_FILE,
+                $allowed,
+            ),
+        );
+    }
+
+    #[Test]
+    public function theGuardReportsAnAllowedWriteNoWorkflowHoldsAnyMore(): void
+    {
+        $workflow = WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions:\n      contents: write\n");
+        $allowed  = [
+            self::GUARD_FILE => ['deploy' => ['contents', 'issues'], 'gone' => ['contents']],
+            'other.yml'      => ['x' => ['actions']],
+        ];
+
+        self::assertSame(
+            [
+                'w.yml lists issues: write for job deploy, which no copy of that file grants',
+                'w.yml lists contents: write for job gone, which no copy of that file grants',
+                'other.yml lists actions: write for job x, which no copy of that file grants',
+            ],
+            $this->staleAllowances($allowed, [self::GUARD_FILE => [$workflow]]),
+        );
+        self::assertSame([], $this->staleAllowances([self::GUARD_FILE => ['deploy' => ['contents']]], [self::GUARD_FILE => [$workflow]]));
+    }
+
     /**
      * @param array<string, array<string, list<string>>>|null $allowed the list to judge against, this class's by default
      *
