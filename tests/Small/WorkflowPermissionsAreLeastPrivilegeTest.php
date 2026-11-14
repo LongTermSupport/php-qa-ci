@@ -45,6 +45,12 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     /** The level that grants a change. */
     private const string WRITE = 'write';
 
+    /** The value that grants every scope a write. */
+    private const string WRITE_ALL = 'write-all';
+
+    /** The value that grants every scope a read. */
+    private const string READ_ALL = 'read-all';
+
     /** The scope most jobs here write, and the one the guard tests grant. */
     private const string CONTENTS = 'contents';
 
@@ -237,8 +243,10 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
 
         $problems = [];
         $top      = $workflow->child(self::PERMISSIONS);
-        if (\in_array($top->string(), ['write-all', 'read-all'], true)) {
-            return [\sprintf('grants %s at the top', $top->text())];
+        if (!$top->isCollection()) {
+            return [\in_array($top->string(), [self::WRITE_ALL, self::READ_ALL], true)
+                ? \sprintf('grants %s at the top', $top->text())
+                : 'declares permissions at the top that are not a mapping of scopes'];
         }
 
         foreach ($top->entries() as $scope => $level) {
@@ -251,8 +259,12 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
 
         foreach ($workflow->child('jobs')->entries() as $job => $node) {
             $granted = $node->child(self::PERMISSIONS);
-            if ('write-all' === $granted->string()) {
-                $problems[] = \sprintf('job %s grants write-all', $job);
+            if ($node->has(self::PERMISSIONS) && !$granted->isCollection()) {
+                if (self::WRITE_ALL === $granted->string()) {
+                    $problems[] = \sprintf('job %s grants write-all', $job);
+                } elseif (self::READ_ALL !== $granted->string()) {
+                    $problems[] = \sprintf('job %s declares permissions that are not a mapping of scopes', $job);
+                }
 
                 continue;
             }
