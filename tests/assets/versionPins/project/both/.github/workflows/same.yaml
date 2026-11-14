@@ -1,0 +1,7 @@
+name: Same
+on:
+  pull_request:
+jobs:
+  check:
+    steps:
+      - run: composer install

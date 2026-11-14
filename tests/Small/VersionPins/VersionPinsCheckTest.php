@@ -41,6 +41,10 @@ final class VersionPinsCheckTest extends TestCase
 
     private const string GROUPS = self::PROJECTS . '/groups';
 
+    private const string YAML = self::PROJECTS . '/yaml';
+
+    private const string BOTH = self::PROJECTS . '/both';
+
     private const string PHPUNIT_XML = '/qaConfig/phpunit.xml';
 
     private const string CRC_JSON = '/qaConfig/composerRequireChecker.json';
@@ -94,6 +98,20 @@ final class VersionPinsCheckTest extends TestCase
     {
         $this->expectOutputRegex('#^(?!.*own\.yml)#s');
         self::assertSame(1, $this->check()->run(self::GROUPS, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
+    }
+
+    #[Test]
+    public function aWorkflowAndATemplateWrittenAsYamlAreJudgedAsMuchAsOnesWrittenAsYml(): void
+    {
+        $this->expectOutputRegex('#\.github/workflows/pr\.yaml: runs on pull_request but has no up-to-date-with-base gate.*templates/github-actions/autofix\.yaml: the PHP version detection list \[8\.4, 8\.3\] cannot select PHP 8\.5#s');
+        self::assertSame(1, $this->check()->run(self::YAML, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
+    }
+
+    #[Test]
+    public function aYmlAndAYamlWorkflowOfTheSameNameAreEachReportedUnderTheirOwnName(): void
+    {
+        $this->expectOutputRegex('#(?=.*\.github/workflows/same\.yml: runs on pull_request)(?=.*\.github/workflows/same\.yaml: runs on pull_request)#s');
+        self::assertSame(1, $this->check()->run(self::BOTH, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
     #[Test]
