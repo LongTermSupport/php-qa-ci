@@ -1,4 +1,4 @@
-## 16:56 · decision · —   — Stand-in declined: nothing engineering was pending
+## 16:56 · decision · — — Stand-in declined: nothing engineering was pending
 
 The one-off awaiting-human stand-in fired and declined. This is the stand-in's ruling, not the Owner's, and a later real Owner message overturns it.
 

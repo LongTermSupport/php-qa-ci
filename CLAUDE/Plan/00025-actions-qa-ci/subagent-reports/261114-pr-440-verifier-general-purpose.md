@@ -10,11 +10,12 @@ untracked/scratch/ and this report.
 ## 1. Is the claim true, and does anything else disagree?
 
 True.
+
 - origin/php8.5 `templates/github-actions/qa-autofix.yml:31` read `require the "gate" check`.
 - The `gate` job is at `qa-autofix.yml:301-302`: id `gate`, `name: QA gate (read-only qa)`. GitHub reports a
   job's check under its `name:`, and branch protection matches the exact text, so "gate" matches no check.
   The other job names are `Branch is up to date with its base` (:119) and `Auto-fix ... [inline barrier]` (:144).
-- Searched git-tracked docs/, scripts/, README.md, src/, tests/, .github/ and CLAUDE/*.md for the autofix gate
+- Searched git-tracked docs/, scripts/, README.md, src/, tests/, .github/ and CLAUDE/\*.md for the autofix gate
   check name. Nothing else names it differently, so nothing disagrees now.
   - docs/github-actions.md:122-186 (autofix section) describes the `gate` job by id and gives no required-check
     name. :344 and :116 name `QA Pipeline`, which is the php-qa-ci.yml template's check, a different template.
@@ -27,6 +28,7 @@ True.
 ## 2. Is the test a real detector?
 
 Yes.
+
 - Red commit 2f0f0874 adds only the test; `git diff 2f0f0874^ 2f0f0874 -- templates` is empty. At that commit the
   header still read `require the "gate" check` (line 31).
 - The test builds `require the "QA gate (read-only qa)" check`, reading the name from the `gate` job's `name:`
@@ -40,8 +42,7 @@ Yes.
   fixer's preference. Behaviour is the same.
 - Conventions match the sibling tests (StalePullRequestRunsTest and others): `declare(strict_types=1)`,
   namespace `LTS\PHPQA\Tests\Small`, `#[CoversNothing]`, `#[Small]`, `#[Test]`, `final`, `@internal`, a
-  "Defence for the class ..." docblock, `WorkflowNode::ofFile`, `\Safe\file_get_contents`, a `private const
-  string`. The null-name guard makes it fail loudly if the job loses its name.
+  "Defence for the class ..." docblock, `WorkflowNode::ofFile`, `\Safe\file_get_contents`, a `private const string`. The null-name guard makes it fail loudly if the job loses its name.
 - Weakness, minor: it proves the phrase is present, not that no stale second mention exists. The template has
   only one such line, so this is not a gap today.
 
@@ -50,6 +51,7 @@ Yes.
 Yes. `git diff origin/php8.5...HEAD -U0 -- templates` is exactly one comment line
 (`qa-autofix.yml:31`); the `name: QA gate (read-only qa)` at :302, the job ids and the `if:` conditions are
 untouched.
+
 - Drift checks: `VersionPinsCheck.php:163` compares only php-qa-ci.yml with .github/workflows/qa.yml.
   GitHubActionsTemplatesTest.php:77 and :87 compare release.yml and approve-held-ci/action.yml with their
   templates. The repository has no copy of qa-autofix.yml to drift from, and ShippedTemplatesRunEveryPhaseGroupTest
@@ -63,8 +65,7 @@ untouched.
   It also notes (in the PR body) that consumers who copied the template earlier see the fix only on re-copy.
   The changelog entry omits this caveat; it is not needed.
 - `QA_READONLY=1 useChangelogCheck=1 GITHUB_BASE_REF=php8.5 bin/qa -t changelog` exited 0:
-  `"## Unreleased" is valid: 8 entries, the next release bumps the minor` and `1 watched file changed; recorded
-  by 1 new "## Unreleased" entry`.
+  `"## Unreleased" is valid: 8 entries, the next release bumps the minor` and `1 watched file changed; recorded by 1 new "## Unreleased" entry`.
 
 ## 5. PR description versus diff, and CI
 
