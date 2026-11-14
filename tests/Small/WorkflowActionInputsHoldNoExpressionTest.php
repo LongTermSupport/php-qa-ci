@@ -50,6 +50,9 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
     /** The key that holds the inputs a step passes to its action. */
     private const string WITH = 'with';
 
+    /** The text that opens an expression the runner substitutes before the action reads its input. */
+    private const string EXPRESSION = '${{';
+
     #[Test]
     public function noInputOfAnActionHoldsAnExpressionUnlessItsActionReadsItAsData(): void
     {
@@ -224,14 +227,39 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
         $found = [];
         foreach ($this->stepsPassingInputs($workflow) as $step) {
             $action = explode('@', $step->child(self::USES)->text())[0];
-            foreach ($step->child(self::WITH)->stringMap() as $input => $value) {
-                if (str_contains($value, '${{')) {
+            $with   = $step->child(self::WITH);
+            if (!$with->isCollection()) {
+                if ($this->holdsAnExpression($with)) {
+                    $found[] = $action . ': ' . self::WITH;
+                }
+
+                continue;
+            }
+
+            foreach ($with->entries() as $input => $value) {
+                if (str_contains((string)$input, self::EXPRESSION) || $this->holdsAnExpression($value)) {
                     $found[] = $action . ': ' . $input;
                 }
             }
         }
 
         return $found;
+    }
+
+    /** Whether a string, a key or a value at any depth under this node holds an expression. */
+    private function holdsAnExpression(WorkflowNode $node): bool
+    {
+        if (str_contains($node->text(), self::EXPRESSION)) {
+            return true;
+        }
+
+        foreach ($node->entries() as $key => $child) {
+            if (str_contains((string)$key, self::EXPRESSION) || $this->holdsAnExpression($child)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -255,11 +283,11 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
         return $stale;
     }
 
-    /** @return list<WorkflowNode> every step, at any depth, that names an action and passes it inputs */
+    /** @return list<WorkflowNode> every step, at any depth, that names an action and has a `with:` */
     private function stepsPassingInputs(WorkflowNode $node): array
     {
         $found = [];
-        if (null !== $node->child(self::USES)->string() && $node->child(self::WITH)->isCollection()) {
+        if (null !== $node->child(self::USES)->string() && $node->has(self::WITH)) {
             $found[] = $node;
         }
 
