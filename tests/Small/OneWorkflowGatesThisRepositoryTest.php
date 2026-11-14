@@ -34,6 +34,10 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
 
     private const string PULL_REQUEST = 'pull_request';
 
+    private const string PULL_REQUEST_TARGET = 'pull_request_target';
+
+    private const array PULL_REQUEST_EVENTS = [self::PULL_REQUEST, self::PULL_REQUEST_TARGET];
+
     private const string PUSH = 'push';
 
     #[Test]
@@ -46,7 +50,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
             }
         }
 
-        self::assertSame(['qa.yml'], $runners, 'Exactly one workflow starts on a pull request; a second one runs the pipeline twice.');
+        self::assertSame(['qa.yml'], $runners, 'Exactly one workflow starts on a pull request, on `pull_request` or on `pull_request_target`; a second one runs the pipeline twice.');
         self::assertFileDoesNotExist(self::WORKFLOWS . '/ci.yml');
     }
 
@@ -116,8 +120,8 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     {
         $targetOnly = WorkflowNode::ofYaml("on:\n  pull_request_target:\n");
 
-        self::assertFalse($this->startsOn($targetOnly, self::PULL_REQUEST));
-        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on:\n  pull_request:\n  pull_request_target:\n"), self::PULL_REQUEST));
+        self::assertFalse($this->startsOnPullRequestEvent($targetOnly));
+        self::assertTrue($this->startsOnPullRequestEvent(WorkflowNode::ofYaml("on:\n  pull_request:\n  pull_request_target:\n")));
     }
 
     #[Test]
@@ -136,7 +140,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
             foreach ($workflows as $workflow) {
                 self::assertFileExists(self::WORKFLOWS . '/' . $workflow, $caller . ' approves a workflow file that does not exist.');
                 self::assertTrue(
-                    $this->startsOnPullRequest(WorkflowNode::ofFile(self::WORKFLOWS . '/' . $workflow)),
+                    $this->startsOnPullRequestEvent(WorkflowNode::ofFile(self::WORKFLOWS . '/' . $workflow)),
                     $caller . ' approves the held pull_request run of ' . $workflow . ', which has none.',
                 );
             }
@@ -162,7 +166,14 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
         self::assertContains($pipelineName, $gating);
     }
 
+    /** Whether the workflow starts on a pull request: on the event itself or on its `_target` variant, which fires for the same activity. */
     private function startsOnPullRequest(WorkflowNode $workflow): bool
+    {
+        return array_any(self::PULL_REQUEST_EVENTS, fn (string $event): bool => $this->startsOn($workflow, $event));
+    }
+
+    /** Whether the workflow starts on the `pull_request` event itself, which is the event a held run is listed by. */
+    private function startsOnPullRequestEvent(WorkflowNode $workflow): bool
     {
         return $this->startsOn($workflow, self::PULL_REQUEST);
     }
