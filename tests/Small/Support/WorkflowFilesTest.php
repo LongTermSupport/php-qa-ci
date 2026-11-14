@@ -57,6 +57,30 @@ final class WorkflowFilesTest extends TestCase
     }
 
     #[Test]
+    public function aWorkflowSavedWithTheYamlExtensionIsListedAsMuchAsOneSavedAsYml(): void
+    {
+        $this->dir->write('workflows/a.yml', "on: push\n");
+        $this->dir->write('workflows/extra.yaml', "on: pull_request\n");
+
+        self::assertSame(
+            [$this->dir->path . '/workflows/a.yml', $this->dir->path . '/workflows/extra.yaml'],
+            WorkflowFiles::in($this->dir->path . '/workflows'),
+        );
+    }
+
+    #[Test]
+    public function aCompositeActionSavedAsActionYamlIsListedAsMuchAsActionYml(): void
+    {
+        $this->dir->write('actions/one/action.yml', "runs:\n  using: composite\n");
+        $this->dir->write('actions/two/action.yaml', "runs:\n  using: composite\n");
+
+        self::assertSame(
+            [$this->dir->path . '/actions/one/action.yml', $this->dir->path . '/actions/two/action.yaml'],
+            WorkflowFiles::actionsIn($this->dir->path . '/actions'),
+        );
+    }
+
+    #[Test]
     public function aDirectoryThatDoesNotExistHoldsNoFiles(): void
     {
         self::assertSame([], WorkflowFiles::in($this->dir->path . '/missing'));
