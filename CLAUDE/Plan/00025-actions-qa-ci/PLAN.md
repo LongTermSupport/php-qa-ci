@@ -117,8 +117,10 @@ This plan does three things:
   `uses:` is done as the awaiting-human stand-in (not the Owner) chose: every remote `uses:` names a
   commit SHA with its release beside it, `WorkflowActionsArePinnedToACommitTest` fails a tag, and a
   `github-actions` Dependabot configuration keeps the workflows' pins current
-  ([#441](https://github.com/LongTermSupport/php-qa-ci/pull/441)). Still the Owner's: the Dependabot
-  cooldown, allow-listing its `dependabot/` branch prefix, extending the merge authorisation to its
+  ([#441](https://github.com/LongTermSupport/php-qa-ci/pull/441)). Its pull requests are set to open
+  on `chore/` branches, which the branch-name policy allows, so the policy is not widened
+  ([#444](https://github.com/LongTermSupport/php-qa-ci/pull/444); not yet seen in a real Dependabot
+  pull request). Still the Owner's: the Dependabot cooldown, extending the merge authorisation to its
   pull requests, whether it is a "new dependency", `persist-credentials: false` and `self-repository`.
 
 ### Phase 3: CI made pragmatic (after Task 1.1)
