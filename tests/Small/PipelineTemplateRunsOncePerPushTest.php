@@ -204,9 +204,10 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     }
 
     /**
-     * An expression in a shell script is substituted before the shell parses it, so a branch
-     * name, an input or a title written by someone else becomes shell syntax. A value reaches a
-     * script through `env:` and is read as a variable.
+     * An expression in a shell script (`run:`) or in the JavaScript of a github-script step
+     * (`script:`) is substituted before the interpreter parses it, so a branch name, an input or a
+     * title written by someone else becomes shell or JavaScript syntax. A value reaches a script
+     * through `env:` and is read as a variable.
      */
     #[Test]
     public function noScriptOfAWorkflowOrTemplateHoldsAnExpression(): void
@@ -277,8 +278,10 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     private function expressionsInScriptsOf(WorkflowNode $workflow): array
     {
         $found = [];
-        foreach ($workflow->stringsUnderKey('run') as $script) {
-            $found = [...$found, ...$this->expressionsIn($script)];
+        foreach (['run', 'script'] as $key) {
+            foreach ($workflow->stringsUnderKey($key) as $script) {
+                $found = [...$found, ...$this->expressionsIn($script)];
+            }
         }
 
         return $found;
