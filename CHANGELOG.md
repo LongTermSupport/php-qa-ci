@@ -47,6 +47,14 @@ the release and its tag. The full rules are in
   The template is copied, not updated automatically: a project that copied it earlier changes only
   when it copies the file again, and its pull requests then fail on lint findings that used to
   surface only locally.
+- The shipped workflow templates (`php-qa-ci.yml`, `qa-autofix.yml`, `release.yml`) name each action
+  by a full commit SHA with its release beside it (`uses: actions/checkout@<sha> # v7`) instead of a
+  tag, because a tag is a pointer its owner can move. A test fails a remote `uses:` that is not
+  pinned this way, in the workflows here and in the templates. The templates are copied, not
+  updated automatically: a project that copied one earlier keeps its tags until it copies the file
+  again. Nothing in a consumer's copy keeps the SHAs current; the consumer's own updater does that.
+  This repository's own workflows are pinned the same way and a Dependabot configuration for
+  `github-actions` keeps them current.
 - **Bundled tool versions updated** by the dependency update: php-cs-fixer 3.95.29 → 3.95.30; composer-normalize 2.56.0 → 2.57.0.
 
 ### Fixed

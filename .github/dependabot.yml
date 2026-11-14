@@ -1,0 +1,11 @@
+# Keeps current the commit SHAs that the workflows under `.github/workflows` pin their actions to.
+#
+# Dependabot reads `.github/workflows` and not `templates/github-actions`. `qa.yml` and `release.yml`
+# are copies of their templates (a test requires it for `release.yml`), so a bump to one of them is
+# copied to its template by hand in the same pull request.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

@@ -136,7 +136,7 @@ jobs:
       # since the merge base or the last release tag, and fails on a shallow
       # clone. Nothing here pushes, so the token is not kept in the checkout.
       - name: Checkout code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -171,7 +171,7 @@ jobs:
           echo "version=$PHP_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
         with:
           php-version: ${{ steps.php.outputs.version }}
           tools: composer:v2
@@ -188,7 +188,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache composer dependencies
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -212,7 +212,7 @@ jobs:
           echo "qa=$QA" >> "$GITHUB_OUTPUT"
 
       - name: Cache QA tools
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: var/qa/cache
           key: ${{ runner.os }}-qa-cache-${{ steps.php.outputs.version }}-${{ hashFiles('**/composer.lock') }}
@@ -237,7 +237,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: test-results
           path: |
@@ -247,7 +247,7 @@ jobs:
 
       - name: Upload coverage reports
         if: success() || failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: coverage
           path: |
@@ -273,14 +273,14 @@ jobs:
 
     steps:
       - name: Download coverage
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: coverage
           path: coverage
 
       - name: Code Coverage Summary
         if: hashFiles('coverage/phpunit_logs/coverage.clover') != ''
-        uses: irongut/CodeCoverageSummary@v1.3.0
+        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
         with:
           filename: coverage/phpunit_logs/coverage.clover
           badge: true
@@ -289,6 +289,6 @@ jobs:
 
       - name: Add Coverage PR Comment
         if: hashFiles('code-coverage-results.md') != ''
-        uses: marocchino/sticky-pull-request-comment@v3
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
         with:
           path: code-coverage-results.md
