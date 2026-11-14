@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.19.0 — 2026-11-14
+
 ### Added
 
 - `versionPins` fails a shipped workflow template that selects phase groups (`qa -t allCS`,
