@@ -108,13 +108,18 @@ This plan does three things:
   - `artipacked`;
   - unpinned `uses:`.
 
-  The lane is red on this repository's workflows and templates now. Of the five defects listed,
-  only unpinned `uses:` and `artipacked` are reported; the empty `choice` option, the
-  `github.head_ref` and input template injection and excessive permissions are not. It also
-  reports two findings the list does not name, `self-repository` and the recorded
+  When the lane first ran it was red on this repository's workflows and templates. Of the five
+  defects listed, only unpinned `uses:` and `artipacked` were reported; the empty `choice` option, the
+  `github.head_ref` and input template injection and excessive permissions were not. It also
+  reported two findings the list does not name, `self-repository` and the recorded
   `dangerous-triggers` exception. The options for each are on
-  [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6380032729) and wait
-  on the Owner.
+  [#310](https://github.com/LongTermSupport/php-qa-ci/issues/310#issuecomment-6380032729). Unpinned
+  `uses:` is done as the awaiting-human stand-in (not the Owner) chose: every remote `uses:` names a
+  commit SHA with its release beside it, `WorkflowActionsArePinnedToACommitTest` fails a tag, and a
+  `github-actions` Dependabot configuration keeps the workflows' pins current
+  ([#441](https://github.com/LongTermSupport/php-qa-ci/pull/441)). Still the Owner's: the Dependabot
+  cooldown, allow-listing its `dependabot/` branch prefix, extending the merge authorisation to its
+  pull requests, whether it is a "new dependency", `persist-credentials: false` and `self-repository`.
 
 ### Phase 3: CI made pragmatic (after Task 1.1)
 
@@ -141,8 +146,11 @@ This plan does three things:
   ([#334](https://github.com/LongTermSupport/php-qa-ci/pull/334), issue
   [#303](https://github.com/LongTermSupport/php-qa-ci/issues/303) closed), and a change to the
   Infection or PHPUnit configuration that cannot finish its pull request check is tracked in
-  [#344](https://github.com/LongTermSupport/php-qa-ci/issues/344). Still the Owner's: the push
-  trigger list, removing `AUTO_COMMIT_FIXES` and the `qa-autofix.yml` gate name.
+  [#344](https://github.com/LongTermSupport/php-qa-ci/issues/344). The awaiting-human stand-in
+  (not the Owner) kept the push trigger list, left `AUTO_COMMIT_FIXES` removed and kept the gate
+  name `QA gate (read-only qa)`; the `qa-autofix.yml` header now names that check
+  ([#440](https://github.com/LongTermSupport/php-qa-ci/pull/440)). Those three stay open until the
+  Owner confirms them.
 
 ### Phase 4: actions-qa-ci (after Tasks 1.2 and 1.3)
 
