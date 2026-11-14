@@ -41,7 +41,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     {
         $runners = [];
         foreach ($this->workflowFiles() as $file) {
-            if (WorkflowNode::ofFile($file)->child('on')->has(self::PULL_REQUEST)) {
+            if ($this->startsOnPullRequest(WorkflowNode::ofFile($file))) {
                 $runners[] = basename($file);
             }
         }
@@ -76,6 +76,14 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function theGuardSeesAPullRequestTriggerWrittenAsAMapping(): void
+    {
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  pull_request:\n    branches: [main]\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  push:\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("name: no trigger here\n")));
+    }
+
+    #[Test]
     public function everyWorkflowFileAnApprovalNamesExistsAndRunsOnAPullRequest(): void
     {
         $named = [];
@@ -91,7 +99,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
             foreach ($workflows as $workflow) {
                 self::assertFileExists(self::WORKFLOWS . '/' . $workflow, $caller . ' approves a workflow file that does not exist.');
                 self::assertTrue(
-                    WorkflowNode::ofFile(self::WORKFLOWS . '/' . $workflow)->child('on')->has(self::PULL_REQUEST),
+                    $this->startsOnPullRequest(WorkflowNode::ofFile(self::WORKFLOWS . '/' . $workflow)),
                     $caller . ' approves the held pull_request run of ' . $workflow . ', which has none.',
                 );
             }
@@ -115,6 +123,11 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
         $gating = \Safe\json_decode($release->child('jobs', 'release', 'env', 'GATING_WORKFLOWS')->text(), true);
         self::assertIsArray($gating);
         self::assertContains($pipelineName, $gating);
+    }
+
+    private function startsOnPullRequest(WorkflowNode $workflow): bool
+    {
+        return $workflow->child('on')->has(self::PULL_REQUEST);
     }
 
     /** Whether `on:` names the event, as a mapping key, as an item of a list or as the one scalar. */
