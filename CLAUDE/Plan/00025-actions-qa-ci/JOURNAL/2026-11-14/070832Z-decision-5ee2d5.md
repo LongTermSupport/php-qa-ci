@@ -1,0 +1,9 @@
+## 07:08 · decision · —
+
+The second awaiting-human stand-in (a `model: fable` sub-agent, not the Owner; report `untracked/agent-reports/standin-79a0141b.md`) ruled on what pull requests 441 and 443 left open. A real Owner message overturns any line of it.
+
+Declined, as reserved for a human: the Dependabot cooldown (the value stays the Owner's, and the zizmor `dependabot-cooldown` finding stays red at Task 4.4 rather than accepted), allow-listing `dependabot/` in the branch-name policy (it widens a gate), Decision B, `self-repository`, the release-shaped items of Tasks 4.2 and 4.4, Tasks 1.4 and 1.6.
+
+Chosen, after a correction: Dependabot's branch prefix. The stand-in first declined option (c) because, from recall, Dependabot cannot change the leading `dependabot` word. The coordinator then read Dependabot's schema (`pull-request-branch-name.prefix`, default `dependabot`) and the stand-in re-ruled: `prefix: chore`, a prefix the policy already allows for dependency bumps, built detector first. Carried out as [PR 444](https://github.com/LongTermSupport/php-qa-ci/pull/444), merged as `9c0f5099`; two fresh verifiers gave PASS WITH NOTES (the condition was CI, which passed), reports `untracked/agent-reports/pr-444-verification.md` and `pr-444-verification-2.md`. The correction and the one-line cooldown question are on #310. Not yet seen: a real Dependabot pull request on a `chore/` branch.
+
+Where the reports named by the earlier journal entries are: the stand-in's first report is `untracked/agent-reports/standin-0c1be677.md` in the main checkout and is not filed in the plan; the #440 and #441 verifier reports are in `subagent-reports/`, filed under `261114-pr-440-verifier-general-purpose.md`, `261114-pr-441-verifier-1-general-purpose.md` and `261114-pr-441-verifier-2-general-purpose.md`.
