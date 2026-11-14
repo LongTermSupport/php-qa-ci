@@ -226,9 +226,15 @@ This plan does three things:
 
 ## Success Criteria
 
-- [ ] A PR push to php-qa-ci starts exactly one full QA run.
-- [ ] A consumer installing the template gets one run per PR push and a required check whose name
-  does not change with the PHP line.
+- [x] A PR push to php-qa-ci starts exactly one full QA run. `OneWorkflowGatesThisRepositoryTest`
+  fails a second workflow that runs the pipeline on a pull request, and each push to the branches of
+  pull requests [#444](https://github.com/LongTermSupport/php-qa-ci/pull/444) and
+  [#445](https://github.com/LongTermSupport/php-qa-ci/pull/445) started one `PHP QA Pipeline` run.
+- [x] A consumer installing the template gets one run per PR push and a required check whose name
+  does not change with the PHP line. `PipelineTemplateRunsOncePerPushTest` holds the template to one
+  run per push and its `QA Pipeline` job to a name set by a constant, with the PHP version detected in
+  a step; `RequiredStatusChecksAreProducedTest` holds the checks a consumer's branch protection
+  requires to job names the shipped template produces.
 - [ ] `bin/qa` fails on a new unpinned `uses:`, a template injection or an excessive permission in
   any workflow here or in `templates/github-actions/`.
 - [ ] actions-qa-ci runs green on its own repository and on php-qa-ci.
