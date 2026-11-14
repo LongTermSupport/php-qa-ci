@@ -94,6 +94,33 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function theGuardCountsAPullRequestTargetTriggerInEveryShapeTheTriggerTakes(): void
+    {
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  pull_request_target:\n    branches: [main]\n")));
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on: pull_request_target\n")));
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on: [pull_request_target, workflow_dispatch]\n")));
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  - push\n  - pull_request_target\n")));
+    }
+
+    #[Test]
+    public function theGuardMatchesTheEventNameExactlyAndNotByItsPrefix(): void
+    {
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  pull_request_review:\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: [pull_request_review_comment, push]\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: push\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("name: no trigger here\n")));
+    }
+
+    #[Test]
+    public function anApprovalNeedsThePullRequestEventItselfAndNotThePullRequestTargetEvent(): void
+    {
+        $targetOnly = WorkflowNode::ofYaml("on:\n  pull_request_target:\n");
+
+        self::assertFalse($this->startsOn($targetOnly, self::PULL_REQUEST));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on:\n  pull_request:\n  pull_request_target:\n"), self::PULL_REQUEST));
+    }
+
+    #[Test]
     public function everyWorkflowFileAnApprovalNamesExistsAndRunsOnAPullRequest(): void
     {
         $named = [];
