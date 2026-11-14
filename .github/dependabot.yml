@@ -9,3 +9,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # The branch-name policy allows `chore/` for dependency bumps and not Dependabot's own `dependabot/`.
+    pull-request-branch-name:
+      prefix: chore
