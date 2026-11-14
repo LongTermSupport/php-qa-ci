@@ -213,14 +213,28 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
     {
         $found = [];
         foreach ($this->workflowFiles() as $file) {
-            foreach (WorkflowNode::ofFile($file)->stringsUnderKey('run') as $script) {
-                foreach ($this->expressionsIn($script) as $expression) {
-                    $found[] = basename($file) . ': ' . $expression;
-                }
+            foreach ($this->expressionsInScriptsOf(WorkflowNode::ofFile($file)) as $expression) {
+                $found[] = basename($file) . ': ' . $expression;
             }
         }
 
         self::assertSame([], $found, 'Pass the value to the script through env: and read it as a shell variable.');
+    }
+
+    #[Test]
+    public function theGuardFindsAnExpressionInAScript(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              build:
+                steps:
+                  - run: echo "${{ github.head_ref }}"
+                  - run: echo "$HEAD"
+                    env:
+                      HEAD: ${{ github.head_ref }}
+            YAML);
+
+        self::assertSame(['${{ github.head_ref }}'], $this->expressionsInScriptsOf($workflow));
     }
 
     /**
@@ -234,6 +248,17 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
             $branches,
             static fn (string $branch): bool => '**' === $branch || \in_array(rtrim($branch, '/*'), $prefixes, true),
         ));
+    }
+
+    /** @return list<string> every expression that sits inside a script of the workflow, in document order */
+    private function expressionsInScriptsOf(WorkflowNode $workflow): array
+    {
+        $found = [];
+        foreach ($workflow->stringsUnderKey('run') as $script) {
+            $found = [...$found, ...$this->expressionsIn($script)];
+        }
+
+        return $found;
     }
 
     /** @return list<string> */
