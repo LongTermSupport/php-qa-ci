@@ -33,6 +33,8 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
 
     private const string PULL_REQUEST = 'pull_request';
 
+    private const string PUSH = 'push';
+
     #[Test]
     public function noSecondWorkflowRunsThePipelineOnAPullRequest(): void
     {
@@ -45,6 +47,31 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
 
         self::assertSame(['qa.yml'], $runners, 'Exactly one workflow starts on a pull request; a second one runs the pipeline twice.');
         self::assertFileDoesNotExist(self::WORKFLOWS . '/ci.yml');
+    }
+
+    #[Test]
+    public function noSecondWorkflowRunsOnAPush(): void
+    {
+        $runners = [];
+        foreach ($this->workflowFiles() as $file) {
+            if ($this->startsOn(WorkflowNode::ofFile($file), self::PUSH)) {
+                $runners[] = basename($file);
+            }
+        }
+
+        self::assertSame(['qa.yml'], $runners, 'Exactly one workflow starts on a push; a push to a branch with an open pull request raises both events, so a second one runs twice.');
+    }
+
+    #[Test]
+    public function theGuardSeesAWorkflowThatStartsOnAnEventInEveryShapeTheTriggerTakes(): void
+    {
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on:\n  push:\n    branches: [main]\n"), self::PUSH));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on:\n  pull_request:\n  push:\n"), self::PUSH));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on: [push, workflow_dispatch]\n"), self::PUSH));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on: push\n"), self::PUSH));
+        self::assertFalse($this->startsOn(WorkflowNode::ofYaml("on:\n  pull_request:\n  schedule:\n    - cron: '1 1 * * *'\n"), self::PUSH));
+        self::assertFalse($this->startsOn(WorkflowNode::ofYaml("on: [pull_request]\n"), self::PUSH));
+        self::assertFalse($this->startsOn(WorkflowNode::ofYaml("name: no trigger here\n"), self::PUSH));
     }
 
     #[Test]
@@ -87,6 +114,14 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
         $gating = \Safe\json_decode($release->child('jobs', 'release', 'env', 'GATING_WORKFLOWS')->text(), true);
         self::assertIsArray($gating);
         self::assertContains($pipelineName, $gating);
+    }
+
+    /** Whether `on:` names the event, as a mapping key, as an item of a list or as the one scalar. */
+    private function startsOn(WorkflowNode $workflow, string $event): bool
+    {
+        $on = $workflow->child('on');
+
+        return $on->has($event) || \in_array($event, $on->strings(), true) || $event === $on->string();
     }
 
     /** @return list<string> */
