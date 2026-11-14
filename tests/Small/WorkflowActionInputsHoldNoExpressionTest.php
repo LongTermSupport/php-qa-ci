@@ -253,13 +253,7 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
             return true;
         }
 
-        foreach ($node->entries() as $key => $child) {
-            if (str_contains((string)$key, self::EXPRESSION) || $this->holdsAnExpression($child)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($node->entries(), fn (WorkflowNode $child, $key): bool => str_contains((string)$key, self::EXPRESSION) || $this->holdsAnExpression($child));
     }
 
     /**
