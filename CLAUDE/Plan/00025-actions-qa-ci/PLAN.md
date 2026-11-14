@@ -235,8 +235,17 @@ This plan does three things:
   run per push and its `QA Pipeline` job to a name set by a constant, with the PHP version detected in
   a step; `RequiredStatusChecksAreProducedTest` holds the checks a consumer's branch protection
   requires to job names the shipped template produces.
-- [ ] `bin/qa` fails on a new unpinned `uses:`, a template injection or an excessive permission in
-  any workflow here or in `templates/github-actions/`.
+- [x] `bin/qa` fails on a new unpinned `uses:`, a template injection or an excessive permission in
+  any workflow here or in `templates/github-actions/`. `WorkflowActionsArePinnedToACommitTest`
+  ([#441](https://github.com/LongTermSupport/php-qa-ci/pull/441)) holds every `uses:` to a commit,
+  `WorkflowPermissionsAreLeastPrivilegeTest`
+  ([#449](https://github.com/LongTermSupport/php-qa-ci/pull/449)) holds permissions to read-only
+  with a named allow-list of writes, and `PipelineTemplateRunsOncePerPushTest` fails an expression
+  in a `run:` or a `github-script` `script:`
+  ([#451](https://github.com/LongTermSupport/php-qa-ci/pull/451)). Not covered, and left to the
+  Owner: an expression in any other action input
+  ([#452](https://github.com/LongTermSupport/php-qa-ci/issues/452)) and a workflow file named
+  `.yaml` ([#448](https://github.com/LongTermSupport/php-qa-ci/issues/448)).
 - [ ] actions-qa-ci runs green on its own repository and on php-qa-ci.
 
 ## Delivery & Milestones
