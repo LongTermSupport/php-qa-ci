@@ -189,6 +189,24 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
     }
 
     #[Test]
+    public function theGuardFindsAnExpressionInAKeyBelowTheInput(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              qa:
+                steps:
+                  - uses: some/action@0123456789012345678901234567890123456789
+                    with:
+                      options:
+                        '${{ github.head_ref }}': value
+                      clean:
+                        plain: value
+            YAML);
+
+        self::assertSame(['some/action: options'], $this->expressionInputsOf($workflow));
+    }
+
+    #[Test]
     public function theGuardNamesAnAllowanceNoWorkflowUsesAndKeepsOneItDoes(): void
     {
         $allowed = ['actions/cache' => ['key', 'path'], 'unused/action' => ['input']];
