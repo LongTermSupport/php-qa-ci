@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\WorkflowFiles;
 use LTS\PHPQA\Tests\Support\WorkflowNode;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
@@ -127,11 +128,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     /** @return list<string> */
     private function workflowFiles(): array
     {
-        $files = \Safe\glob(self::WORKFLOWS . '/*.yml');
-        self::assertContainsOnlyString($files);
-        sort($files);
-
-        return $files;
+        return WorkflowFiles::in(self::WORKFLOWS);
     }
 
     /**
