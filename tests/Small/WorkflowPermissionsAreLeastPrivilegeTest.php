@@ -32,6 +32,12 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
         __DIR__ . '/../../templates/github-actions',
     ];
 
+    /** The key a workflow, and a job, declares its token under. */
+    private const string PERMISSIONS = 'permissions';
+
+    /** The name the guard test gives its in-memory workflow. */
+    private const string GUARD_FILE = 'w.yml';
+
     /**
      * Each file to the jobs allowed a write scope, and the scopes each may write.
      *
@@ -64,25 +70,25 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     #[Test]
     public function theGuardReportsEachWayAWorkflowHoldsTooMuchOfTheToken(): void
     {
-        $allowed = ['w.yml' => ['deploy' => ['contents']]];
+        $allowed = [self::GUARD_FILE => ['deploy' => ['contents']]];
 
         self::assertSame(
             ['declares no top-level permissions, so the token takes the repository default'],
-            $this->problems(WorkflowNode::ofYaml("jobs:\n  deploy:\n    runs-on: x\n"), 'w.yml', $allowed),
+            $this->problems(WorkflowNode::ofYaml("jobs:\n  deploy:\n    runs-on: x\n"), self::GUARD_FILE, $allowed),
         );
         self::assertSame(
             ['grants write-all at the top'],
-            $this->problems(WorkflowNode::ofYaml("permissions: write-all\n"), 'w.yml', $allowed),
+            $this->problems(WorkflowNode::ofYaml("permissions: write-all\n"), self::GUARD_FILE, $allowed),
         );
         self::assertSame(
             ['grants contents: write at the top; a write belongs to the job that needs it'],
-            $this->problems(WorkflowNode::ofYaml("permissions:\n  contents: write\n"), 'w.yml', $allowed),
+            $this->problems(WorkflowNode::ofYaml("permissions:\n  contents: write\n"), self::GUARD_FILE, $allowed),
         );
         self::assertSame(
             ['job build grants pull-requests: write, which is not on the list of allowed writes'],
             $this->problems(
                 WorkflowNode::ofYaml("permissions: {}\njobs:\n  build:\n    permissions:\n      pull-requests: write\n"),
-                'w.yml',
+                self::GUARD_FILE,
                 $allowed,
             ),
         );
@@ -90,19 +96,19 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
             ['job deploy grants issues: write, which is not on the list of allowed writes'],
             $this->problems(
                 WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions:\n      contents: write\n      issues: write\n"),
-                'w.yml',
+                self::GUARD_FILE,
                 $allowed,
             ),
         );
         self::assertSame(
             ['job build grants write-all'],
-            $this->problems(WorkflowNode::ofYaml("permissions: {}\njobs:\n  build:\n    permissions: write-all\n"), 'w.yml', $allowed),
+            $this->problems(WorkflowNode::ofYaml("permissions: {}\njobs:\n  build:\n    permissions: write-all\n"), self::GUARD_FILE, $allowed),
         );
         self::assertSame(
             [],
             $this->problems(
                 WorkflowNode::ofYaml("permissions:\n  contents: read\njobs:\n  deploy:\n    permissions:\n      contents: write\n  test:\n    runs-on: x\n"),
-                'w.yml',
+                self::GUARD_FILE,
                 $allowed,
             ),
         );
@@ -116,12 +122,12 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     private function problems(WorkflowNode $workflow, string $file, ?array $allowed = null): array
     {
         $allowed ??= self::ALLOWED_WRITES;
-        if (!$workflow->has('permissions')) {
+        if (!$workflow->has(self::PERMISSIONS)) {
             return ['declares no top-level permissions, so the token takes the repository default'];
         }
 
         $problems = [];
-        $top      = $workflow->child('permissions');
+        $top      = $workflow->child(self::PERMISSIONS);
         if (\in_array($top->string(), ['write-all', 'read-all'], true)) {
             return [\sprintf('grants %s at the top', $top->text())];
         }
@@ -133,7 +139,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
         }
 
         foreach ($workflow->child('jobs')->entries() as $job => $node) {
-            $granted = $node->child('permissions');
+            $granted = $node->child(self::PERMISSIONS);
             if ('write-all' === $granted->string()) {
                 $problems[] = \sprintf('job %s grants write-all', $job);
 
