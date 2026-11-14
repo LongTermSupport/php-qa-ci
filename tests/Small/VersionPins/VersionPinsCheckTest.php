@@ -108,9 +108,9 @@ final class VersionPinsCheckTest extends TestCase
     }
 
     #[Test]
-    public function ymlAndYamlWorkflowsAreReportedTogetherInNameOrderAndAnotherSuffixIsNotAWorkflow(): void
+    public function ymlAndYamlWorkflowsAreReportedTogetherInNameOrderAndNeitherAnotherSuffixNorASubdirectoryIsRead(): void
     {
-        $this->expectOutputRegex('#^(?!.*(?:old\.yaml\.html|off\.yml\.xml))(?=.*workflows/a-first\.yml: runs.*workflows/b-second\.yaml: runs.*workflows/c-third\.yml: runs.*workflows/same\.yaml: runs.*workflows/same\.yml: runs)#s');
+        $this->expectOutputRegex('#^(?!.*(?:old\.yaml\.html|off\.yml\.xml|nested\.yaml))(?=.*workflows/a-first\.yml: runs.*workflows/b-second\.yaml: runs.*workflows/c-third\.yml: runs.*workflows/same\.yaml: runs.*workflows/same\.yml: runs)#s');
         self::assertSame(1, $this->check()->run(self::BOTH, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
