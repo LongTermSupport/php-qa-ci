@@ -48,6 +48,31 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function noSecondWorkflowRunsOnAPush(): void
+    {
+        $runners = [];
+        foreach ($this->workflowFiles() as $file) {
+            if ($this->startsOn(WorkflowNode::ofFile($file), self::PUSH)) {
+                $runners[] = basename($file);
+            }
+        }
+
+        self::assertSame(['qa.yml'], $runners, 'Exactly one workflow starts on a push; a push to a branch with an open pull request raises both events, so a second one runs twice.');
+    }
+
+    #[Test]
+    public function theGuardSeesAWorkflowThatStartsOnAnEventInEveryShapeTheTriggerTakes(): void
+    {
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on:\n  push:\n    branches: [main]\n"), self::PUSH));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on:\n  pull_request:\n  push:\n"), self::PUSH));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on: [push, workflow_dispatch]\n"), self::PUSH));
+        self::assertTrue($this->startsOn(WorkflowNode::ofYaml("on: push\n"), self::PUSH));
+        self::assertFalse($this->startsOn(WorkflowNode::ofYaml("on:\n  pull_request:\n  schedule:\n    - cron: '1 1 * * *'\n"), self::PUSH));
+        self::assertFalse($this->startsOn(WorkflowNode::ofYaml("on: [pull_request]\n"), self::PUSH));
+        self::assertFalse($this->startsOn(WorkflowNode::ofYaml("name: no trigger here\n"), self::PUSH));
+    }
+
+    #[Test]
     public function everyWorkflowFileAnApprovalNamesExistsAndRunsOnAPullRequest(): void
     {
         $named = [];
