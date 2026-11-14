@@ -274,7 +274,7 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
         ));
     }
 
-    /** @return list<string> every expression that sits inside a script of the workflow, in document order */
+    /** @return list<string> every expression that sits inside a script of the workflow: those of every `run:` first, then those of every `script:` */
     private function expressionsInScriptsOf(WorkflowNode $workflow): array
     {
         $found = [];
