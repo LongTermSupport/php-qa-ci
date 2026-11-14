@@ -78,6 +78,11 @@ the release and its tag. The full rules are in
   carried on as an orphan. A tool is now started with signal handling held, and a signal that arrives
   meanwhile is handled once the tool is known and can be stopped. The window is a few instructions
   wide, so it showed only on a loaded host.
+- The header of the shipped `qa-autofix.yml` template now tells a project to require the check its
+  `gate` job reports, `QA gate (read-only qa)`. It said to require the "gate" check, which no job
+  reports, so a project that followed it set branch protection to wait for a check that never
+  arrives. Only the comment changes: the job's name, and so what existing branch protection matches,
+  is unchanged. A test now requires the header to name the gate job's `name:`.
 
 ## 85.18.1 — 2026-11-09
 

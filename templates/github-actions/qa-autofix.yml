@@ -28,7 +28,7 @@
 # REQUIRED GITHUB CONFIGURATION
 # -----------------------------
 # - Settings → Actions → General → Workflow permissions → "Read and write".
-# - (Recommended) protect the default branch and require the "gate" check.
+# - (Recommended) protect the default branch and require the "QA gate (read-only qa)" check.
 #
 # DEFAULT BRANCH IS DYNAMIC (no hardcoded name)
 # ---------------------------------------------
