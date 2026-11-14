@@ -133,6 +133,59 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
     }
 
     #[Test]
+    public function theGuardFindsAnExpressionInAListOrAMappingUnderAnInput(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              qa:
+                steps:
+                  - uses: some/action@0123456789012345678901234567890123456789
+                    with:
+                      args:
+                        - --safe
+                        - ${{ github.head_ref }}
+                      options:
+                        deep:
+                          deeper: ${{ github.event.pull_request.title }}
+                      clean:
+                        - --safe
+                        - no expression here
+            YAML);
+
+        self::assertSame(['some/action: args', 'some/action: options'], $this->expressionInputsOf($workflow));
+    }
+
+    #[Test]
+    public function theGuardFindsAnExpressionThatIsTheWholeWith(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              qa:
+                steps:
+                  - uses: some/action@0123456789012345678901234567890123456789
+                    with: ${{ fromJSON(github.event.pull_request.title) }}
+            YAML);
+
+        self::assertSame(['some/action: with'], $this->expressionInputsOf($workflow));
+    }
+
+    #[Test]
+    public function theGuardFindsAnExpressionInTheNameOfAnInput(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              qa:
+                steps:
+                  - uses: some/action@0123456789012345678901234567890123456789
+                    with:
+                      '${{ github.head_ref }}': value
+                      plain: value
+            YAML);
+
+        self::assertSame(['some/action: ${{ github.head_ref }}'], $this->expressionInputsOf($workflow));
+    }
+
+    #[Test]
     public function theGuardNamesAnAllowanceNoWorkflowUsesAndKeepsOneItDoes(): void
     {
         $allowed = ['actions/cache' => ['key', 'path'], 'unused/action' => ['input']];
