@@ -14,6 +14,10 @@ template" below). One lane covers three pins:
 | composer-require-checker `scan-files` entries under `thecodingmachine/safe/generated/<x.y>/`                                | the generated file safe's own dispatcher loads on the running PHP | [`SafeScanFilesDetector`](../../src/VersionPins/SafeScanFilesDetector.php)           |
 | the PHP version lists and fallback defaults in GitHub Actions workflows (`.github/workflows/`, `templates/github-actions/`) | the major.minor in `composer.json`'s `require.php`                | [`WorkflowPhpVersionDetector`](../../src/VersionPins/WorkflowPhpVersionDetector.php) |
 
+The lane reads the workflow files directly in `.github/workflows/` and `templates/github-actions/`
+in either extension GitHub runs, `.yml` and `.yaml`, and reports a finding under the file's own
+name. A file in a subdirectory, such as a composite action's `action.yml`, is not read.
+
 ## What it is about
 
 None of these pins affects whether a test run passes, so when the PHP or PHPUnit requirement

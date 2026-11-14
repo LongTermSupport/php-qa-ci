@@ -1,0 +1,7 @@
+name: Nested
+on:
+  pull_request:
+jobs:
+  check:
+    steps:
+      - run: composer install

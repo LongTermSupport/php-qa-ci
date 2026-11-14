@@ -25,6 +25,15 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+### Changed — breaking
+
+- `versionPins` now reads a workflow or template written as `.yaml` as well as `.yml` (issue #455).
+  It listed `*.yml` only, so a `.yaml` workflow, which GitHub runs just the same, was never checked
+  for the up-to-date-with-base gate, the phase-group rule or a stale PHP version list. A project
+  with such a file that breaks one of those rules fails `bin/qa` on its first run after the update;
+  fix the file as for a `.yml` one. A composite action's `action.yml` in a subdirectory is still not
+  read. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
+
 ### Added
 
 - `versionPins` fails a shipped workflow template that selects phase groups (`qa -t allCS`,
