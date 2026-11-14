@@ -111,8 +111,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     {
         self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  pull_request_review:\n")));
         self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: [pull_request_review_comment, push]\n")));
-        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: push\n")));
-        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("name: no trigger here\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: pull_request_targets\n")));
     }
 
     #[Test]
