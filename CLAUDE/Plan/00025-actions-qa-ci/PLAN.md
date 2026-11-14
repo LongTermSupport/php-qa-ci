@@ -242,10 +242,16 @@ This plan does three things:
   ([#449](https://github.com/LongTermSupport/php-qa-ci/pull/449)) holds permissions to read-only
   with a named allow-list of writes, and `PipelineTemplateRunsOncePerPushTest` fails an expression
   in a `run:` or a `github-script` `script:`
-  ([#451](https://github.com/LongTermSupport/php-qa-ci/pull/451)). Open until the Owner settles the
-  two gaps that remain: an expression in any other action input
-  ([#452](https://github.com/LongTermSupport/php-qa-ci/issues/452)) and a workflow file named
-  `.yaml` ([#448](https://github.com/LongTermSupport/php-qa-ci/issues/448)).
+  ([#451](https://github.com/LongTermSupport/php-qa-ci/pull/451)).
+  `WorkflowActionInputsHoldNoExpressionTest`
+  ([#458](https://github.com/LongTermSupport/php-qa-ci/pull/458),
+  [#464](https://github.com/LongTermSupport/php-qa-ci/pull/464)) fails an expression in any other
+  action input, at any depth under `with:`, unless the action reads that input as plain data, and
+  the shipped tests read a workflow file named `.yaml` as well as `.yml`
+  ([#456](https://github.com/LongTermSupport/php-qa-ci/pull/456)). Open until the Owner settles the
+  two gaps that remain: a `pull_request_target` trigger the one-workflow test does not count
+  ([#462](https://github.com/LongTermSupport/php-qa-ci/issues/462)) and the `versionPins` lane, which
+  reads `.yml` workflows only ([#455](https://github.com/LongTermSupport/php-qa-ci/issues/455)).
 - [ ] actions-qa-ci runs green on its own repository and on php-qa-ci.
 
 ## Delivery & Milestones
