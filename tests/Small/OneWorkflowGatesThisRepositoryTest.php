@@ -137,7 +137,7 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
 
     private function startsOnPullRequest(WorkflowNode $workflow): bool
     {
-        return $workflow->child('on')->has(self::PULL_REQUEST);
+        return $this->startsOn($workflow, self::PULL_REQUEST);
     }
 
     /** Whether `on:` names the event, as a mapping key, as an item of a list or as the one scalar. */
