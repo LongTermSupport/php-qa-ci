@@ -40,7 +40,13 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
      *
      * @var list<string>
      */
-    private const array LEVELS = ['read', 'write', 'none'];
+    private const array LEVELS = ['read', self::WRITE, 'none'];
+
+    /** The level that grants a change. */
+    private const string WRITE = 'write';
+
+    /** The scope most jobs here write, and the one the guard tests grant. */
+    private const string CONTENTS = 'contents';
 
     /** The name the guard test gives its in-memory workflow. */
     private const string GUARD_FILE = 'w.yml';
@@ -78,16 +84,16 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     {
         $workflows = [];
         foreach ($this->workflowFiles() as $file) {
-            $workflows[basename($file)][] = WorkflowNode::ofFile($file);
+            $workflows[] = ['file' => basename($file), 'workflow' => WorkflowNode::ofFile($file)];
         }
 
-        self::assertSame([], $this->staleAllowances(self::ALLOWED_WRITES, $workflows));
+        self::assertSame([], $this->staleAllowances(self::ALLOWED_WRITES, ...$workflows));
     }
 
     #[Test]
     public function theGuardReportsEachWayAWorkflowHoldsTooMuchOfTheToken(): void
     {
-        $allowed = [self::GUARD_FILE => ['deploy' => ['contents']]];
+        $allowed = [self::GUARD_FILE => ['deploy' => [self::CONTENTS]]];
 
         self::assertSame(
             ['declares no top-level permissions, so the token takes the repository default'],
@@ -134,7 +140,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     #[Test]
     public function theGuardReportsALevelGitHubDoesNotKnow(): void
     {
-        $allowed = [self::GUARD_FILE => ['deploy' => ['contents']]];
+        $allowed = [self::GUARD_FILE => ['deploy' => [self::CONTENTS]]];
 
         self::assertSame(
             ['grants contents at the top with a level that is not read, write or none'],
@@ -163,7 +169,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     {
         $workflow = WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions:\n      contents: write\n");
         $allowed  = [
-            self::GUARD_FILE => ['deploy' => ['contents', 'issues'], 'gone' => ['contents']],
+            self::GUARD_FILE => ['deploy' => [self::CONTENTS, 'issues'], 'gone' => [self::CONTENTS]],
             'other.yml'      => ['x' => ['actions']],
         ];
 
@@ -173,9 +179,12 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
                 'w.yml lists contents: write for job gone, which no copy of that file grants',
                 'other.yml lists actions: write for job x, which no copy of that file grants',
             ],
-            $this->staleAllowances($allowed, [self::GUARD_FILE => [$workflow]]),
+            $this->staleAllowances($allowed, ['file' => self::GUARD_FILE, 'workflow' => $workflow]),
         );
-        self::assertSame([], $this->staleAllowances([self::GUARD_FILE => ['deploy' => ['contents']]], [self::GUARD_FILE => [$workflow]]));
+        self::assertSame(
+            [],
+            $this->staleAllowances([self::GUARD_FILE => ['deploy' => [self::CONTENTS]]], ['file' => self::GUARD_FILE, 'workflow' => $workflow]),
+        );
     }
 
     /**
@@ -199,7 +208,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
         foreach ($top->entries() as $scope => $level) {
             if (!\in_array($level->string(), self::LEVELS, true)) {
                 $problems[] = \sprintf('grants %s at the top with a level that is not read, write or none', $scope);
-            } elseif ('write' === $level->string()) {
+            } elseif (self::WRITE === $level->string()) {
                 $problems[] = \sprintf('grants %s: write at the top; a write belongs to the job that needs it', $scope);
             }
         }
@@ -215,7 +224,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
             foreach ($granted->entries() as $scope => $level) {
                 if (!\in_array($level->string(), self::LEVELS, true)) {
                     $problems[] = \sprintf('job %s grants %s with a level that is not read, write or none', $job, $scope);
-                } elseif ('write' === $level->string() && !\in_array((string)$scope, $allowed[$file][(string)$job] ?? [], true)) {
+                } elseif (self::WRITE === $level->string() &&!\in_array((string)$scope, $allowed[$file][(string)$job] ?? [], true)) {
                     $problems[] = \sprintf('job %s grants %s: write, which is not on the list of allowed writes', $job, $scope);
                 }
             }
@@ -228,20 +237,23 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
      * The allowed writes no workflow of that file name holds: a job that is gone, or one that no
      * longer writes the scope. An allowance nothing uses is a write nobody would notice coming back.
      *
-     * @param array<string, array<string, list<string>>> $allowed
-     * @param array<string, list<WorkflowNode>>          $workflows the parsed workflows by file name
+     * @param array<string, array<string, list<string>>>  $allowed
+     * @param array{file: string, workflow: WorkflowNode} ...$workflows each parsed workflow with its file name
      *
      * @return list<string>
      */
-    private function staleAllowances(array $allowed, array $workflows): array
+    private function staleAllowances(array $allowed, array ...$workflows): array
     {
         $stale = [];
         foreach ($allowed as $file => $jobs) {
             foreach ($jobs as $job => $scopes) {
                 foreach ($scopes as $scope) {
                     $held = false;
-                    foreach ($workflows[$file] ?? [] as $workflow) {
-                        $held = $held || 'write' === $workflow->child('jobs', $job, self::PERMISSIONS, $scope)->string();
+                    foreach ($workflows as $workflow) {
+                        $held = $held || (
+                            $file          === $workflow['file']
+                            && self::WRITE === $workflow['workflow']->child('jobs', $job, self::PERMISSIONS, $scope)->string()
+                        );
                     }
 
                     if (!$held) {
