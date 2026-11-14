@@ -56,6 +56,12 @@ final readonly class WorkflowNode
         return \is_array($this->value) && \array_key_exists($key, $this->value);
     }
 
+    /** Whether this is a mapping or a list, empty or not: a value that holds children, as opposed to nothing or a scalar. */
+    public function isCollection(): bool
+    {
+        return \is_array($this->value);
+    }
+
     public function string(): ?string
     {
         return \is_string($this->value) ? $this->value : null;

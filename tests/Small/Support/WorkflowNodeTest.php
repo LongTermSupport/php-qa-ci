@@ -74,6 +74,21 @@ final class WorkflowNodeTest extends TestCase
     }
 
     #[Test]
+    public function aMappingOrAListIsACollectionEvenWhenEmptyAndNothingElseIs(): void
+    {
+        $node = WorkflowNode::ofYaml("empty: {}\nfilled:\n  a: b\nlist: [x]\nnothing:\nword: write\nflag: true\n");
+
+        self::assertTrue($node->isCollection());
+        self::assertTrue($node->child('empty')->isCollection());
+        self::assertTrue($node->child('filled')->isCollection());
+        self::assertTrue($node->child('list')->isCollection());
+        self::assertFalse($node->child('nothing')->isCollection());
+        self::assertFalse($node->child('word')->isCollection());
+        self::assertFalse($node->child('flag')->isCollection());
+        self::assertFalse($node->child('absent')->isCollection());
+    }
+
+    #[Test]
     public function everyStringUnderAKeyOfThatNameIsFoundAtAnyDepth(): void
     {
         self::assertSame(
