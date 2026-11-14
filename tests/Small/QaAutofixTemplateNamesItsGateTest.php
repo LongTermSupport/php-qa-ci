@@ -33,8 +33,9 @@ final class QaAutofixTemplateNamesItsGateTest extends TestCase
         $name = WorkflowNode::ofFile(self::TEMPLATE)->child('jobs', 'gate', 'name')->string();
 
         self::assertNotNull($name, 'the gate job has no name, so its check is reported by its id');
-        self::assertTrue(
-            str_contains(\Safe\file_get_contents(self::TEMPLATE), \sprintf('require the "%s" check', $name)),
+        self::assertStringContainsString(
+            \sprintf('require the "%s" check', $name),
+            \Safe\file_get_contents(self::TEMPLATE),
             \sprintf('the header does not tell a consumer to require "%s", the check the gate job reports', $name),
         );
     }
