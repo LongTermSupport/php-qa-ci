@@ -27,7 +27,9 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class DependabotBranchesPassTheBranchNamePolicyTest extends TestCase
 {
-    private const string CONFIG = __DIR__ . '/../../.github/dependabot.yml';
+    private const string CONFIG     = __DIR__ . '/../../.github/dependabot.yml';
+
+    private const string NO_UPDATES = 'the configuration has no updates entry, so no branch is checked';
 
     #[Test]
     public function everyUpdateEntryBranchesUnderAPrefixThePolicyAllows(): void
@@ -67,14 +69,8 @@ final class DependabotBranchesPassTheBranchNamePolicyTest extends TestCase
     #[Test]
     public function theGuardReportsAConfigurationWithNoUpdateEntries(): void
     {
-        self::assertSame(
-            ['the configuration has no updates entry, so no branch is checked'],
-            $this->problems(WorkflowNode::ofYaml("version: 2\nupdates: []\n")),
-        );
-        self::assertSame(
-            ['the configuration has no updates entry, so no branch is checked'],
-            $this->problems(WorkflowNode::ofYaml("version: 2\n")),
-        );
+        self::assertSame([self::NO_UPDATES], $this->problems(WorkflowNode::ofYaml("version: 2\nupdates: []\n")));
+        self::assertSame([self::NO_UPDATES], $this->problems(WorkflowNode::ofYaml("version: 2\n")));
     }
 
     /** @return list<string> */
@@ -82,7 +78,7 @@ final class DependabotBranchesPassTheBranchNamePolicyTest extends TestCase
     {
         $updates = $config->child('updates')->items();
         if ([] === $updates) {
-            return ['the configuration has no updates entry, so no branch is checked'];
+            return [self::NO_UPDATES];
         }
 
         $problems = [];
