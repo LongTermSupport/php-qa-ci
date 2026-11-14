@@ -64,6 +64,19 @@ final class DependabotBranchesPassTheBranchNamePolicyTest extends TestCase
         );
     }
 
+    #[Test]
+    public function theGuardReportsAConfigurationWithNoUpdateEntries(): void
+    {
+        self::assertSame(
+            ['the configuration has no updates entry, so no branch is checked'],
+            $this->problems(WorkflowNode::ofYaml("version: 2\nupdates: []\n")),
+        );
+        self::assertSame(
+            ['the configuration has no updates entry, so no branch is checked'],
+            $this->problems(WorkflowNode::ofYaml("version: 2\n")),
+        );
+    }
+
     /** @return list<string> */
     private function problems(WorkflowNode $config): array
     {
