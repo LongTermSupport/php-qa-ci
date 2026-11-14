@@ -84,6 +84,16 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
     }
 
     #[Test]
+    public function theGuardSeesAPullRequestTriggerAsMuchWhenItIsAScalarOrAListAsWhenItIsAMapping(): void
+    {
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on: pull_request\n")));
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on: [pull_request, workflow_dispatch]\n")));
+        self::assertTrue($this->startsOnPullRequest(WorkflowNode::ofYaml("on:\n  - push\n  - pull_request\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: [push, workflow_dispatch]\n")));
+        self::assertFalse($this->startsOnPullRequest(WorkflowNode::ofYaml("on: push\n")));
+    }
+
+    #[Test]
     public function everyWorkflowFileAnApprovalNamesExistsAndRunsOnAPullRequest(): void
     {
         $named = [];
