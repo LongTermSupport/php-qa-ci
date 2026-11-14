@@ -45,7 +45,9 @@ final readonly class WorkflowFiles
         $files = [];
         foreach (self::EXTENSIONS as $extension) {
             foreach (\Safe\glob($patternWithoutExtension . $extension) as $file) {
-                $files[] = $file;
+                if (\is_string($file)) {
+                    $files[] = $file;
+                }
             }
         }
 
