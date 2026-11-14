@@ -33,6 +33,8 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
 
     private const string PULL_REQUEST = 'pull_request';
 
+    private const string PUSH = 'push';
+
     #[Test]
     public function noSecondWorkflowRunsThePipelineOnAPullRequest(): void
     {
@@ -112,6 +114,14 @@ final class OneWorkflowGatesThisRepositoryTest extends TestCase
         $gating = \Safe\json_decode($release->child('jobs', 'release', 'env', 'GATING_WORKFLOWS')->text(), true);
         self::assertIsArray($gating);
         self::assertContains($pipelineName, $gating);
+    }
+
+    /** Whether `on:` names the event, as a mapping key, as an item of a list or as the one scalar. */
+    private function startsOn(WorkflowNode $workflow, string $event): bool
+    {
+        $on = $workflow->child('on');
+
+        return $on->has($event) || \in_array($event, $on->strings(), true) || $event === $on->string();
     }
 
     /** @return list<string> */
