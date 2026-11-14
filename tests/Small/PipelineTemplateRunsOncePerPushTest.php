@@ -237,6 +237,29 @@ final class PipelineTemplateRunsOncePerPushTest extends TestCase
         self::assertSame(['${{ github.head_ref }}'], $this->expressionsInScriptsOf($workflow));
     }
 
+    #[Test]
+    public function theGuardFindsAnExpressionInAGithubScriptInput(): void
+    {
+        $workflow = WorkflowNode::ofYaml(<<<'YAML'
+            jobs:
+              comment:
+                steps:
+                  - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+                    with:
+                      script: |
+                        const title = '${{ github.event.pull_request.title }}';
+                        const run = `${context.runId}`;
+                  - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+                    env:
+                      TITLE: ${{ github.event.pull_request.title }}
+                    with:
+                      script: |
+                        const title = process.env.TITLE;
+            YAML);
+
+        self::assertSame(['${{ github.event.pull_request.title }}'], $this->expressionsInScriptsOf($workflow));
+    }
+
     /**
      * @return list<string> the branch patterns that name a work-branch prefix the branch policy allows
      */
