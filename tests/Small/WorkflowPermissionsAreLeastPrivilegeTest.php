@@ -165,6 +165,42 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     }
 
     #[Test]
+    public function theGuardReportsPermissionsThatAreNotAMappingOfScopes(): void
+    {
+        $allowed = [self::GUARD_FILE => ['deploy' => [self::CONTENTS]]];
+        $top     = 'declares permissions at the top that are not a mapping of scopes';
+
+        foreach (['Write-All', 'write', 'true', ''] as $value) {
+            self::assertSame(
+                [$top],
+                $this->problems(WorkflowNode::ofYaml("permissions: {$value}\n"), self::GUARD_FILE, $allowed),
+                "permissions: {$value}",
+            );
+        }
+
+        foreach (['Write', 'write', 'true', ''] as $value) {
+            self::assertSame(
+                ['job deploy declares permissions that are not a mapping of scopes'],
+                $this->problems(
+                    WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions: {$value}\n"),
+                    self::GUARD_FILE,
+                    $allowed,
+                ),
+                "job permissions: {$value}",
+            );
+        }
+
+        self::assertSame(
+            [],
+            $this->problems(
+                WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions: read-all\n"),
+                self::GUARD_FILE,
+                $allowed,
+            ),
+        );
+    }
+
+    #[Test]
     public function theGuardReportsAnAllowedWriteNoWorkflowHoldsAnyMore(): void
     {
         $workflow = WorkflowNode::ofYaml("permissions: {}\njobs:\n  deploy:\n    permissions:\n      contents: write\n");
