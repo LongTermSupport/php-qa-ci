@@ -54,8 +54,11 @@ final class WorkflowActionRuntimeTest extends TestCase
         'shivammathur/setup-php'                 => 2,
     ];
 
-    /** `uses: owner/repo@vN`, the shape every remote action reference takes here. */
-    private const string USES = '/^\s*-?\s*uses:\s*([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)@v(\d+)/';
+    /**
+     * `uses: owner/repo@<sha> # vN`, the shape every remote action reference takes here: a commit
+     * SHA, with the release it is beside it. A tag form `owner/repo@vN` is read too.
+     */
+    private const string USES = '/^\s*-?\s*uses:\s*([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)@(?:[0-9a-f]{40}\s+#\s+)?v(\d+)/';
 
     public function testEveryActionIsPinnedToASupportedRuntime(): void
     {
@@ -72,9 +75,18 @@ final class WorkflowActionRuntimeTest extends TestCase
     /** The guard proven to fire on an old major and on an action nobody has classified. */
     public function testTheGuardReportsAStaleMajorAndAnUnclassifiedAction(): void
     {
+        $sha = str_repeat('a', 40);
+
         self::assertSame(
-            ['actions/checkout@v4 is below v5', 'some/new-action@v1 is not classified'],
-            $this->stalePins("      - uses: actions/checkout@v4\n      - uses: some/new-action@v1\n      - uses: actions/checkout@v7\n"),
+            [
+                'actions/checkout@v4 is below v5',
+                'some/new-action@v1 is not classified',
+                'actions/cache@v4 is below v5',
+            ],
+            $this->stalePins(
+                "      - uses: actions/checkout@v4\n      - uses: some/new-action@v1\n      - uses: actions/checkout@v7\n"
+                . \sprintf("      - uses: actions/cache@%s # v4\n      - uses: actions/cache@%s # v6\n", $sha, $sha),
+            ),
         );
     }
 
