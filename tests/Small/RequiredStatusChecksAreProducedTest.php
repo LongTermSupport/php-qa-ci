@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\WorkflowFiles;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -167,12 +168,7 @@ final class RequiredStatusChecksAreProducedTest extends TestCase
     /** @return list<string> */
     private function workflowFiles(): array
     {
-        $files = [
-            ...\Safe\glob(self::WORKFLOWS . '/*.yml'),
-            ...\Safe\glob(self::WORKFLOWS . '/*.yaml'),
-        ];
-        self::assertContainsOnlyString($files);
-        sort($files);
+        $files = WorkflowFiles::in(self::WORKFLOWS);
         self::assertNotSame([], $files, 'No workflow found under .github/workflows.');
 
         return $files;

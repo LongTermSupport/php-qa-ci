@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\WorkflowFiles;
 use LTS\PHPQA\Tests\Support\WorkflowNode;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
@@ -319,11 +320,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     {
         $files = [];
         foreach (self::WORKFLOW_DIRS as $dir) {
-            foreach (['yml', 'yaml'] as $extension) {
-                $found = \Safe\glob($dir . '/*.' . $extension);
-                self::assertContainsOnlyString($found);
-                $files = [...$files, ...$found];
-            }
+            $files = [...$files, ...WorkflowFiles::in($dir)];
         }
 
         sort($files);
