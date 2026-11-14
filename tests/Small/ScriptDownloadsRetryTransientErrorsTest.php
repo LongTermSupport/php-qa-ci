@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -57,6 +58,22 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
     public function theScanCoversTheScriptThatFetchesBox(): void
     {
         self::assertContains(self::ROOT . '/scripts/build-phar.bash', $this->scannedFiles());
+    }
+
+    #[Test]
+    public function theScanReadsTheFilesOfTheRootItIsGiven(): void
+    {
+        $tree = TempDir::create('download-retry-scan');
+
+        try {
+            $script   = $tree->write('scripts/fetch.bash', "curl -fSL https://example.test/a\n");
+            $workflow = $tree->write('.github/workflows/qa.yml', "      - run: curl -fSL https://example.test/a\n");
+            $tree->write('scripts/README.md', 'curl is described here');
+
+            self::assertEqualsCanonicalizing([$script, $workflow], $this->scannedFiles($tree->path));
+        } finally {
+            $tree->remove();
+        }
     }
 
     #[Test]
@@ -116,12 +133,12 @@ final class ScriptDownloadsRetryTransientErrorsTest extends TestCase
         self::assertSame([], $this->callsWithoutRetry("      - name: Install curl and jq\n"));
     }
 
-    /** @return list<string> */
-    private function scannedFiles(): array
+    /** @return list<string> the files the scan reads under a project root, the repository's own by default */
+    private function scannedFiles(string $root = self::ROOT): array
     {
         $files = [];
         foreach (self::SCANNED as $directory => $pattern) {
-            foreach (\Safe\glob(self::ROOT . '/' . $directory . '/' . $pattern) as $path) {
+            foreach (\Safe\glob($root . '/' . $directory . '/' . $pattern) as $path) {
                 if (\is_string($path) && is_file($path) && !str_ends_with($path, '.md')) {
                     $files[] = $path;
                 }
