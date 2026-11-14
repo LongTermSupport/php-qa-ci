@@ -80,8 +80,13 @@ final class DependabotBranchesPassTheBranchNamePolicyTest extends TestCase
     /** @return list<string> */
     private function problems(WorkflowNode $config): array
     {
+        $updates = $config->child('updates')->items();
+        if ([] === $updates) {
+            return ['the configuration has no updates entry, so no branch is checked'];
+        }
+
         $problems = [];
-        foreach ($config->child('updates')->items() as $update) {
+        foreach ($updates as $update) {
             $ecosystem = $update->child('package-ecosystem')->text();
             $branch    = $update->child('pull-request-branch-name');
             $prefix    = $branch->child('prefix')->string();
