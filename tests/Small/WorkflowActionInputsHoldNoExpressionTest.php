@@ -35,12 +35,12 @@ final class WorkflowActionInputsHoldNoExpressionTest extends TestCase
      * input from the scan, so adding one is a classification the Owner may overturn.
      */
     private const array PLAIN_DATA = [
-        'actions/cache'                  => ['key', 'path', 'restore-keys'],
-        'actions/checkout'               => ['ref'],
-        'actions/download-artifact'      => ['path'],
-        'actions/upload-artifact'        => ['path'],
-        'peter-evans/create-pull-request' => ['base', 'body-path', 'branch', 'commit-message', 'title'],
-        'shivammathur/setup-php'         => ['php-version'],
+        'actions/cache'                     => ['key', 'path', 'restore-keys'],
+        'actions/checkout'                  => ['ref'],
+        'actions/download-artifact'         => ['path'],
+        'actions/upload-artifact'           => ['path'],
+        'peter-evans/create-pull-request'   => ['base', 'body-path', 'branch', 'commit-message', 'title'],
+        'shivammathur/setup-php'            => ['php-version'],
         './.github/actions/approve-held-ci' => ['head-sha', 'token', 'workflow'],
     ];
 
