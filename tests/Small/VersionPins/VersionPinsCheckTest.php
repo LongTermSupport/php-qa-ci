@@ -108,9 +108,9 @@ final class VersionPinsCheckTest extends TestCase
     }
 
     #[Test]
-    public function aYmlAndAYamlWorkflowOfTheSameNameAreEachReportedUnderTheirOwnName(): void
+    public function aYmlAndAYamlWorkflowOfTheSameNameAreEachReportedInOrderAndAnotherSuffixIsNotAWorkflow(): void
     {
-        $this->expectOutputRegex('#(?=.*\.github/workflows/same\.yml: runs on pull_request)(?=.*\.github/workflows/same\.yaml: runs on pull_request)#s');
+        $this->expectOutputRegex('#^(?!.*(?:old\.yaml\.html|off\.yml\.xml))(?=.*\.github/workflows/same\.yaml: runs on pull_request.*\.github/workflows/same\.yml: runs on pull_request)#s');
         self::assertSame(1, $this->check()->run(self::BOTH, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
