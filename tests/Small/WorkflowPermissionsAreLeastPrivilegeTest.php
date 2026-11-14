@@ -35,6 +35,13 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     /** The key a workflow, and a job, declares its token under. */
     private const string PERMISSIONS = 'permissions';
 
+    /**
+     * The levels a scope can take.
+     *
+     * @var list<string>
+     */
+    private const array LEVELS = ['read', 'write', 'none'];
+
     /** The name the guard test gives its in-memory workflow. */
     private const string GUARD_FILE = 'w.yml';
 
@@ -65,6 +72,16 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
         }
 
         self::assertSame([], $problems);
+    }
+
+    public function testEveryAllowedWriteIsStillHeldByAWorkflow(): void
+    {
+        $workflows = [];
+        foreach ($this->workflowFiles() as $file) {
+            $workflows[basename($file)][] = WorkflowNode::ofFile($file);
+        }
+
+        self::assertSame([], $this->staleAllowances(self::ALLOWED_WRITES, $workflows));
     }
 
     #[Test]
@@ -179,8 +196,10 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
             return [\sprintf('grants %s at the top', $top->text())];
         }
 
-        foreach ($top->stringMap() as $scope => $level) {
-            if ('write' === $level) {
+        foreach ($top->entries() as $scope => $level) {
+            if (!\in_array($level->string(), self::LEVELS, true)) {
+                $problems[] = \sprintf('grants %s at the top with a level that is not read, write or none', $scope);
+            } elseif ('write' === $level->string()) {
                 $problems[] = \sprintf('grants %s: write at the top; a write belongs to the job that needs it', $scope);
             }
         }
@@ -193,14 +212,46 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
                 continue;
             }
 
-            foreach ($granted->stringMap() as $scope => $level) {
-                if ('write' === $level && !\in_array($scope, $allowed[$file][(string)$job] ?? [], true)) {
+            foreach ($granted->entries() as $scope => $level) {
+                if (!\in_array($level->string(), self::LEVELS, true)) {
+                    $problems[] = \sprintf('job %s grants %s with a level that is not read, write or none', $job, $scope);
+                } elseif ('write' === $level->string() && !\in_array((string)$scope, $allowed[$file][(string)$job] ?? [], true)) {
                     $problems[] = \sprintf('job %s grants %s: write, which is not on the list of allowed writes', $job, $scope);
                 }
             }
         }
 
         return $problems;
+    }
+
+    /**
+     * The allowed writes no workflow of that file name holds: a job that is gone, or one that no
+     * longer writes the scope. An allowance nothing uses is a write nobody would notice coming back.
+     *
+     * @param array<string, array<string, list<string>>> $allowed
+     * @param array<string, list<WorkflowNode>>          $workflows the parsed workflows by file name
+     *
+     * @return list<string>
+     */
+    private function staleAllowances(array $allowed, array $workflows): array
+    {
+        $stale = [];
+        foreach ($allowed as $file => $jobs) {
+            foreach ($jobs as $job => $scopes) {
+                foreach ($scopes as $scope) {
+                    $held = false;
+                    foreach ($workflows[$file] ?? [] as $workflow) {
+                        $held = $held || 'write' === $workflow->child('jobs', $job, self::PERMISSIONS, $scope)->string();
+                    }
+
+                    if (!$held) {
+                        $stale[] = \sprintf('%s lists %s: write for job %s, which no copy of that file grants', $file, $scope, $job);
+                    }
+                }
+            }
+        }
+
+        return $stale;
     }
 
     /** @return list<string> */
