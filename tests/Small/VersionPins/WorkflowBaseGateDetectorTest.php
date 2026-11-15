@@ -74,6 +74,8 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string UNREADABLE_JOBS = 'its `jobs` key is missing, empty or written in a shape this check cannot read, so whether its jobs are gated is unknown: write `jobs:` on a line of its own, then each job id as an indented key, without a flow mapping, an anchor or an alias';
 
+    private const array EVENTS = ['pull_request', 'pull_request_target'];
+
     private const string JOBS_HEAD = self::JOBS_QA;
 
     private const string OTHER_JOB = "  other:\n    steps:\n";
@@ -198,7 +200,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             'a quoted key with a flow mapping' => "\"jobs\": {qa: {}}\n",
         ];
 
-        foreach (['pull_request', 'pull_request_target'] as $event) {
+        foreach (self::EVENTS as $event) {
             foreach ($shapes as $label => $jobs) {
                 yield $event . ': ' . $label => [$event, $jobs];
             }
@@ -403,7 +405,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             'a mapping with a comment line before it' => "on:\n  # when it runs\n  %E%:\n",
         ];
 
-        foreach (['pull_request', 'pull_request_target'] as $event) {
+        foreach (self::EVENTS as $event) {
             foreach ($shapes as $label => $shape) {
                 yield $event . ': ' . $label => [$event, $shape];
             }
@@ -888,6 +890,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private function noGateFor(string $event): string
     {
-        return 'pull_request' === $event ? self::PULL_REQUEST_NO_GATE : self::TARGET_NO_GATE;
+        return self::EVENTS[0] === $event ? self::PULL_REQUEST_NO_GATE : self::TARGET_NO_GATE;
     }
 }
