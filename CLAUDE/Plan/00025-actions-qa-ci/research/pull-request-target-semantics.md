@@ -13,7 +13,11 @@ workflows](../../../../remote-docs/docs.github.com/en/actions/reference/workflow
   context of the merge commit, as the `pull_request` event does"; its `GITHUB_SHA` is the last
   commit on the default branch and its `GITHUB_REF` is the default branch.
 - Its webhook payload is the `pull_request` payload, so `github.event.pull_request.base.ref`,
-  `.head.sha` and `.number` are populated as they are for `pull_request`.
+  `.head.sha` and `.number` are populated as they are for `pull_request`. The same page says that
+  payload "is empty for merged pull requests and pull requests that come from forked
+  repositories" under its `pull_request` section; nothing on it says that applies to
+  `pull_request_target`, which is the event that exists to run for a fork, and the table gives both
+  events the same payload.
 - By default it runs for `opened`, `synchronize` and `reopened`, and it runs even when the pull
   request has a merge conflict, which `pull_request` does not.
 - The page advises against the event "if you need to build or run code from the pull request".

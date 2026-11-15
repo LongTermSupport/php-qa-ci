@@ -63,6 +63,8 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string OTHER_JOB = "  other:\n    steps:\n";
 
+    private const string CHEAP_PULL_REQUEST_ONLY_JOB = "  tidy:\n    if: github.event_name == 'pull_request'\n    steps:\n      - run: echo hello\n";
+
     private const string GATE_AFTER_EXPENSIVE ='job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install';
 
     private WorkflowBaseGateDetector $detector;
@@ -238,6 +240,33 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             ['job "other" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
             $this->detector->check($yaml),
         );
+    }
+
+    #[Test]
+    public function onlyAGateJobConditionedOnThePullRequestEventIsToldItNeverRuns(): void
+    {
+        $yaml = self::TARGET_GATE_JOB . self::TARGET_GATE_STEP . self::CHEAP_PULL_REQUEST_ONLY_JOB;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    #[Test]
+    #[DataProvider('expensiveStepsOnTheirOwn')]
+    public function anyOneExpensiveStepIsEnoughToAskAPullRequestTargetWorkflowForTheGate(string $step): void
+    {
+        self::assertSame([self::TARGET_NO_GATE], $this->detector->check(self::TARGET_QA_JOB . $step));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function expensiveStepsOnTheirOwn(): Iterator
+    {
+        yield 'PHP setup' => ["      - uses: shivammathur/setup-php@v2\n"];
+
+        yield 'composer install' => ["      - run: composer install\n"];
+
+        yield 'a qa run with arguments' => ["      - run: vendor/bin/qa -t allCS\n"];
+
+        yield 'a quoted qa run' => ["      - run: \"vendor/bin/qa\"\n"];
     }
 
     #[Test]
