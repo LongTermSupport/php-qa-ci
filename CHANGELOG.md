@@ -27,6 +27,16 @@ the release and its tag. The full rules are in
 
 ### Changed — breaking
 
+- The `composerChecks` cooldown check now reads every `composer.json` below the project root, not
+  only the root one (issue #394). A nested manifest (a `tools/<tool>/composer.json`, a build
+  step's manifest) is a Composer project whose packages resolve under its own policy, so a
+  project's cooldown protection stopped at the root file. Each nested file is checked against the
+  same rules, its findings are printed under `Nested composer.json files` with the file named, and
+  they count toward `withComposerCooldownEnforced(true)`: an enforcing project with a nested
+  manifest that sets no cooldown fails `bin/qa` on its first run after the update. Give the nested
+  file `config.policy.cooldown`, or move a deliberately policy-free path to `withIgnoredPaths()`.
+  The files come from `git ls-files`, so a project that is not a git work tree reports them as
+  not checked. See [docs/tools/composerChecks.md](docs/tools/composerChecks.md).
 - The `phpLint` lane now also syntax-checks every path declared with `withUnanalysedPath()` (issue
   #414). It built its input from the checked paths alone, so PHP that did not parse under a
   declared path was never reported: a declaration excluded a path from the syntax check as well as

@@ -38,6 +38,10 @@ final readonly class AnalysedPathsTool implements ToolInterface
 
     private const string SEPARATOR = '/';
 
+    public function __construct(private ProjectFilesInterface $files = new GitProjectFiles())
+    {
+    }
+
     public function name(): string
     {
         return 'analysedPaths';
@@ -131,22 +135,14 @@ final readonly class AnalysedPathsTool implements ToolInterface
      */
     private function phpFiles(ToolContext $context): ?array
     {
-        $root   = $context->config->paths->projectRoot;
-        $result = $context->processes->run(new ProcessSpecDto(
-            ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
-            $root,
-            streamOutput: false,
-        ));
-
-        if (!$result->succeeded()) {
+        $files = $this->files->files($context);
+        if (null === $files) {
             return null;
         }
 
-        // git lists what the index holds, which on a dirty tree names files no
-        // longer on disk; a deleted directory must not demand a declaration.
         return array_values(array_filter(
-            explode("\0", $result->output),
-            static fn (string $file): bool => str_ends_with($file, self::PHP_EXTENSION) && is_file($root . self::SEPARATOR . $file),
+            $files,
+            static fn (string $file): bool => str_ends_with($file, self::PHP_EXTENSION),
         ));
     }
 

@@ -8,6 +8,7 @@ use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\FixedProjectFiles;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,9 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(ComposerChecksTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ComposerChecks\NestedManifestSelector::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\GitProjectFiles::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
@@ -102,7 +106,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willSucceed('Generated autoload files')
         ;
 
-        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
@@ -133,7 +137,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willSucceed()
         ;
 
-        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame([$this->factory->project->path . self::COMPOSER_JSON], $this->normalizeArguments());
@@ -155,7 +159,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willSucceed()
         ;
 
-        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         $normalize = $this->factory->processes->specs[3];
         self::assertSame($this->factory->paths()->pharDir . '/' . self::NORMALIZE_PHAR, $normalize->command[6]);
@@ -178,7 +182,7 @@ final class ComposerChecksToolTest extends TestCase
         ;
         $root = $this->factory->project->path;
 
-        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         $first = $this->factory->processes->specs[0];
         self::assertSame(
@@ -199,7 +203,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willSucceed()
         ;
 
-        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString('composer diagnose reported issues (shown above) — informational only, not failing the pipeline.', $this->factory->output->fetch());
@@ -214,7 +218,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willFail(1, 'Found 1 security vulnerability advisory affecting 1 package')
         ;
 
-        $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -237,7 +241,7 @@ final class ComposerChecksToolTest extends TestCase
         ;
 
         $config = $this->factory->builder()->withComposerAudit(false)->build();
-        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($config));
+        $result = $this->tool()->run($this->factory->context($config));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame([[self::DIAGNOSE], [self::VERSION_FLAG, '--no-ansi'], ['dump-autoload']], $this->composerInvocations());
@@ -263,7 +267,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willSucceed()
         ;
 
-        $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $result  = $this->tool()->run($this->factory->context());
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -284,7 +288,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willFail(1, 'composer.json is not normalized.')
         ;
 
-        $result  = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
+        $result  = $this->tool()->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
@@ -304,7 +308,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willFail(2, 'invalid json')
         ;
 
-        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
+        $result = $this->tool()->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('composer-normalize failed (exit 2)', $result->summary);
@@ -322,7 +326,7 @@ final class ComposerChecksToolTest extends TestCase
             ->willFail(1, 'Class Foo not found')
         ;
 
-        $result = new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $result = $this->tool()->run($this->factory->context());
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('composer dump-autoload failed (exit 1)', $result->summary);
@@ -335,7 +339,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willSucceed()->willSucceed()->willSucceed();
 
-        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(readOnly: true)->build()));
 
         self::assertSame(
             self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . $this->heading('Checking Composer Normalisation (read-only)') . self::DUMP_HEADING,
@@ -348,7 +352,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willSucceed()->willSucceed()->willSucceed();
 
-        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
+        $this->tool()->run($this->factory->context($this->factory->builder(readOnly: false)->build()));
 
         self::assertSame(
             self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . $this->heading('Running Composer Normalise') . self::DUMP_HEADING,
@@ -361,7 +365,7 @@ final class ComposerChecksToolTest extends TestCase
     {
         $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willFail(1);
 
-        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         self::assertSame(
             self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . <<<'TEXT'
@@ -398,7 +402,7 @@ final class ComposerChecksToolTest extends TestCase
             JSON);
         $this->factory->processes->willSucceed()->willSucceed(self::MODERN)->willSucceed();
 
-        new ComposerChecksTool(self::COMPOSER)->run($this->factory->context());
+        $this->tool()->run($this->factory->context());
 
         self::assertSame(
             self::DIAGNOSE_HEADING . self::COOLDOWN_HEADING . self::AUDIT_HEADING . <<<'TEXT'
@@ -453,13 +457,19 @@ final class ComposerChecksToolTest extends TestCase
         self::assertSame('phpqaci.composerChecks', $tool->identifier());
     }
 
+    /** The lane over a project whose only composer.json is the root one, so the cooldown check asks git for nothing. */
+    private function tool(?string $composer = self::COMPOSER): ComposerChecksTool
+    {
+        return new ComposerChecksTool($composer, files: new FixedProjectFiles(['composer.json']));
+    }
+
     /** Run the lane with no composer path given and PATH set to the one directory, restoring PATH after. */
     private function runWithPath(string $directory): void
     {
         $path = getenv('PATH');
         \Safe\putenv('PATH=' . $directory);
         try {
-            new ComposerChecksTool()->run($this->factory->context());
+            $this->tool(null)->run($this->factory->context());
         } finally {
             \Safe\putenv(false === $path ? 'PATH' : 'PATH=' . $path);
         }

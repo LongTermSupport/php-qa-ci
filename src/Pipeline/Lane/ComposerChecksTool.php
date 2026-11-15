@@ -9,6 +9,7 @@ use LTS\PHPQA\Helper;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownPolicyChecker;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownReport;
+use LTS\PHPQA\Pipeline\Lane\ComposerChecks\NestedManifestSelector;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector;
 use LTS\PHPQA\Pipeline\Lock\ClockInterface;
 use LTS\PHPQA\Pipeline\Lock\SystemClock;
@@ -20,7 +21,9 @@ use Symfony\Component\Process\ExecutableFinder;
 /**
  * Composer hygiene, in six steps: `composer diagnose` (informational, never
  * fails), the cooldown policy check (config.policy.cooldown and the installed
- * Composer; report-only until withComposerCooldownEnforced(true)), `composer audit` against the lock file (a known advisory fails the
+ * Composer; report-only until withComposerCooldownEnforced(true); it covers every
+ * nested composer.json the project's git file list holds, bar ignored and
+ * unanalysed paths), `composer audit` against the lock file (a known advisory fails the
  * lane; abandoned packages are reported; off with withComposerAudit(false)),
  * no `suggest` entry may name a package the project already requires, the
  * composer.json must be normalised by the shipped composer-normalize PHAR (a
@@ -45,6 +48,8 @@ final readonly class ComposerChecksTool implements ToolInterface
 
     private const string LIST_ITEM = '  - ';
 
+    private const string NESTED = 'Nested composer.json files';
+
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
     public function __construct(
@@ -52,6 +57,8 @@ final readonly class ComposerChecksTool implements ToolInterface
         private RedundantSuggestDetector $redundantSuggests = new RedundantSuggestDetector(),
         private CooldownPolicyChecker $cooldown = new CooldownPolicyChecker(),
         private ClockInterface $clock = new SystemClock(),
+        private ProjectFilesInterface $files = new GitProjectFiles(),
+        private NestedManifestSelector $nestedManifests = new NestedManifestSelector(),
     ) {
     }
 
@@ -194,19 +201,96 @@ final readonly class ComposerChecksTool implements ToolInterface
         }
 
         $probe  = $context->php->withoutXdebug($composer, ['--version', '--no-ansi'], $root, streamOutput: false);
+        $today  = gmdate('Y-m-d', $this->clock->now());
         $report = $this->cooldown->check(
             $manifest,
             $probe->succeeded() ? $probe->stdout : null,
-            gmdate('Y-m-d', $this->clock->now()),
+            $today,
             ...$context->config->composerCooldownInternalVendors,
         );
 
         $this->printCooldownReport($context, $report);
-        if (!$report->hasProblems()) {
+        $findings = \count($report->problems) + $this->nestedStep($context, $today);
+        if (0 === $findings) {
             return null;
         }
 
-        return $this->enforcementOutcome($context, \sprintf('%d Composer cooldown finding(s)', \count($report->problems)));
+        return $this->enforcementOutcome($context, \sprintf('%d Composer cooldown finding(s)', $findings));
+    }
+
+    /**
+     * The same policy check over every other composer.json the project holds: a repository can
+     * hold more than one Composer project, an application beside a tool or a docs build. The
+     * files are listed as the analysedPaths lane lists them, bar those under an ignored path, a
+     * path declared unanalysed or a default exclusion. Each finding names its file.
+     *
+     * @return int how many findings the nested manifests add
+     */
+    private function nestedStep(ToolContext $context, string $today): int
+    {
+        $files = $this->files->files($context);
+        if (null === $files) {
+            $context->writeln('');
+            $context->writeln(self::NESTED . ' not checked: the project is not a git work tree, so there is no file list to read them from.');
+
+            return 0;
+        }
+
+        $manifests = $this->nestedManifests->select($context->config, ...$files);
+        if ([] === $manifests) {
+            return 0;
+        }
+
+        $root      = $context->config->paths->projectRoot;
+        $problems  = [];
+        $overrides = [];
+        foreach ($manifests as $relative) {
+            $manifest = $this->readManifest($root . '/' . $relative);
+            if (\is_string($manifest)) {
+                $problems[] = $relative . ': ' . self::UNREADABLE . $manifest;
+
+                continue;
+            }
+
+            $report = $this->cooldown->checkPolicy($manifest, $today, ...$context->config->composerCooldownInternalVendors);
+            foreach ($report->problems as $problem) {
+                $problems[] = $relative . ': ' . $problem;
+            }
+
+            foreach ($report->overrides as $override) {
+                $overrides[] = $relative . ': ' . $override;
+            }
+        }
+
+        $found = new CooldownReport($problems, $overrides);
+        $this->printNested($context, \count($manifests), $found);
+
+        return \count($found->problems);
+    }
+
+    /** What the nested manifests said, each line naming its file. */
+    private function printNested(ToolContext $context, int $checked, CooldownReport $found): void
+    {
+        $context->writeln('');
+        if (!$found->hasProblems()) {
+            $context->writeln(\sprintf('%s (%d checked): the cooldown policy is in place in each.', self::NESTED, $checked));
+        } else {
+            $context->writeln(\sprintf('%s (%d checked) have %d finding(s):', self::NESTED, $checked, \count($found->problems)));
+            $context->writeln('');
+            foreach ($found->problems as $problem) {
+                $context->writeln(self::LIST_ITEM . $problem);
+            }
+        }
+
+        if ([] === $found->overrides) {
+            return;
+        }
+
+        $context->writeln('');
+        $context->writeln('Security overrides in force in those files (config.policy.cooldown.ignore):');
+        foreach ($found->overrides as $override) {
+            $context->writeln(self::LIST_ITEM . $override);
+        }
     }
 
     /**
