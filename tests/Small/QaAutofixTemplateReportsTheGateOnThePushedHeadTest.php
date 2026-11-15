@@ -29,6 +29,12 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
 {
     private const string TEMPLATE = __DIR__ . '/../../templates/github-actions/qa-autofix.yml';
 
+    private const string STEPS = 'steps';
+
+    private const string RUN = 'run';
+
+    private const string ENV = 'env';
+
     private const string GATE = 'gate';
 
     private const string STATUS_JOB = 'gate-status';
@@ -43,13 +49,13 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     public function theGateRecordsTheCommitItCheckedOutRightAfterTheCheckout(): void
     {
         $gate  = $this->job(self::GATE);
-        $steps = $gate->child('steps')->items();
+        $steps = $gate->child(self::STEPS)->items();
 
         self::assertSame(self::SHA_OUTPUT, $gate->child('outputs', 'sha')->string(), 'the gate job does not publish the commit it checked out');
         self::assertStringStartsWith('actions/checkout@', $steps[0]->child('uses')->text(), 'the first step of the gate is not its checkout');
         self::assertSame('tip', $steps[1]->child('id')->string(), 'the step after the checkout is not the one that records the commit');
-        self::assertStringContainsString('git rev-parse HEAD', $steps[1]->child('run')->text());
-        self::assertStringContainsString('GITHUB_OUTPUT', $steps[1]->child('run')->text());
+        self::assertStringContainsString('git rev-parse HEAD', $steps[1]->child(self::RUN)->text());
+        self::assertStringContainsString('GITHUB_OUTPUT', $steps[1]->child(self::RUN)->text());
     }
 
     #[Test]
@@ -72,12 +78,12 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     #[Test]
     public function theStatusJobRunsNoActionAndNoProjectCode(): void
     {
-        $steps = $this->job(self::STATUS_JOB)->child('steps')->items();
+        $steps = $this->job(self::STATUS_JOB)->child(self::STEPS)->items();
 
         self::assertNotSame([], $steps, 'the status job has no steps');
         foreach ($steps as $step) {
             self::assertFalse($step->has('uses'), 'the status job runs an action, which may check the project out or run its code');
-            self::assertStringNotContainsString(self::EXPRESSION, $step->child('run')->text(), 'a value is substituted into the script; pass it as an environment variable');
+            self::assertStringNotContainsString(self::EXPRESSION, $step->child(self::RUN)->text(), 'a value is substituted into the script; pass it as an environment variable');
         }
     }
 
@@ -100,16 +106,15 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     #[Test]
     public function theStatusIsPostedForTheCheckedOutCommitUnderTheGatesNameAndOnlyASuccessfulGateIsSuccess(): void
     {
-        $step = $this->job(self::STATUS_JOB)->child('steps', 0);
-        $run  = $step->child('run')->text();
+        $step = $this->job(self::STATUS_JOB)->child(self::STEPS, 0);
+        $run  = $step->child(self::RUN)->text();
 
-        self::assertSame('${{ needs.gate.result }}', $step->child('env', 'GATE_RESULT')->string());
-        self::assertSame('${{ ' . self::GATE_SHA . ' }}', $step->child('env', 'SHA')->string());
-        self::assertSame('${{ github.token }}', $step->child('env', 'GH_TOKEN')->string());
+        self::assertSame('${{ needs.gate.result }}', $step->child(self::ENV, 'GATE_RESULT')->string());
+        self::assertSame('${{ ' . self::GATE_SHA . ' }}', $step->child(self::ENV, 'SHA')->string());
+        self::assertSame('${{ github.token }}', $step->child(self::ENV, 'GH_TOKEN')->string());
         self::assertStringContainsString('gh api --method POST "repos/${REPOSITORY}/statuses/${SHA}"', $run);
-        self::assertStringContainsString('[ "${GATE_RESULT}" = "success" ]', $run);
-        self::assertStringContainsString('STATE=success', $run);
-        self::assertStringContainsString('STATE=failure', $run);
+        self::assertMatchesRegularExpression('/if \[ "\$\{GATE_RESULT\}" = "success" \]; then\n\s*STATE=success\n\s*else\n\s*STATE=failure\n\s*fi/', $run, 'only a gate whose result is success may post success');
+        self::assertStringContainsString('state="${STATE}"', $run);
         self::assertStringContainsString('context="${CONTEXT}"', $run);
     }
 
@@ -119,7 +124,7 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
         $name = $this->job(self::GATE)->child('name')->string();
 
         self::assertNotNull($name, 'the gate job has no name');
-        self::assertSame($name, $this->job(self::STATUS_JOB)->child('steps', 0, 'env', 'CONTEXT')->string(), 'a rename of the gate leaves the status under a name nothing requires');
+        self::assertSame($name, $this->job(self::STATUS_JOB)->child(self::STEPS, 0, self::ENV, 'CONTEXT')->string(), 'a rename of the gate leaves the status under a name nothing requires');
     }
 
     private function job(string $id): WorkflowNode

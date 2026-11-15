@@ -66,7 +66,7 @@ final class WorkflowPermissionsAreLeastPrivilegeTest extends TestCase
     private const array ALLOWED_WRITES = [
         'qa.yml'          => ['coverage-report' => ['pull-requests']],
         'php-qa-ci.yml'   => ['coverage-report' => ['pull-requests']],
-        'qa-autofix.yml'  => ['autofix' => ['contents']],
+        'qa-autofix.yml'  => ['autofix' => ['contents'], 'gate-status' => ['statuses']],
         'release.yml'     => ['release' => ['actions', 'contents', 'pull-requests']],
         'update-deps.yml' => [
             'open-pull-request' => ['contents', 'pull-requests'],
