@@ -355,6 +355,48 @@ final class PhpLintToolTest extends TestCase
         );
     }
 
+    /** An ignored path is the declared path it names however it is spelt, as every other lane reads it. */
+    #[Test]
+    public function aDeclaredPathIgnoredWithALeadingDotSlashIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths('./generated')
+            ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/./generated', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A declared path under an ignored one is ignored with it. */
+    #[Test]
+    public function aDeclaredPathInsideAnIgnoredPathIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('generated/sub/Out.php', self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths(self::GENERATED)
+            ->withUnanalysedPath('generated/sub', self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/' . self::GENERATED, $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
     /** A declared path that is itself a dangling symlink is named as skipped, like a checked one. */
     #[Test]
     public function aDeclaredPathThatIsADanglingSymlinkIsNamedAsSkipped(): void
