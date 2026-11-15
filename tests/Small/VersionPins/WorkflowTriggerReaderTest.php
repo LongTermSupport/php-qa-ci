@@ -6,16 +6,19 @@ namespace LTS\PHPQA\Tests\Small\VersionPins;
 
 use Iterator;
 use LTS\PHPQA\VersionPins\WorkflowTriggerReader;
+use LTS\PHPQA\VersionPins\WorkflowYamlText;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\UsesClass;
 use PHPUnit\Framework\TestCase;
 
 /**
  * @internal
  */
 #[CoversClass(WorkflowTriggerReader::class)]
+#[UsesClass(WorkflowYamlText::class)]
 #[Small]
 final class WorkflowTriggerReaderTest extends TestCase
 {
