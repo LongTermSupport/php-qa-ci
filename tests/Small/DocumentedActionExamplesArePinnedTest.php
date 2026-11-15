@@ -97,6 +97,14 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
 
         yield 'a step after the inner fence has closed, inside the outer' => ["````markdown\n```yaml\n- name: x\n```\n- uses: o/r@v1\n````\n"];
 
+        yield 'an upper-case info string' => ["```YAML\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'an info string with attributes' => ["```yaml{1}\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'a tilde line inside a backtick fence' => ["```text\n~~~\n- uses: o/r@v1\n```\n"];
+
+        yield 'a line less indented than its indented fence' => ["   ```text\n- uses: o/r@v1\n   ```\n"];
+
         yield 'a fence of four backticks holding a step' => ["````yaml\n- uses: o/r@v1\n````\n"];
 
         yield 'an indented fence' => ["1. Add it:\n\n   ```yaml\n   - uses: o/r@v1\n   ```\n"];

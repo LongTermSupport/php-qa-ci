@@ -158,6 +158,27 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
         yield 'literal that keeps its newlines' => ['|+'];
     }
 
+    /**
+     * A folded block joins its lines into one, so a pinned-shaped line inside one is the start of a
+     * longer line of the parsed text; it accounts for nothing all the same.
+     */
+    public function testAPinnedShapedLineInsideAFoldedRunBlockOfSeveralLinesAccountsForNothing(): void
+    {
+        $sha = str_repeat('f', 40);
+
+        self::assertSame(
+            [$this->notPinned(self::SOME_ACTION . $sha)],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . "      - name: Say\n"
+                . "        run: >\n"
+                . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha)
+                . "          and then more text\n"
+                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+            ),
+        );
+    }
+
     /** The same text in a block scalar beside a real pinned step does not hide the step's own pin. */
     public function testARealPinnedStepStillPassesBesideARunBlockThatQuotesIt(): void
     {
