@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\ActionPins;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
@@ -33,12 +34,6 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
         __DIR__ . '/../../.github',
         __DIR__ . '/../../templates/github-actions',
     ];
-
-    /** `uses: <reference>`, the reference being everything up to a comment or the end of the line. */
-    private const string USES = '/^\s*-?\s*uses:\s*([^\s#]+)/';
-
-    /** `owner/repo[/path]@<40 hex digits>` followed by the release it is, as `# v1.2.3`. */
-    private const string PINNED = '/^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\s+#\s+v\d+(\.\d+)*\s*$/';
 
     public function testEveryRemoteActionIsPinnedToACommitWithItsReleaseBeside(): void
     {
@@ -73,25 +68,35 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
         );
     }
 
+    /**
+     * A reference written as a flow mapping (`- {uses: owner/repo@v1}`) is read by the YAML, not by
+     * the start of a line, so a tag written that way is reported, and so is a commit written that
+     * way with no release beside it.
+     */
+    public function testTheGuardReportsAReferenceWrittenAsAFlowMapping(): void
+    {
+        $sha = str_repeat('b', 40);
+
+        self::assertSame(
+            [
+                'actions/checkout@v4 is not a commit SHA with its release beside it',
+                \sprintf('some/action@%s is not a commit SHA with its release beside it', $sha),
+            ],
+            $this->unpinned(
+                "jobs:\n"
+                . "  build:\n"
+                . "    runs-on: ubuntu-latest\n"
+                . "    steps:\n"
+                . "      - {uses: actions/checkout@v4}\n"
+                . \sprintf("      - {name: Other, uses: 'some/action@%s'}\n", $sha),
+            ),
+        );
+    }
+
     /** @return list<string> */
     private function unpinned(string $workflow): array
     {
-        $problems = [];
-        foreach (explode("\n", $workflow) as $line) {
-            if (1 !== \Safe\preg_match(self::USES, $line, $match) || !isset($match[1])) {
-                continue;
-            }
-
-            if (str_starts_with($match[1], './')) {
-                continue;
-            }
-
-            if (1 !== \Safe\preg_match(self::PINNED, $line)) {
-                $problems[] = $match[1] . ' is not a commit SHA with its release beside it';
-            }
-        }
-
-        return $problems;
+        return ActionPins::unpinnedLines($workflow);
     }
 
     /** @return list<string> */
