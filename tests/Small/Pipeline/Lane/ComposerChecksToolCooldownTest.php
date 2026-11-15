@@ -9,7 +9,10 @@ use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownReport;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
 use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
+use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
+use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Tests\Support\ContextFactory;
+use LTS\PHPQA\Tests\Support\FixedProjectFiles;
 use LTS\PHPQA\Tests\Support\MutableClock;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
@@ -62,6 +65,12 @@ final class ComposerChecksToolCooldownTest extends TestCase
     private const string COMPOSER_JSON = '/composer.json';
 
     private const string NO_COOLDOWN = 'no cooldown configured';
+
+    private const string TOOL_MANIFEST = 'tools/a/composer.json';
+
+    private const string NESTED_HEADING = 'Nested composer.json files';
+
+    private const string ENFORCED_ONE = '1 Composer cooldown finding(s)';
 
     private const int NOVEMBER_SECOND = 1_793_620_800;
 
@@ -322,6 +331,186 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertStringContainsString('"acme-tools/*"', $this->factory->output->fetch());
+    }
+
+    /** A repository can hold more than one Composer project; each gets the check the root one does (#394). */
+    #[Test]
+    public function aNestedManifestWithNoCooldownIsNamedAndDoesNotFailAReportOnlyLane(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested(['name' => 'acme/tool']);
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles(['composer.json', self::TOOL_MANIFEST]);
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::NESTED_HEADING . ' (1 checked)', $printed);
+        self::assertStringContainsString(self::TOOL_MANIFEST . ': ' . self::NO_COOLDOWN, $printed);
+        self::assertStringContainsString('Report-only: these findings do not fail the lane.', $printed);
+    }
+
+    #[Test]
+    public function enforcementFailsOnANestedFindingAndCountsItWithTheRootOnes(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested(['name' => 'acme/tool']);
+        $this->queue(self::MODERN);
+
+        $result = $this->runWithFiles(['composer.json', self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame(self::ENFORCED_ONE, $result->summary);
+    }
+
+    #[Test]
+    public function aRootFindingAndANestedOneAreBothCounted(): void
+    {
+        $this->queue(self::MODERN);
+        $this->writeNested(['name' => 'acme/tool']);
+
+        $result = $this->runWithFiles(['composer.json', self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+
+        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+    }
+
+    #[Test]
+    public function aNestedManifestThatSwitchesTheCooldownOffIsNamed(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested(['name' => 'acme/tool', 'config' => ['policy' => ['cooldown' => false]]]);
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles(['composer.json', self::TOOL_MANIFEST]);
+
+        self::assertStringContainsString(self::TOOL_MANIFEST . ': config.policy.cooldown is false', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aNestedManifestWithACorrectCooldownIsInPlaceAndNamesNoFinding(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(), 'name' => 'acme/tool']);
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles(['composer.json', self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::NESTED_HEADING . ' (1 checked): the cooldown policy is in place in each.', $printed);
+        self::assertStringNotContainsString(self::TOOL_MANIFEST . ': ', $printed);
+    }
+
+    #[Test]
+    public function anUnreadableNestedManifestIsNamedAndCountsWhenEnforced(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->factory->project->write(self::TOOL_MANIFEST, '{');
+        $this->queue(self::MODERN);
+
+        $result = $this->runWithFiles(['composer.json', self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame(self::ENFORCED_ONE, $result->summary);
+        self::assertStringContainsString(self::TOOL_MANIFEST . ': ' . self::UNREADABLE, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aProjectThatIsNotAGitWorkTreeSaysTheNestedManifestsWereNotChecked(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles(null, $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::NESTED_HEADING . ' not checked: the project is not a git work tree, so there is no file list to read them from.', $printed);
+    }
+
+    /** The version of Composer is one fact about the host, not one per manifest. */
+    #[Test]
+    public function theComposerVersionFindingIsNotRepeatedForANestedManifest(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(), 'name' => 'acme/tool']);
+        $this->queue('Composer version 2.8.0 2026-01-01 00:00:00');
+
+        $result  = $this->runWithFiles(['composer.json', self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(self::ENFORCED_ONE, $result->summary);
+        self::assertSame(1, substr_count($printed, 'is older than 2.11'));
+    }
+
+    #[Test]
+    public function optingOutNeverAsksForTheProjectsFiles(): void
+    {
+        $files = new FixedProjectFiles(['composer.json', self::TOOL_MANIFEST]);
+        $this->queueWithoutVersionProbe();
+
+        $this->runWithProjectFiles($files, $this->factory->builder()->withoutComposerCooldownCheck('built from a fixed lock file only')->build());
+
+        self::assertSame(0, $files->asked);
+        self::assertStringNotContainsString(self::NESTED_HEADING, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aNestedManifestIsJudgedForItsOwnVendor(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(), 'name' => 'other-vendor/tool']);
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles(['composer.json', self::TOOL_MANIFEST]);
+
+        self::assertStringContainsString(self::TOOL_MANIFEST . ': config.policy.cooldown.ignore has no "other-vendor/*" entry', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aProjectWithOnlyItsRootManifestSaysNothingAboutNestedOnes(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles(['composer.json', 'src/Foo.php']);
+
+        self::assertStringNotContainsString(self::NESTED_HEADING, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aNestedManifestUnderAnIgnoredPathIsNotChecked(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->factory->project->write('tests/assets/p/composer.json', '{"name": "fixture/p"}');
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles(['composer.json', 'tests/assets/p/composer.json'], $this->factory->builder()->withIgnoredPaths('tests/assets')->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringNotContainsString('tests/assets/p/composer.json', $printed);
+        self::assertStringNotContainsString(self::NESTED_HEADING, $printed);
+    }
+
+    /**
+     * @param array<string, mixed> $json
+     */
+    private function writeNested(array $json): void
+    {
+        $this->factory->project->write(self::TOOL_MANIFEST, \Safe\json_encode($json, JSON_THROW_ON_ERROR));
+    }
+
+    /** @param list<string>|null $files */
+    private function runWithFiles(?array $files, ?QaConfigDto $config = null): ToolResultDto
+    {
+        return $this->runWithProjectFiles(new FixedProjectFiles($files), $config);
+    }
+
+    private function runWithProjectFiles(FixedProjectFiles $files, ?QaConfigDto $config = null): ToolResultDto
+    {
+        $tool = new ComposerChecksTool(self::COMPOSER, new RedundantSuggestDetector(), new CooldownPolicyChecker(), new MutableClock(self::NOVEMBER_SECOND), $files);
+
+        return $tool->run($this->factory->context($config ?? $this->factory->builder()->build()));
     }
 
     /**
