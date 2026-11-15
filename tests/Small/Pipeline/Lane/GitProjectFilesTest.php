@@ -37,6 +37,10 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class GitProjectFilesTest extends TestCase
 {
+    private const string SOURCE = 'a.php';
+
+    private const string MANIFEST = 'tools/a/composer.json';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -66,26 +70,26 @@ final class GitProjectFilesTest extends TestCase
     #[Test]
     public function itListsOnlyTheFilesThatAreStillOnDisk(): void
     {
-        $this->factory->project->write('a.php', '');
-        $this->factory->project->write('tools/a/composer.json', '{}');
-        $this->factory->processes->willSucceed("a.php\0tools/a/composer.json\0gone.php\0");
+        $this->factory->project->write(self::SOURCE, '');
+        $this->factory->project->write(self::MANIFEST, '{}');
+        $this->factory->processes->willSucceed(self::SOURCE . "\0" . self::MANIFEST . "\0gone.php\0");
 
         $files = new GitProjectFiles()->files($this->factory->context());
 
-        self::assertSame(['a.php', 'tools/a/composer.json'], $files);
+        self::assertSame([self::SOURCE, self::MANIFEST], $files);
     }
 
     /** The result is a list: a file dropped from the middle leaves no gap in the keys. */
     #[Test]
     public function aFileDroppedFromTheMiddleLeavesAListWithNoGapInItsKeys(): void
     {
-        $this->factory->project->write('a.php', '');
-        $this->factory->project->write('tools/a/composer.json', '{}');
-        $this->factory->processes->willSucceed("a.php\0gone.php\0tools/a/composer.json\0");
+        $this->factory->project->write(self::SOURCE, '');
+        $this->factory->project->write(self::MANIFEST, '{}');
+        $this->factory->processes->willSucceed(self::SOURCE . "\0gone.php\0" . self::MANIFEST . "\0");
 
         $files = new GitProjectFiles()->files($this->factory->context());
 
-        self::assertSame(['a.php', 'tools/a/composer.json'], $files);
+        self::assertSame([self::SOURCE, self::MANIFEST], $files);
     }
 
     #[Test]
