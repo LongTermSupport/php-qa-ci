@@ -59,7 +59,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string TARGET_NO_GATE = 'runs on pull_request_target and installs or runs code but has no up-to-date-with-base gate: add a step that fetches the base branch and the pull request head without checking the head out (`git fetch origin "${BASE_REF}"`, then `git fetch origin "pull/${PR_NUMBER}/head"`) and fails when `git merge-base --is-ancestor "origin/${BASE_REF}" FETCH_HEAD` is false, with BASE_REF set from github.event.pull_request.base.ref and PR_NUMBER from github.event.pull_request.number; do not condition the step on `github.event_name == \'pull_request\'`, which is false on this event';
 
-    private const string TARGET_GATE_NEVER_RUNS = 'its up-to-date-with-base gate is conditioned on `github.event_name == \'pull_request\'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it';
+    private const string TARGET_GATE_NEVER_RUNS = "its up-to-date-with-base gate is conditioned on `github.event_name == 'pull_request'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it";
 
     private const string GATE_AFTER_EXPENSIVE = 'job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install';
 

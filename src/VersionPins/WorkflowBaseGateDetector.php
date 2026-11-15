@@ -43,7 +43,7 @@ final readonly class WorkflowBaseGateDetector
 
     private const string NO_GATE_TARGET = 'runs on pull_request_target and installs or runs code but has no up-to-date-with-base gate: add a step that fetches the base branch and the pull request head without checking the head out (`git fetch origin "${BASE_REF}"`, then `git fetch origin "pull/${PR_NUMBER}/head"`) and fails when `git merge-base --is-ancestor "origin/${BASE_REF}" FETCH_HEAD` is false, with BASE_REF set from github.event.pull_request.base.ref and PR_NUMBER from github.event.pull_request.number; do not condition the step on `github.event_name == \'pull_request\'`, which is false on this event';
 
-    private const string GATE_NEVER_RUNS = 'its up-to-date-with-base gate is conditioned on `github.event_name == \'pull_request\'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it';
+    private const string GATE_NEVER_RUNS = "its up-to-date-with-base gate is conditioned on `github.event_name == 'pull_request'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it";
 
     private const string JOB_HEADER_PATTERN = '/^  ([A-Za-z0-9_-]+):[ \t]*$/';
 
@@ -88,7 +88,8 @@ final readonly class WorkflowBaseGateDetector
             return [];
         }
 
-        $gateJobs = array_map(strval(...), array_keys(array_filter($jobs, $this->hasGate(...))));
+        $gateBodies = array_filter($jobs, $this->hasGate(...));
+        $gateJobs   = array_map(strval(...), array_keys($gateBodies));
         if ([] === $gateJobs) {
             if ($onPullRequest) {
                 return [self::NO_GATE];
@@ -120,7 +121,7 @@ final readonly class WorkflowBaseGateDetector
             }
         }
 
-        if ($onTarget && array_any($gateJobs, fn (string $id): bool => $this->skippedOnPullRequestTarget($jobs[$id] ?? ''))) {
+        if ($onTarget && array_any($gateBodies, $this->skippedOnPullRequestTarget(...))) {
             $problems[] = self::GATE_NEVER_RUNS;
         }
 
