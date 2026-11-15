@@ -47,10 +47,23 @@ final readonly class CooldownPolicyChecker
      */
     public function check(array $composerJson, ?string $versionOutput, string $today, string ...$internalVendors): CooldownReport
     {
+        return $this->versionReport($versionOutput)->merge($this->checkPolicy($composerJson, $today, ...$internalVendors));
+    }
+
+    /**
+     * What one manifest says, without the installed Composer's version: that is one fact about the
+     * host, judged once with the root manifest, not once per Composer project in the repository.
+     *
+     * @param array<array-key, mixed> $composerJson
+     * @param string                  $today              `Y-m-d`, the day a security override's remove-after date is judged against
+     * @param string                  ...$internalVendors vendors besides the manifest's own that must be exempted by a glob
+     */
+    public function checkPolicy(array $composerJson, string $today, string ...$internalVendors): CooldownReport
+    {
         $own     = $this->ownVendor($composerJson);
         $vendors = array_values(array_unique(null === $own ? $internalVendors : [$own, ...$internalVendors]));
 
-        return $this->versionReport($versionOutput)->merge($this->policyReport($composerJson, $today, ...$vendors));
+        return $this->policyReport($composerJson, $today, ...$vendors);
     }
 
     private function versionReport(?string $versionOutput): CooldownReport

@@ -27,6 +27,7 @@ use PHPUnit\Framework\TestCase;
  * @internal
  */
 #[CoversClass(AnalysedPathsTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\GitProjectFiles::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\AnalysedPaths\AnalysedPathsAudit::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\AnalysedPaths\Dto\AnalysedPathsVerdictDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ConfigPathResolver::class)]

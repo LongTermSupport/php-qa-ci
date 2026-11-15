@@ -133,6 +133,32 @@ run, so their results are reported with it, not hidden by it. The later steps st
 file, so the lane can fail through them: Composer's audit and the normalise step report the same
 file in their own words. The redundant-suggest step skips itself on it.
 
+### Nested composer.json files
+
+A `composer.json` below the project root is a Composer project of its own (a `tools/<tool>/`
+directory that pins a tool, a build step's manifest), and Composer resolves its packages under
+that file's policy, not the root's. The lane therefore applies the cooldown policy to each one
+too, and prints a `Nested composer.json files` block listing the findings, each prefixed with the
+file it came from. The installed-Composer version check is not repeated per file: it is the same
+Composer. Each nested file is judged for the vendor of its own `name` and the vendors named by
+`withComposerCooldownInternalVendors()`; the root's `name` is not applied to it. Findings and
+security overrides (listed with their file) follow the same rules as the root file, and the same
+report-only or enforced status: the nested findings count toward `enforceComposerCooldown`. A root
+`composer.json` that cannot be read is a finding of its own and does not stop the nested files
+being checked.
+
+The files come from `git ls-files` (tracked, and untracked files git does not ignore), so a
+project that is not a git work tree reports that the nested files were not checked, rather than
+guessing from the file system. A manifest is left out when it lies under:
+
+- a path the project declares with `withIgnoredPaths()` or `withUnanalysedPath()`;
+- `vendor/` or `var/` at the project root, which are never the project's own code.
+
+A manifest that cannot be read is a finding for that file. To silence a nested manifest
+honestly, give it the policy (`config.policy.cooldown` with a `period`, and an `ignore` entry for
+each internal vendor). `withoutComposerCooldownCheck('<reason>')` opts the whole check out, nested
+files included.
+
 ## How to fix a failure
 
 **A known advisory**: update the affected package to a patched release and commit the lock.
