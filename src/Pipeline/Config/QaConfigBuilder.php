@@ -410,6 +410,10 @@ final readonly class QaConfigBuilder
      * "not analysed, on purpose". The reason is required, of at least two
      * words, and printed beside the path on every run: it is the record of
      * the decision. Prefer withCheckedPaths() for code the project maintains.
+     *
+     * The declaration excludes the path from style and static analysis only:
+     * the phpLint lane still checks that its PHP parses. A file that does not
+     * parse belongs under withIgnoredPaths().
      */
     public function withUnanalysedPath(string $path, string $reason): self
     {

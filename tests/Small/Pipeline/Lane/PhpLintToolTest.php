@@ -26,6 +26,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
@@ -55,6 +56,14 @@ final class PhpLintToolTest extends TestCase
     private const string ASSET_DANGLING = '/tests/Asset/Ignored.php';
 
     private const string SUB_DIR = 'src/a';
+
+    private const string SUB_PATH = '/src/a';
+
+    private const string GENERATED = 'generated';
+
+    private const string GENERATED_FILE = 'generated/Out.php';
+
+    private const string DECLARED_REASON = 'generated code kept as it is';
 
     private ContextFactory $factory;
 
@@ -209,7 +218,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('PHP Lint failed (exit 254)', $result->summary);
-        self::assertSame(['--', $root . '/src/a'], \array_slice($this->factory->processes->lastSpec()->command, 7));
+        self::assertSame(['--', $root . self::SUB_PATH], \array_slice($this->factory->processes->lastSpec()->command, 7));
     }
 
     #[Test]
@@ -225,8 +234,241 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/src/a/Gone.php', $root . '/src/a'],
+            ['--', self::EXCLUDE, $root . '/src/a/Gone.php', $root . self::SUB_PATH],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /**
+     * A path declared unanalysed is excluded from style and static analysis, not from the syntax
+     * check: generated code that does not parse is a defect (#414).
+     */
+    #[Test]
+    public function aPathDeclaredUnanalysedIsLintedAfterTheCheckedPaths(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)->build();
+
+        $result = new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertSame(
+            ['--', $root . self::TESTS, $root . self::SRC, $root . '/' . self::GENERATED],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    #[Test]
+    public function aDeclaredFileIsLintedNotOnlyADirectory(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('bin/bootstrap.php', self::PHP_FILE);
+        $config = $this->factory->builder()->withUnanalysedPath('bin/bootstrap.php', self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', $root . self::TESTS, $root . self::SRC, $root . '/bin/bootstrap.php'],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A path made of digits is an int array key in the declarations; it is still a path. */
+    #[Test]
+    public function aDeclaredPathNamedInDigitsIsLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('2024/Out.php', self::PHP_FILE);
+        $config = $this->factory->builder()->withUnanalysedPath('2024', self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', $root . self::TESTS, $root . self::SRC, $root . '/2024'],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** An ignored path inside a declared one stays excluded: a deliberately broken file belongs there. */
+    #[Test]
+    public function anIgnoredPathInsideADeclaredPathStaysExcluded(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths('generated/broken')
+            ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/generated/broken', $root . self::TESTS, $root . self::SRC, $root . '/' . self::GENERATED],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A declared path that is also ignored is excluded, not given to parallel-lint to walk and skip. */
+    #[Test]
+    public function aDeclaredPathThatIsAlsoIgnoredIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths(self::GENERATED)
+            ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/' . self::GENERATED, $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** An ignored path spelt with a trailing slash is still the declared path it names. */
+    #[Test]
+    public function aDeclaredPathIgnoredWithATrailingSlashIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths('generated/')
+            ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/generated/', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** An ignored path is the declared path it names however it is spelt, as every other lane reads it. */
+    #[Test]
+    public function aDeclaredPathIgnoredWithALeadingDotSlashIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths('./generated')
+            ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/./generated', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A declared path under an ignored one is ignored with it. */
+    #[Test]
+    public function aDeclaredPathInsideAnIgnoredPathIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('generated/sub/Out.php', self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths(self::GENERATED)
+            ->withUnanalysedPath('generated/sub', self::DECLARED_REASON)
+            ->build()
+        ;
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/' . self::GENERATED, $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A declared path that is itself a dangling symlink is named as skipped, like a checked one. */
+    #[Test]
+    public function aDeclaredPathThatIsADanglingSymlinkIsNamedAsSkipped(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::REAL, self::PHP_FILE);
+        \Safe\symlink(self::MISSING, $root . '/' . self::GENERATED);
+        $config = $this->factory->builder()->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(['--', $root . self::TESTS, $root . self::SRC], \array_slice($this->factory->processes->lastSpec()->command, 7));
+        self::assertSame(
+            "PHP Lint skipped generated: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
+    /** A declaration naming nothing is the analysedPaths lane's to report; parallel-lint fails on a path that is not there. */
+    #[Test]
+    public function aDeclaredPathThatDoesNotExistIsNotGivenToParallelLint(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root   = $this->factory->project->path;
+        $config = $this->factory->builder()->withUnanalysedPath('not-there', self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A run narrowed with -p lints that path alone, as every lane does. */
+    #[Test]
+    public function aRunNarrowedToOnePathDoesNotAddTheDeclaredPaths(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write('src/a/Real.php', self::PHP_FILE);
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+
+        $config = $this->factory->builder(specifiedPath: self::SUB_DIR)->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(['--', $root . self::SUB_PATH], \array_slice($this->factory->processes->lastSpec()->command, 7));
+    }
+
+    /** The dangling-symlink handling reaches the declared paths too (#241). */
+    #[Test]
+    public function aDanglingSymlinkUnderADeclaredPathIsNamedAsSkippedAndExcluded(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::REAL, self::PHP_FILE);
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        \Safe\symlink(self::MISSING, $root . '/generated/Gone.php');
+        $config = $this->factory->builder()->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/generated/Gone.php', $root . self::TESTS, $root . self::SRC, $root . '/' . self::GENERATED],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+        self::assertSame(
+            "PHP Lint skipped generated/Gone.php: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n",
+            $this->factory->output->fetch(),
         );
     }
 

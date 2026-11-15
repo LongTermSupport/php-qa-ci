@@ -2,8 +2,8 @@
 
 **Identifier**: `phpqaci.phpLint`
 
-An always-on parallel syntax check of every PHP file under the checked paths, using the
-shipped `vendor-phar/parallel-lint.phar`.
+An always-on parallel syntax check of every PHP file under the checked paths and under every
+path declared unanalysed, using the shipped `vendor-phar/parallel-lint.phar`.
 
 ## What it is about
 
@@ -16,8 +16,13 @@ syntax error before anything heavier runs.
 
 - In the full pipeline, in the linting phase after the Strict Types check.
 - Standalone: `vendor/bin/qa -t lint`; supports `-p <path>`.
-- Runs `vendor-phar/parallel-lint.phar` without Xdebug over every checked path. Each ignored path
-  (`pathsToIgnore`) is passed as an `--exclude`, resolved under the project root.
+- Runs `vendor-phar/parallel-lint.phar` without Xdebug over every checked path, then over every
+  path declared with `withUnanalysedPath()` (a directory or a single file): a declaration
+  excludes a path from style and static analysis, not from the syntax check. A declaration naming
+  nothing is left to the [analysedPaths](analysedPaths.md) lane, and a run narrowed with `-p`
+  lints that path alone. Each ignored path (`pathsToIgnore`) is passed as an `--exclude`,
+  resolved under the project root, and a declaration at or under an ignored path is not linted,
+  however the ignored path is spelt.
 - parallel-lint reports a file whose real path cannot be resolved, such as a dangling symlink, as
   an `Unknown error` that does not say why
   ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The lane first walks the
@@ -32,8 +37,9 @@ syntax error before anything heavier runs.
 ## How to fix a failure
 
 The output names the file and line of each syntax error. Fix the file; there is nothing to
-configure. A path that should never be linted (generated fixtures, deliberately broken test
-assets) belongs in `pathsToIgnore`.
+configure. A path that should never be linted (deliberately broken test assets, a fixture that
+does not parse) belongs in `pathsToIgnore`, also when it is declared unanalysed: declaring it
+unanalysed does not exclude it from this lane.
 
 ## Implementation
 

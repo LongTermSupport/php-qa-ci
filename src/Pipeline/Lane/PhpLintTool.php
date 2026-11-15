@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 use FilesystemIterator;
 use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -16,9 +17,11 @@ use RecursiveIteratorIterator;
 use SplFileInfo;
 
 /**
- * Fast parallel syntax check of every checked path via the shipped
- * vendor-phar/parallel-lint.phar. Each ignored path is passed as an --exclude,
- * resolved against the project root. Any non-zero exit is a lint failure.
+ * Fast parallel syntax check of every checked path, and of every path declared
+ * unanalysed, via the shipped vendor-phar/parallel-lint.phar: a declaration
+ * excludes PHP from style and static analysis, and it must still parse. Each
+ * ignored path is passed as an --exclude, resolved against the project root.
+ * Any non-zero exit is a lint failure.
  *
  * parallel-lint reports a file whose real path cannot be resolved (a dangling
  * symlink) as an "Unknown error" without saying why, so the lane walks the checked
@@ -61,7 +64,7 @@ final readonly class PhpLintTool implements ToolInterface
         }
 
         $checked = [];
-        foreach ($context->config->pathsToCheck as $path) {
+        foreach ([...$context->config->pathsToCheck, ...$this->declaredPaths($context)] as $path) {
             if (UnresolvablePath::is($path)) {
                 $context->writeln(UnresolvablePath::skipped(self::LABEL, $path, $paths->projectRoot));
 
@@ -105,6 +108,38 @@ final readonly class PhpLintTool implements ToolInterface
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::failed(\sprintf('PHP Lint failed (%s)', $result->describeExit()));
+    }
+
+    /**
+     * The paths declared unanalysed that exist, under the project root, in declaration order.
+     *
+     * A declaration excludes a path from style and static analysis, not from the syntax check.
+     * An ignored path stays excluded, so a declaration at or under one is dropped here, however
+     * the ignored path is spelt, and one inside a declared path is still passed to parallel-lint
+     * as an --exclude. A declaration naming nothing is the analysedPaths lane's to report, and
+     * parallel-lint fails on a path that is not there. A run narrowed with -p lints that path
+     * alone.
+     *
+     * @return list<string>
+     */
+    private function declaredPaths(ToolContext $context): array
+    {
+        if (null !== $context->config->specifiedPath) {
+            return [];
+        }
+
+        $ignored  = IgnoredPaths::of($context->config);
+        $declared = [];
+        foreach (array_keys($context->config->unanalysedPaths) as $path) {
+            $absolute = $context->config->paths->projectRoot . '/' . $path;
+            if ($ignored->contains($absolute) || (!file_exists($absolute) && !is_link($absolute))) {
+                continue;
+            }
+
+            $declared[] = $absolute;
+        }
+
+        return $declared;
     }
 
     /**
