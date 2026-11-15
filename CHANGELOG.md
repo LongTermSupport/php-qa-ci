@@ -97,6 +97,15 @@ the release and its tag. The full rules are in
   passed with no up-to-date-with-base gate beside readable block jobs. A workflow in one of these
   shapes now fails `bin/qa` on its first run after the update: write each job id alone on a line,
   with its keys indented under it. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
+- The `composerChecks` cooldown check now fails a project that enforces the policy when it cannot
+  list the project's files (issue #484). The nested `composer.json` files come from `git ls-files`;
+  when that failed (a source tarball, a Docker build context with no `.git`, a git that refused or
+  was missing) the lane printed that the nested files were not checked and passed, even with
+  `withComposerCooldownEnforced(true)`, so the protection disappeared without a failure. A project
+  that enforces the cooldown and runs the lane where git cannot list its files now fails with one
+  finding naming the cause: run the lane from a git checkout, or exempt the project with
+  `withoutComposerCooldownCheck('<reason>')`. A report-only project still gets the note and passes.
+  See [docs/tools/composerChecks.md](docs/tools/composerChecks.md).
 
 ### Added
 

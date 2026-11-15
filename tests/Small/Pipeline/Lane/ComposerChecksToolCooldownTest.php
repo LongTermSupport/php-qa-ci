@@ -83,6 +83,10 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
     private const string ENFORCED_ONE = '1 Composer cooldown finding(s)';
 
+    private const string ENFORCED_TWO = '2 Composer cooldown finding(s)';
+
+    private const string NESTED_UNLISTED = "Nested composer.json files could not be checked: git could not list the project's files (the project is not a git work tree, or git failed), and the cooldown policy is enforced, so they cannot be shown to be protected. Run the lane from a git checkout, or say why the project is exempt with withoutComposerCooldownCheck('<reason>').";
+
     private const int NOVEMBER_SECOND = 1_793_620_800;
 
     private const int NOVEMBER_TWENTY_FIRST = 1_795_262_400;
@@ -382,7 +386,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         $result = $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
 
-        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+        self::assertSame(self::ENFORCED_TWO, $result->summary);
     }
 
     #[Test]
@@ -427,7 +431,21 @@ final class ComposerChecksToolCooldownTest extends TestCase
     }
 
     #[Test]
-    public function aProjectThatIsNotAGitWorkTreeSaysTheNestedManifestsWereNotChecked(): void
+    public function aReportOnlyProjectThatIsNotAGitWorkTreeSaysTheNestedManifestsWereNotChecked(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles(null);
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::NESTED_HEADING . ' not checked: the project is not a git work tree, so there is no file list to read them from.', $printed);
+    }
+
+    /** A project that asked for enforcement is not told its nested manifests are fine when they could not be listed. */
+    #[Test]
+    public function anEnforcingProjectWhoseFilesCannotBeListedFailsNamingTheCause(): void
     {
         $this->writeComposerJson($this->goodPolicy());
         $this->queue(self::MODERN);
@@ -435,8 +453,35 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $result  = $this->runWithFiles(null, $this->factory->builder()->withComposerCooldownEnforced(true)->build());
         $printed = $this->factory->output->fetch();
 
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame(self::ENFORCED_ONE, $result->summary);
+        self::assertStringContainsString(self::NESTED_UNLISTED, $printed);
+        self::assertStringNotContainsString('so there is no file list to read them from', $printed);
+    }
+
+    #[Test]
+    public function anEnforcingProjectWhoseRootCannotBeReadAndWhoseFilesCannotBeListedHasBothFindings(): void
+    {
+        \Safe\unlink($this->factory->project->path . self::COMPOSER_JSON);
+        $this->queueWithoutVersionProbe();
+
+        $result  = $this->runWithFiles(null, $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame(self::ENFORCED_TWO, $result->summary);
+        self::assertStringContainsString(self::NESTED_UNLISTED, $printed);
+    }
+
+    #[Test]
+    public function anEnforcingProjectThatOptedOutIsNeverFailedForFilesThatCannotBeListed(): void
+    {
+        $this->queueWithoutVersionProbe();
+
+        $result = $this->runWithFiles(null, $this->factory->builder()->withComposerCooldownEnforced(true)->withoutComposerCooldownCheck('built from a fixed lock file only')->build());
+
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString(self::NESTED_HEADING . ' not checked: the project is not a git work tree, so there is no file list to read them from.', $printed);
+        self::assertStringNotContainsString(self::NESTED_UNLISTED, $this->factory->output->fetch());
     }
 
     /** The version of Composer is one fact about the host, not one per manifest. */
@@ -516,7 +561,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertStringContainsString(self::TOOL_MANIFEST . ': ' . self::NO_COOLDOWN, $printed);
-        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+        self::assertSame(self::ENFORCED_TWO, $result->summary);
     }
 
     #[Test]

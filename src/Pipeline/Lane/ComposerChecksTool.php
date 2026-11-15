@@ -50,6 +50,8 @@ final readonly class ComposerChecksTool implements ToolInterface
 
     private const string NESTED = 'Nested composer.json files';
 
+    private const string NESTED_UNLISTED = "Nested composer.json files could not be checked: git could not list the project's files (the project is not a git work tree, or git failed), and the cooldown policy is enforced, so they cannot be shown to be protected. Run the lane from a git checkout, or say why the project is exempt with withoutComposerCooldownCheck('<reason>').";
+
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 
     public function __construct(
@@ -226,7 +228,9 @@ final readonly class ComposerChecksTool implements ToolInterface
      * The same policy check over every other composer.json the project holds: a repository can
      * hold more than one Composer project, an application beside a tool or a docs build. The
      * files are listed as the analysedPaths lane lists them, bar those under an ignored path, a
-     * path declared unanalysed or a default exclusion. Each finding names its file.
+     * path declared unanalysed or a default exclusion. Each finding names its file. When git cannot
+     * list the files, a report-only project is told they were not checked and a project that
+     * enforces the policy gets one finding, since it asked for protection the lane cannot give.
      *
      * @return int how many findings the nested manifests add
      */
@@ -235,6 +239,12 @@ final readonly class ComposerChecksTool implements ToolInterface
         $files = $this->files->files($context);
         if (null === $files) {
             $context->writeln('');
+            if ($context->config->enforceComposerCooldown) {
+                $context->writeln(self::NESTED_UNLISTED);
+
+                return 1;
+            }
+
             $context->writeln(self::NESTED . ' not checked: the project is not a git work tree, so there is no file list to read them from.');
 
             return 0;

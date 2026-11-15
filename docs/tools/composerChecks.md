@@ -147,9 +147,13 @@ report-only or enforced status: the nested findings count toward `enforceCompose
 `composer.json` that cannot be read is a finding of its own and does not stop the nested files
 being checked.
 
-The files come from `git ls-files` (tracked, and untracked files git does not ignore), so a
-project that is not a git work tree reports that the nested files were not checked, rather than
-guessing from the file system. A manifest is left out when it lies under:
+The files come from `git ls-files` (tracked, and untracked files git does not ignore), not from
+a guess at the file system. When git cannot list them (the project is not a git work tree, such
+as a source tarball or a Docker build context, or git failed), a report-only project is told the
+nested files were not checked, and a project that enforces the policy
+(`withComposerCooldownEnforced(true)`) fails with one finding naming the cause: it asked for
+protection the lane could not give. Run the lane from a git checkout, or say why the project is
+exempt with `withoutComposerCooldownCheck('<reason>')`. A manifest is left out when it lies under:
 
 - a path the project declares with `withIgnoredPaths()` or `withUnanalysedPath()`;
 - `vendor/` or `var/` at the project root, which are never the project's own code.
