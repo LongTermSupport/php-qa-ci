@@ -1,0 +1,7 @@
+name: Target
+on:
+  pull_request_target:
+jobs:
+  check:
+    steps:
+      - run: composer install

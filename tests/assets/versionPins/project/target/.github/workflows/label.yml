@@ -1,0 +1,7 @@
+name: Label
+on:
+  pull_request_target:
+jobs:
+  label:
+    steps:
+      - run: echo labelled

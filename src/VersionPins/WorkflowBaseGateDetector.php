@@ -15,6 +15,13 @@ namespace LTS\PHPQA\VersionPins;
  * run), or in a job of its own that every expensive job lists, directly or
  * through other jobs, under `needs:`.
  *
+ * A workflow on `pull_request_target` alone is asked for the gate only when a
+ * job installs or runs something, since one that only labels or comments costs
+ * seconds. That event checks out the base branch, so its gate fetches the pull
+ * request head without checking it out, and a gate conditioned on
+ * `github.event_name == 'pull_request'` is reported: that step is skipped on
+ * this event. A workflow on both events keeps the `pull_request` rule.
+ *
  * Text-level, like its sibling {@see WorkflowPhpVersionDetector}: a workflow
  * is read for the shape of its jobs, not evaluated.
  *
@@ -23,6 +30,20 @@ namespace LTS\PHPQA\VersionPins;
 final readonly class WorkflowBaseGateDetector
 {
     private const string TRIGGER_PATTERN = '/^(?:on:.*\bpull_request\b|[ \t]{2}pull_request:)/m';
+
+    private const string TARGET_TRIGGER_PATTERN = '/^(?:on:.*\bpull_request_target\b|[ \t]{2}pull_request_target:)/m';
+
+    private const string EVENT_PULL_REQUEST = 'pull_request';
+
+    private const string EVENT_PULL_REQUEST_TARGET = 'pull_request_target';
+
+    private const string PULL_REQUEST_ONLY_CONDITION = "github.event_name == 'pull_request'";
+
+    private const string NO_GATE = 'runs on pull_request but has no up-to-date-with-base gate: add a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"` is false, with BASE_REF set from github.event.pull_request.base.ref';
+
+    private const string NO_GATE_TARGET = 'runs on pull_request_target and installs or runs code but has no up-to-date-with-base gate: add a step that fetches the base branch and the pull request head without checking the head out (`git fetch origin "${BASE_REF}"`, then `git fetch origin "pull/${PR_NUMBER}/head"`) and fails when `git merge-base --is-ancestor "origin/${BASE_REF}" FETCH_HEAD` is false, with BASE_REF set from github.event.pull_request.base.ref and PR_NUMBER from github.event.pull_request.number; do not condition the step on `github.event_name == \'pull_request\'`, which is false on this event';
+
+    private const string GATE_NEVER_RUNS = "its up-to-date-with-base gate is conditioned on `github.event_name == 'pull_request'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it";
 
     private const string JOB_HEADER_PATTERN = '/^  ([A-Za-z0-9_-]+):[ \t]*$/';
 
@@ -41,15 +62,24 @@ final readonly class WorkflowBaseGateDetector
         return 1 === \Safe\preg_match(self::TRIGGER_PATTERN, $workflowYaml);
     }
 
+    /** Whether the workflow runs on pull_request_target at all. */
+    public function runsOnPullRequestTarget(string $workflowYaml): bool
+    {
+        return 1 === \Safe\preg_match(self::TARGET_TRIGGER_PATTERN, $workflowYaml);
+    }
+
     /**
      * @param string $workflowYaml a workflow file's contents
      *
-     * @return list<string> one message per defect; empty when the workflow does
-     *                      not run on pull_request, or gates every expensive job
+     * @return list<string> one message per defect; empty when the workflow runs
+     *                      on neither pull_request nor pull_request_target, or
+     *                      gates every expensive job
      */
     public function check(string $workflowYaml): array
     {
-        if (!$this->runsOnPullRequest($workflowYaml)) {
+        $onPullRequest = $this->runsOnPullRequest($workflowYaml);
+        $onTarget      = $this->runsOnPullRequestTarget($workflowYaml);
+        if (!$onPullRequest && !$onTarget) {
             return [];
         }
 
@@ -58,11 +88,17 @@ final readonly class WorkflowBaseGateDetector
             return [];
         }
 
-        $gateJobs = array_map(strval(...), array_keys(array_filter($jobs, $this->hasGate(...))));
+        $gateBodies = array_filter($jobs, $this->hasGate(...));
+        $gateJobs   = array_map(strval(...), array_keys($gateBodies));
         if ([] === $gateJobs) {
-            return ['runs on pull_request but has no up-to-date-with-base gate: add a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"` is false, with BASE_REF set from github.event.pull_request.base.ref'];
+            if ($onPullRequest) {
+                return [self::NO_GATE];
+            }
+
+            return array_any($jobs, $this->isExpensive(...)) ? [self::NO_GATE_TARGET] : [];
         }
 
+        $event    = $onPullRequest ? self::EVENT_PULL_REQUEST : self::EVENT_PULL_REQUEST_TARGET;
         $needs    = $this->needsMap($jobs);
         $problems = [];
         foreach ($jobs as $key => $body) {
@@ -81,11 +117,22 @@ final readonly class WorkflowBaseGateDetector
             }
 
             if (!$this->needsAny($id, $needs, ...$gateJobs)) {
-                $problems[] = \sprintf('job "%s" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (%s) to its needs', $id, implode(', ', $gateJobs));
+                $problems[] = \sprintf('job "%s" runs on %s without depending on the up-to-date-with-base gate; add the gate job (%s) to its needs', $id, $event, implode(', ', $gateJobs));
             }
         }
 
+        if ($onTarget && array_any($gateBodies, $this->skippedOnPullRequestTarget(...))) {
+            $problems[] = self::GATE_NEVER_RUNS;
+        }
+
         return $problems;
+    }
+
+    /** A gate conditioned on the pull_request event alone is skipped when the event is pull_request_target. */
+    private function skippedOnPullRequestTarget(string $gateJobBody): bool
+    {
+        return str_contains($gateJobBody, self::PULL_REQUEST_ONLY_CONDITION)
+            && !str_contains($gateJobBody, self::EVENT_PULL_REQUEST_TARGET);
     }
 
     /** @return array<array-key, string> job id => the job's text; an all-digit id is an int key */

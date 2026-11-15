@@ -3,10 +3,10 @@
 **Identifier**: `phpqaci.versionPins`
 
 An always-on check that every version pin in the project's QA configuration matches the toolchain
-actually in use, that a workflow running on `pull_request` stops when the pull request head is
-behind its base (see "Up-to-date-with-base gate" below), and that a shipped workflow template
-which selects phase groups runs every one or says why not (see "Phase groups in a shipped
-template" below). One lane covers three pins:
+actually in use, that a workflow running on `pull_request` or `pull_request_target` stops when the
+pull request head is behind its base (see "Up-to-date-with-base gate" below), and that a shipped
+workflow template which selects phase groups runs every one or says why not (see "Phase groups in
+a shipped template" below). One lane covers three pins:
 
 | Pin                                                                                                                         | Compared against                                                  | Detector                                                                             |
 | --------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -51,6 +51,45 @@ is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEA
 Fix it by adding the gate step right after the checkout (which needs `fetch-depth: 0`), or a
 `base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and
 `qa-autofix.yml` templates show both. Findings carry the same identifier as the version pins.
+
+### A workflow on `pull_request_target`
+
+GitHub runs a `pull_request_target` workflow in the context of the base repository's default
+branch, and an `actions/checkout` without a `ref` checks out that branch, not the pull request. The
+rule for it differs from the `pull_request` one in three ways:
+
+- A gate is asked for only when a job installs or runs something (PHP setup, `composer install`, a
+  `qa` run). A workflow that only labels or comments costs seconds and needs none.
+
+- The pull request head is not in that checkout, and for a fork it is never in the base
+  repository's branches. The gate fetches the base branch and the head without checking the head
+  out, and tests the fetched commit:
+
+  ```yaml
+  - name: Require the branch to be up to date with its base
+    env:
+      BASE_REF: ${{ github.event.pull_request.base.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    run: |
+      git fetch origin "${BASE_REF}"
+      git fetch origin "pull/${PR_NUMBER}/head"
+      git merge-base --is-ancestor "origin/${BASE_REF}" FETCH_HEAD
+  ```
+
+  The job that fetches keeps its checkout's credentials: the shipped templates check out with
+  `persist-credentials: false`, and copied into a `pull_request_target` workflow that leaves
+  `git fetch` without credentials, which fails on a private or internal repository (the pull
+  request ref is never in a `fetch-depth: 0` checkout). The head is only read as data; checking it
+  out and running it with the base repository's token is the hazard GitHub describes in
+  [securely using `pull_request_target`][securely], and nothing here asks for it.
+
+- A gate conditioned on `github.event_name == 'pull_request'`, as the gate step in the shipped
+  `php-qa-ci.yml` is, is skipped on this event, so the check reports it. Drop the condition, or name
+  `pull_request_target` in it. The check reads the condition as text, like the rest of the gate.
+
+A workflow that lists both events keeps the `pull_request` rule, plus the condition rule above.
+`pull_request_review` and `pull_request_review_comment` are different events and are not asked for
+the gate. GitHub's description of the event is in [events that trigger workflows][events].
 
 ## Phase groups in a shipped template
 
@@ -117,3 +156,6 @@ Each message names the file, the pin and the exact replacement:
 - Runner: [`VersionPinsCheck`](../../src/VersionPins/VersionPinsCheck.php), which reads the
   config files, prefixes each finding with the file it came from, maps the verdict to output and
   exit code, and prints the identifier.
+
+[events]: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_target
+[securely]: https://docs.github.com/en/actions/reference/security/securely-using-pull_request_target
