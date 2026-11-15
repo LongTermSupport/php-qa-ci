@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small;
 
 use LTS\PHPQA\Tests\Support\ActionPins;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -45,6 +46,18 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
     /** An action the guard workflows name, up to the ref. */
     private const string SOME_ACTION = 'some/action@';
 
+    /** A step in the pinned shape, given the commit. */
+    private const string PINNED_STEP = "      - uses: some/action@%s # v1.2.3\n";
+
+    /** A step written as a flow mapping, given the commit. */
+    private const string FLOW_STEP = "      - {uses: some/action@%s}\n";
+
+    /** A step whose script is the text under it. */
+    private const string SAY_STEP = "      - name: Say\n";
+
+    /** A line in the pinned shape inside a block scalar, given the commit. */
+    private const string QUOTED_PIN = "          uses: some/action@%s # v1.2.3\n";
+
     /** The finding for a reference, given as `owner/repo@ref`. */
     private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
 
@@ -76,7 +89,7 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
                 . "      - uses: actions/checkout@v4\n"
                 . "      - uses: some/action@main\n"
                 . \sprintf("      - uses: some/action@%s\n", $sha)
-                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf(self::PINNED_STEP, $sha)
                 . "      - uses: ./.github/actions/local\n",
             ),
         );
@@ -116,8 +129,78 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             [$this->notPinned(self::SOME_ACTION . $sha)],
             $this->unpinned(
                 self::WORKFLOW_HEAD
-                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
-                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+                . \sprintf(self::PINNED_STEP, $sha)
+                . \sprintf(self::FLOW_STEP, $sha),
+            ),
+        );
+    }
+
+    /**
+     * A line in the pinned shape inside a `run:` block scalar is shell text, not a step. It must not
+     * account for a reference the YAML holds: the flow mapping beside it, naming the same commit, is
+     * still reported.
+     */
+    #[DataProvider('blockScalarIndicators')]
+    public function testAPinnedShapedLineInsideARunBlockAccountsForNothing(string $indicator): void
+    {
+        $sha = str_repeat('d', 40);
+
+        self::assertSame(
+            [$this->notPinned(self::SOME_ACTION . $sha)],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . self::SAY_STEP
+                . \sprintf("        run: %s\n", $indicator)
+                . \sprintf(self::QUOTED_PIN, $sha)
+                . \sprintf(self::FLOW_STEP, $sha),
+            ),
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function blockScalarIndicators(): iterable
+    {
+        yield 'literal' => ['|'];
+
+        yield 'folded' => ['>'];
+
+        yield 'literal that keeps its newlines' => ['|+'];
+    }
+
+    /**
+     * A folded block joins its lines into one, so a pinned-shaped line inside one is the start of a
+     * longer line of the parsed text; it accounts for nothing all the same.
+     */
+    public function testAPinnedShapedLineInsideAFoldedRunBlockOfSeveralLinesAccountsForNothing(): void
+    {
+        $sha = str_repeat('f', 40);
+
+        self::assertSame(
+            [$this->notPinned(self::SOME_ACTION . $sha)],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . self::SAY_STEP
+                . "        run: >\n"
+                . \sprintf(self::QUOTED_PIN, $sha)
+                . "          and then more text\n"
+                . \sprintf(self::FLOW_STEP, $sha),
+            ),
+        );
+    }
+
+    /** The same text in a block scalar beside a real pinned step does not hide the step's own pin. */
+    public function testARealPinnedStepStillPassesBesideARunBlockThatQuotesIt(): void
+    {
+        $sha = str_repeat('e', 40);
+
+        self::assertSame(
+            [],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . \sprintf(self::PINNED_STEP, $sha)
+                . self::SAY_STEP
+                . "        run: |\n"
+                . \sprintf(self::QUOTED_PIN, $sha),
             ),
         );
     }

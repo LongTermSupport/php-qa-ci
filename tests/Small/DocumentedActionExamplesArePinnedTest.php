@@ -6,11 +6,13 @@ namespace LTS\PHPQA\Tests\Small;
 
 use LTS\PHPQA\Tests\Support\ActionPins;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use Symfony\Component\Yaml\Exception\ParseException;
 
 /**
  * Defence for the class "the documentation teaches the construction the pin check bans".
@@ -25,13 +27,20 @@ use SplFileInfo;
 #[Small]
 final class DocumentedActionExamplesArePinnedTest extends TestCase
 {
-    private const string FENCE = '/^\s*```/';
+    /** The finding for a tag, given as `owner/repo@ref`. */
+    private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
+
+    /** The end of a fence of three backticks, on a line of its own. */
+    private const string CLOSE = "```\n";
+
+    /** An example reference in a tag form, which every fixture below must have reported. */
+    private const string TAG = 'o/r@v1';
 
     public function testEveryActionExampleInTheDocumentationIsPinnedToACommitWithItsReleaseBeside(): void
     {
         $problems = [];
         foreach ($this->markdownFiles() as $file) {
-            foreach (ActionPins::unpinnedLines($this->fencedText(\Safe\file_get_contents($file))) as $problem) {
+            foreach (ActionPins::unpinnedInMarkdown(\Safe\file_get_contents($file)) as $problem) {
                 $problems[] = str_replace(__DIR__ . '/../../', '', $file) . ': ' . $problem;
             }
         }
@@ -46,34 +55,94 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
             . "\n"
             . "```yaml\n"
             . "- uses: codecov/codecov-action@v3\n"
-            . "```\n"
+            . self::CLOSE
             . "\n"
             . "  uses: prose/not-a-fence@v1\n";
 
         self::assertSame(
             ['codecov/codecov-action@v3 is not a commit SHA with its release beside it'],
-            ActionPins::unpinnedLines($this->fencedText($page)),
+            ActionPins::unpinnedInMarkdown($page),
         );
     }
 
-    /** The lines inside fenced code blocks, and nothing else. */
-    private function fencedText(string $markdown): string
+    /**
+     * Every way an example can name a tag is reported: the block is read as YAML where it is YAML, so
+     * the key can be quoted and the step written as a flow mapping, and the fence can be any of the
+     * ways markdown writes one.
+     */
+    #[DataProvider('tagsInAnyExampleShape')]
+    public function testTheGuardReportsATagWhicheverWayTheExampleWritesIt(string $page): void
     {
-        $inside = false;
-        $kept   = [];
-        foreach (explode("\n", $markdown) as $line) {
-            if (1 === \Safe\preg_match(self::FENCE, $line)) {
-                $inside = !$inside;
+        self::assertSame([\sprintf(self::NOT_PINNED, self::TAG)], ActionPins::unpinnedInMarkdown($page));
+    }
 
-                continue;
-            }
+    /** @return iterable<string, array{string}> */
+    public static function tagsInAnyExampleShape(): iterable
+    {
+        yield 'a flow mapping step' => ["```yaml\n- {uses: o/r@v1}\n```\n"];
 
-            if ($inside) {
-                $kept[] = $line;
-            }
-        }
+        yield 'a quoted key' => ["```yaml\n- 'uses': o/r@v1\n```\n"];
 
-        return implode("\n", $kept);
+        yield 'a yml fence' => ["```yml\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'a double-quoted key' => ["```yaml\n- \"uses\": o/r@v1\n```\n"];
+
+        yield 'a quoted value' => ["```yaml\n- uses: 'o/r@v1'\n```\n"];
+
+        yield 'a mapping at the root' => ["```yaml\nuses: o/r@v1\n```\n"];
+
+        yield 'a tilde fence' => ["~~~yaml\n- uses: o/r@v1\n~~~\n"];
+
+        yield 'a fence of four backticks around one of three' => ["````markdown\n```yaml\n- uses: o/r@v1\n```\n````\n"];
+
+        yield 'a step after the inner fence has closed, inside the outer' => ["````markdown\n```yaml\n- name: x\n```\n- uses: o/r@v1\n````\n"];
+
+        yield 'an upper-case info string' => ["```YAML\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'an info string with attributes' => ["```yaml{1}\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'a tilde line inside a backtick fence' => ["```text\n~~~\n- uses: o/r@v1\n```\n"];
+
+        yield 'a line less indented than its indented fence' => ["   ```text\n- uses: o/r@v1\n   ```\n"];
+
+        yield 'a fence of four backticks holding a step' => ["````yaml\n- uses: o/r@v1\n````\n"];
+
+        yield 'an indented fence' => ["1. Add it:\n\n   ```yaml\n   - uses: o/r@v1\n   ```\n"];
+
+        yield 'a fence that is never closed' => ["```yaml\n- uses: o/r@v1\n"];
+
+        yield 'a fence with no info string, read by line' => ["```\n- uses: o/r@v1\n  bad: [\n```\n"];
+
+        yield 'a fence of another language, read by line' => ["```text\n- uses: o/r@v1\n  bad: [\n```\n"];
+    }
+
+    /** An example tagged yaml that is not YAML is a defect in the page: a reader cannot copy it. */
+    public function testAnExampleTaggedYamlThatIsNotYamlIsReported(): void
+    {
+        $this->expectException(ParseException::class);
+
+        ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n");
+    }
+
+    /** A pinned example, a shell example that merely mentions `uses:` and prose outside a fence are not findings. */
+    public function testTheGuardPassesAPinnedExampleAndWhatIsNotAnAction(): void
+    {
+        $sha  = str_repeat('a', 40);
+        $page = "```yaml\n"
+            . \sprintf("- uses: o/r@%s # v1.2.3\n", $sha)
+            . "- {name: Local, uses: ./.github/actions/local}\n"
+            . self::CLOSE
+            . "\n"
+            . "```bash\n"
+            . "grep 'uses:' workflow.yml\n"
+            . self::CLOSE
+            . "\n"
+            . "~~~yaml\n"
+            . "- name: Say\n"
+            . "  run: echo uses o/r@v1\n"
+            . "~~~\n";
+
+        self::assertSame([], ActionPins::unpinnedInMarkdown($page));
     }
 
     /** @return list<string> */

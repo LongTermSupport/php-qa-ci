@@ -21,8 +21,43 @@ final readonly class ActionPins
     /** `owner/repo[/path]@<40 hex digits>` followed by the release it is, as `# v1.2.3`. */
     private const string PINNED = '/^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\s+#\s+v\d+(\.\d+)*\s*$/';
 
+    /** The opening of a fenced code block: any indent, then three or more backticks or tildes, then the info string. */
+    private const string FENCE_OPEN = '/^(\s*)(`{3,}|~{3,})\s*([A-Za-z]*)/';
+
+    /** The info strings of a fence that holds YAML. */
+    private const array YAML_INFO = ['yaml', 'yml'];
+
+    /** The key a step names its action under. */
+    private const string USES_KEY = 'uses';
+
     private function __construct()
     {
+    }
+
+    /**
+     * The remote references in the fenced code blocks of a page, each that is not a commit SHA with
+     * its release beside it. Prose outside a fence is never read.
+     *
+     * A fence tagged `yaml` or `yml` is read as YAML, so a step written as a flow mapping or with
+     * quoted keys is found, and one that is not valid YAML throws `ParseException`: an example a
+     * reader copies should parse. Any other fence (a shell example, a markdown example holding a
+     * fence) is read line by line.
+     *
+     * @return list<string> one message per reference
+     */
+    public static function unpinnedInMarkdown(string $markdown): array
+    {
+        $problems = [];
+        foreach (self::fencedBlocks($markdown) as $block) {
+            array_push(
+                $problems,
+                ...(\in_array($block['info'], self::YAML_INFO, true)
+                    ? self::unpinnedInWorkflow($block['text'])
+                    : self::unpinnedLines($block['text'])),
+            );
+        }
+
+        return $problems;
     }
 
     /**
@@ -63,9 +98,10 @@ final readonly class ActionPins
      */
     public static function unpinnedInWorkflow(string $workflow): array
     {
-        $pinned   = self::pinnedReferences($workflow);
+        $tree     = Yaml::parse($workflow);
+        $pinned   = self::pinnedReferences($workflow, $tree);
         $problems = [];
-        foreach (self::references(Yaml::parse($workflow)) as $reference) {
+        foreach (self::references($tree) as $reference) {
             if (str_starts_with($reference, './')) {
                 continue;
             }
@@ -83,17 +119,126 @@ final readonly class ActionPins
         return $problems;
     }
 
-    /** @return list<string> the reference on each line in the pinned shape */
-    private static function pinnedReferences(string $workflow): array
+    /**
+     * Each fenced code block, with the first word of its info string and its text, and nothing
+     * else. A fence closes on a line of the same character at least as long as the one that opened
+     * it, so a fence of four backticks holds one of three; a fence never closed runs to the end of
+     * the page. The indent a fence opens at is taken off the lines inside it.
+     *
+     * @return list<array{info: string, text: string}>
+     */
+    private static function fencedBlocks(string $markdown): array
     {
+        $blocks = [];
+        $open   = null;
+        foreach (explode("\n", $markdown) as $line) {
+            if (null === $open) {
+                if (1 === \Safe\preg_match(self::FENCE_OPEN, $line, $match) && isset($match[1], $match[2], $match[3])) {
+                    $open = ['char' => $match[2][0], 'length' => \strlen($match[2]), 'indent' => $match[1], 'info' => strtolower($match[3]), 'lines' => []];
+                }
+
+                continue;
+            }
+
+            $trimmed = trim($line);
+            if (\strlen($trimmed) >= $open['length'] && '' === trim($trimmed, $open['char'])) {
+                $blocks[] = ['info' => $open['info'], 'text' => implode("\n", $open['lines'])];
+                $open     = null;
+
+                continue;
+            }
+
+            $open['lines'][] = str_starts_with($line, $open['indent']) ? substr($line, \strlen($open['indent'])) : ltrim($line);
+        }
+
+        if (null !== $open) {
+            $blocks[] = ['info' => $open['info'], 'text' => implode("\n", $open['lines'])];
+        }
+
+        return $blocks;
+    }
+
+    /**
+     * The reference on each line in the pinned shape, except a line that is text inside a scalar
+     * the YAML holds (a `run:` block quoting a step): that line is shell, not a step, and accounts
+     * for no reference.
+     *
+     * @return list<string>
+     */
+    private static function pinnedReferences(string $workflow, mixed $tree): array
+    {
+        $scalars    = self::scalars($tree);
         $references = [];
         foreach (explode("\n", $workflow) as $line) {
-            if (1 === \Safe\preg_match(self::PINNED, $line) && 1 === \Safe\preg_match(self::USES, $line, $match) && isset($match[1])) {
-                $references[] = $match[1];
+            if (1 !== \Safe\preg_match(self::PINNED, $line) || 1 !== \Safe\preg_match(self::USES, $line, $match) || !isset($match[1])) {
+                continue;
             }
+
+            if (self::consumedByScalar(self::normalised($line), $scalars)) {
+                continue;
+            }
+
+            $references[] = $match[1];
         }
 
         return $references;
+    }
+
+    /**
+     * Whether a scalar holds the text, taking one occurrence out of it so that a scalar quoting a
+     * step once accounts for one line and not for every line the same.
+     *
+     * @param list<string> $scalars
+     */
+    private static function consumedByScalar(string $text, array &$scalars): bool
+    {
+        foreach ($scalars as $index => $scalar) {
+            $at = strpos($scalar, $text);
+            if (false !== $at) {
+                $scalars[$index] = substr_replace($scalar, '', $at, \strlen($text));
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Every string a parsed node holds, other than a `uses` value. A literal block keeps its lines
+     * and a folded one joins them, so a line is looked for inside the text, not as the whole of it.
+     *
+     * @return list<string>
+     */
+    private static function scalars(mixed $node): array
+    {
+        if (!\is_array($node)) {
+            return [];
+        }
+
+        $scalars = [];
+        foreach ($node as $key => $value) {
+            if (self::USES_KEY === $key) {
+                continue;
+            }
+
+            if (\is_string($value)) {
+                $scalars[] = $value;
+
+                continue;
+            }
+
+            array_push($scalars, ...self::scalars($value));
+        }
+
+        return $scalars;
+    }
+
+    private static function normalised(string $line): string
+    {
+        $trimmed = trim($line);
+
+        return str_starts_with($trimmed, '- ') ? ltrim(substr($trimmed, 2)) : $trimmed;
     }
 
     /** @return list<string> the value of every `uses` key under a parsed node, in document order */
@@ -105,7 +250,7 @@ final readonly class ActionPins
 
         $references = [];
         foreach ($node as $key => $value) {
-            if ('uses' === $key && \is_string($value)) {
+            if (self::USES_KEY === $key && \is_string($value)) {
                 $references[] = $value;
 
                 continue;
