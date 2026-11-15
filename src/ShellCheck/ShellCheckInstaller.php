@@ -75,6 +75,8 @@ final readonly class ShellCheckInstaller implements InstallerOutputsInterface
     /**
      * The committed binary, its licence and its pin are tracked; an update stages beside the
      * binary, and the build for another architecture is fetched by a command the installer prints.
+     *
+     * @internal
      */
     public static function outputs(): array
     {

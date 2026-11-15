@@ -42,6 +42,12 @@ final class InstallerEntryPointsDeclareTheirOutputsTest extends TestCase
 
             if (!is_subclass_of($class, InstallerOutputsInterface::class)) {
                 $problems[] = $entryPoint . ': ' . $class . ' does not implement ' . InstallerOutputsInterface::class . ', so nothing says what it writes';
+
+                continue;
+            }
+
+            if ([] === $class::outputs()) {
+                $problems[] = $entryPoint . ': ' . $class . ' declares no output, so nothing says what it writes';
             }
         }
 

@@ -77,6 +77,8 @@ final readonly class TurboInstaller implements InstallerOutputsInterface
      * The binaries are untracked by design, one directory a host; the manifest is committed and only
      * the maintainer update regenerates it. The stamp and the staging directory sit inside the
      * binaries' directory.
+     *
+     * @internal
      */
     public static function outputs(): array
     {

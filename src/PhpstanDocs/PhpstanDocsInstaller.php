@@ -51,7 +51,11 @@ final readonly class PhpstanDocsInstaller implements InstallerOutputsInterface
     ) {
     }
 
-    /** The catalogue is committed, and so is its version; the staging is under the system temp directory. */
+    /**
+     * The catalogue is committed, and so is its version; the staging is under the system temp directory.
+     *
+     * @internal
+     */
     public static function outputs(): array
     {
         return [new InstallerOutput(PhpstanDocsCatalogue::DIRECTORY, true, false)];
