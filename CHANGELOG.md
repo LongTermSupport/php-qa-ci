@@ -111,7 +111,6 @@ the release and its tag. The full rules are in
   This repository's own workflows are pinned the same way and a Dependabot configuration for
   `github-actions` keeps them current.
 - **Bundled tool versions updated** by the dependency update: php-cs-fixer 3.95.29 → 3.95.30; composer-normalize 2.56.0 → 2.57.0; rector/rector 2.8.4 → 2.8.5.
-
 - **Bundled tool versions updated** by the dependency update: infection 0.35.10 → 0.35.11; twig-cs-fixer 4.1.1 → 4.1.2.
 
 ### Fixed

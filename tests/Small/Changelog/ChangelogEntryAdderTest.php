@@ -44,6 +44,31 @@ final class ChangelogEntryAdderTest extends TestCase
         self::assertSame("## Unreleased\n\n### Changed\n\n- First,\n  continued.\n\n- Second.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, $added);
     }
 
+    /** The markdown formatter keeps a list tight or loose as a whole, so an entry joins the list the way it is written. */
+    #[Test]
+    public function anEntryJoinsAListOfTightEntriesWithoutABlankLine(): void
+    {
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n- Second,\n  continued.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, 'Third.');
+
+        self::assertSame("## Unreleased\n\n### Changed\n\n- First.\n- Second,\n  continued.\n- Third.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, $added);
+    }
+
+    #[Test]
+    public function anEntryJoinsAListOfLooseEntriesWithABlankLine(): void
+    {
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n\n- Second.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, 'Third.');
+
+        self::assertSame("## Unreleased\n\n### Changed\n\n- First.\n\n- Second.\n\n- Third.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, $added);
+    }
+
+    #[Test]
+    public function aTightListWhoseEntryContinuesOverSeveralLinesStaysTight(): void
+    {
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First,\n  continued\n  again.\n- Second,\n  continued.\n" . self::OLDER, ChangelogHeadingEnum::Changed, 'Third.');
+
+        self::assertSame("## Unreleased\n\n### Changed\n\n- First,\n  continued\n  again.\n- Second,\n  continued.\n- Third.\n" . self::OLDER, $added);
+    }
+
     #[Test]
     public function aMissingHeadingIsCreatedBeforeTheFirstHeadingThatRanksAfterIt(): void
     {
