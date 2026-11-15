@@ -71,7 +71,7 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
     public function aTestThatCallsXdebugInfoIsReportedAsUsingAnUndeclaredExtension(): void
     {
         $this->writeComposerJson('{}');
-        $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');", 'list<string>'));
+        $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');"));
 
         $output = new BufferedOutput();
         $result = new ComposerDependencyAnalyserTool()->run(RealLaneContext::over($this->project->path, true, $output));
@@ -86,7 +86,7 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
     public function declaringTheExtensionInRequireDevClearsTheFinding(): void
     {
         $this->writeComposerJson('{"' . self::EXT_XDEBUG . '": "*"}');
-        $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');", 'list<string>'));
+        $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');"));
 
         $output = new BufferedOutput();
         $result = new ComposerDependencyAnalyserTool()->run(RealLaneContext::over($this->project->path, true, $output));
@@ -100,7 +100,6 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
         $this->writeComposerJson('{}');
         $this->project->write(self::GUARD, $this->guard(
             "\$mode = getenv('XDEBUG_MODE');\n\n        return explode(',', false === \$mode || '' === \$mode ? (string) ini_get('xdebug.mode') : \$mode);",
-            'list<string>',
         ));
 
         $output = new BufferedOutput();
@@ -114,7 +113,7 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
         $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "ext-json": "*"}, "require-dev": ' . $requireDev . ', "autoload": {"psr-4": {"Probe\\\\": "src/"}}, "autoload-dev": {"psr-4": {"Probe\\\\Tests\\\\": "tests/"}}}');
     }
 
-    private function guard(string $body, string $returns): string
+    private function guard(string $body): string
     {
         return implode("\n", [
             '<?php',
@@ -125,7 +124,7 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
             '',
             'final class XdebugGuard',
             '{',
-            '    /** @return ' . $returns . ' */',
+            '    /** @return list<string> */',
             '    public static function mode(): array',
             '    {',
             '        ' . $body,

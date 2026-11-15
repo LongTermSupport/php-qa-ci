@@ -70,6 +70,12 @@ the package unexplained is the thing to avoid.
 **Shadow dependency**: require it explicitly. The package that pulls it in today is under no
 obligation to keep doing so, and a minor release of an unrelated dependency can remove it.
 
+A PHP extension is a dependency like any package: a test that calls `xdebug_info()` gets
+`ext-xdebug` reported as a shadow dependency, and the shipped default does not hide it. Declare
+`ext-xdebug` in `require-dev`, mind that every install then checks for the extension, or read
+the mode without an `xdebug_*` function (see
+[Guarding on the Xdebug Mode](phpunit.md#guarding-on-the-xdebug-mode)).
+
 **Dev dependency in prod**: a `composer install --no-dev` will not have it, so production
 crashes with class-not-found. Move the package to `require`, or move the usage out of `src/`.
 

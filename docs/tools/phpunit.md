@@ -92,6 +92,41 @@ whether you are in CI:
   **in CI** (`CI=true`). A local coverage run (`phpUnitCoverage=1 vendor/bin/qa` with `CI` unset)
   still enforces the time limits, so long tests can hit them.
 
+### Guarding on the Xdebug Mode
+
+A project that wants its coverage-enabled PHPUnit configuration to fail fast when it is run without
+coverage can check the mode in a test bootstrap. The lane starts PHPUnit with the `XDEBUG_MODE`
+environment variable set (see [How the lane runs](#how-the-lane-runs)), and Xdebug lets that
+variable win over the ini file. `ini_get('xdebug.mode')` returns the ini value only, so on a host
+whose ini says another mode (`debug` for IDE debugging, say) a guard that reads it rejects a run
+the pipeline started correctly, and the suite stops in the bootstrap before a test runs.
+
+Read the environment variable first and the ini value second. This calls no `xdebug_*` function,
+so it needs no extension declared:
+
+```php
+$mode = getenv('XDEBUG_MODE');
+if (false === $mode || '' === $mode) {
+    $mode = (string) ini_get('xdebug.mode');
+}
+
+if (!str_contains($mode, 'coverage')) {
+    throw new RuntimeException('Run with XDEBUG_MODE=coverage, as `vendor/bin/qa` does.');
+}
+```
+
+An empty variable falls back to the ini value, as Xdebug itself does, and an unset one makes
+`getenv()` return `false`.
+
+`xdebug_info('mode')` reports the mode in force, with the variable applied, and is the other
+correct check. It uses an extension the project has not declared, so the
+[dependency analyser](composerDependencyAnalyser.md) reports `ext-xdebug` as a shadow dependency,
+and rightly: declare it in `require-dev`. The consequence is that every `composer install` then
+checks for the extension, including a CI job whose PHP is set up without coverage (the shipped
+`qa-autofix.yml` template sets up PHP with `coverage: none`), unless that install ignores the
+requirement (`--ignore-platform-req=ext-xdebug`). The environment-first guard above avoids the
+choice.
+
 ### Speed Impact of Enabling Coverage
 
 If coverage is enabled, the tests have to be run with Xdebug enabled. This on its own has a dramatic impact on the speed of PHP execution.
