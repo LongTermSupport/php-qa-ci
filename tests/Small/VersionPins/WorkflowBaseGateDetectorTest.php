@@ -41,6 +41,8 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string TARGET_TRIGGER = "on:\n  pull_request_target:\njobs:\n";
 
+    private const string JOBS_QA = "jobs:\n  qa:\n    steps:\n";
+
     private const string TARGET_QA_JOB = self::TARGET_TRIGGER . "  qa:\n    steps:\n";
 
     private const string TARGET_GATE_JOB = self::TARGET_TRIGGER . "  base-gate:\n    steps:\n";
@@ -65,7 +67,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string UNREADABLE_TRIGGER = 'its `on` trigger is written in a shape this check cannot read, so whether it runs on pull_request or pull_request_target is unknown: write it as a scalar (`on: pull_request`), a list (`on: [push, pull_request]` or a block list) or a mapping (`on:` then `  pull_request:`), without an anchor, an alias or a merge key';
 
-    private const string JOBS_HEAD = "jobs:\n  qa:\n    steps:\n";
+    private const string JOBS_HEAD = self::JOBS_QA;
 
     private const string OTHER_JOB = "  other:\n    steps:\n";
 
@@ -192,7 +194,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[DataProvider('pullRequestTargetTriggerShapes')]
     public function aPullRequestTargetTriggerIsRecognisedInEveryShapeItCanBeWritten(string $trigger): void
     {
-        $yaml = $trigger . "jobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEPS;
+        $yaml = $trigger . self::JOBS_QA . self::EXPENSIVE_STEPS;
 
         self::assertSame([self::TARGET_NO_GATE], $this->detector->check($yaml));
     }
@@ -324,7 +326,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     #[DataProvider('pullRequestEventsThatAreNotPullRequestTarget')]
     public function anotherPullRequestEventIsNotAskedForTheGate(string $trigger): void
     {
-        $yaml = $trigger . "jobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEPS;
+        $yaml = $trigger . self::JOBS_QA . self::EXPENSIVE_STEPS;
 
         self::assertSame([], $this->detector->check($yaml));
     }
@@ -466,11 +468,11 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
         yield 'jobs indented four spaces' => [self::TARGET_TRIGGER . "    qa:\n      steps:\n        - run: composer install\n"];
 
-        yield 'jobs before the trigger' => ["jobs:\n  qa:\n    steps:\n" . $steps . "on:\n  pull_request_target:\n"];
+        yield 'jobs before the trigger' => [self::JOBS_QA . $steps . "on:\n  pull_request_target:\n"];
 
-        yield 'jobs on the first line' => ["jobs:\n  qa:\n    steps:\n" . $steps . "\non: pull_request_target\n"];
+        yield 'jobs on the first line' => [self::JOBS_QA . $steps . "\non: pull_request_target\n"];
 
-        yield 'a quoted jobs key' => [self::TARGET_TRIGGER . "\n\"jobs\":\n  qa:\n    steps:\n" . $steps];
+        yield 'a quoted jobs key' => ["on:\n  pull_request_target:\n\"jobs\":\n  qa:\n    steps:\n" . $steps];
 
         yield 'a header with trailing spaces' => [self::TARGET_TRIGGER . "  qa:   \n    steps:\n" . $steps];
 

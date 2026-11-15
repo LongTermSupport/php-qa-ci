@@ -1,5 +1,6 @@
 # drifted copy
 name: QA
+on: push
 jobs:
   detect:
     steps:

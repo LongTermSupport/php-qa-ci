@@ -1,4 +1,5 @@
 name: Autofix
+on: push
 jobs:
   fix:
     steps:
