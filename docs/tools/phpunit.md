@@ -120,7 +120,7 @@ An empty variable falls back to the ini value, as Xdebug itself does, and an uns
 
 `xdebug_info('mode')` reports the mode in force, with the variable applied, and is the other
 correct check. It uses an extension the project has not declared, so on a host where Xdebug is
-installed the [dependency analyser](composerDependencyAnalyser.md) reports `ext-xdebug` as a
+loaded the [dependency analyser](composerDependencyAnalyser.md) reports `ext-xdebug` as a
 shadow dependency, and rightly: declare it in `require-dev`. The consequence is that every `composer install` then
 checks for the extension, including a CI job whose PHP is set up without coverage (the shipped
 `qa-autofix.yml` template sets up PHP with `coverage: none`), unless that install ignores the
