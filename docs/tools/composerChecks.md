@@ -143,7 +143,8 @@ file it came from. The installed-Composer version check is not repeated per file
 Composer. Each nested file is judged for the vendor of its own `name` and the vendors named by
 `withComposerCooldownInternalVendors()`; the root's `name` is not applied to it. Findings and
 security overrides (listed with their file) follow the same rules as the root file, and the same
-report-only or enforced status: the nested findings count toward `enforceComposerCooldown`. A root
+report-only or enforced status: the nested findings count toward the enforcement setting
+(`withComposerCooldownEnforced(true)`, or `enforceComposerCooldown=1` for one run). A root
 `composer.json` that cannot be read is a finding of its own and does not stop the nested files
 being checked.
 

@@ -360,7 +360,7 @@ final readonly class ComposerChecksTool implements ToolInterface
 
         if (!$report->hasProblems()) {
             $context->writeln('');
-            $context->writeln('Composer cooldown policy is in place.');
+            $context->writeln('Composer cooldown policy is in place for the root composer.json.');
         }
     }
 
