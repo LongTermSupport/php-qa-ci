@@ -45,6 +45,8 @@ final class VersionPinsCheckTest extends TestCase
 
     private const string BOTH = self::PROJECTS . '/both';
 
+    private const string TARGET = self::PROJECTS . '/target';
+
     private const string PHPUNIT_XML = '/qaConfig/phpunit.xml';
 
     private const string CRC_JSON = '/qaConfig/composerRequireChecker.json';
@@ -112,6 +114,13 @@ final class VersionPinsCheckTest extends TestCase
     {
         $this->expectOutputRegex('#^(?!.*(?:old\.yaml\.html|off\.yml\.xml|nested\.yaml))(?=.*workflows/a-first\.yml: runs.*workflows/b-second\.yaml: runs.*workflows/c-third\.yml: runs.*workflows/same\.yaml: runs.*workflows/same\.yml: runs)#s');
         self::assertSame(1, $this->check()->run(self::BOTH, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
+    }
+
+    #[Test]
+    public function aPullRequestTargetWorkflowThatInstallsIsAskedForTheGateAndOneThatOnlyLabelsIsNot(): void
+    {
+        $this->expectOutputRegex('#^(?!.*label\.yml)(?=.*workflows/target\.yml: runs on pull_request_target and installs or runs code but has no up-to-date-with-base gate)#s');
+        self::assertSame(1, $this->check()->run(self::TARGET, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
     #[Test]
