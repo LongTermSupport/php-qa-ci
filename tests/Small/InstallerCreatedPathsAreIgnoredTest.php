@@ -71,10 +71,12 @@ final class InstallerCreatedPathsAreIgnoredTest extends TestCase
     {
         yield 'the PHPStan Turbo binaries (bin/turbo-install)' => [TurboInstaller::TURBO_DIR, true];
 
-        yield 'a ShellCheck build for another architecture (bin/shellcheck-install)' => [
+        yield 'a ShellCheck build for another architecture (a command bin/shellcheck-install prints)' => [
             ltrim(ShellCheckBinary::pathFor('', ShellCheckBinary::ARCHITECTURE_AARCH64), '/'),
             false,
         ];
+
+        yield 'the ShellCheck update staging directory (bin/shellcheck-install)' => ['vendor-bin/.phpqa-shellcheck-0123456789abcdef', true];
     }
 
     /** An empty repository holding only this package's own .gitignore. */
