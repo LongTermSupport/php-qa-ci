@@ -21,7 +21,8 @@ syntax error before anything heavier runs.
   excludes a path from style and static analysis, not from the syntax check. A declaration naming
   nothing is left to the [analysedPaths](analysedPaths.md) lane, and a run narrowed with `-p`
   lints that path alone. Each ignored path (`pathsToIgnore`) is passed as an `--exclude`,
-  resolved under the project root, and a declaration naming an ignored path is not linted.
+  resolved under the project root, and a declaration at or under an ignored path is not linted,
+  however the ignored path is spelt.
 - parallel-lint reports a file whose real path cannot be resolved, such as a dangling symlink, as
   an `Unknown error` that does not say why
   ([#241](https://github.com/LongTermSupport/php-qa-ci/issues/241)). The lane first walks the

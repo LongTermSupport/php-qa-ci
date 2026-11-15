@@ -7,6 +7,7 @@ namespace LTS\PHPQA\Pipeline\Lane;
 use FilesystemIterator;
 use LTS\PHPQA\Filesystem\UnresolvablePath;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Config\IgnoredPaths;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -63,7 +64,7 @@ final readonly class PhpLintTool implements ToolInterface
         }
 
         $checked = [];
-        foreach ([...$context->config->pathsToCheck, ...$this->declaredPaths($context, ...$excluded)] as $path) {
+        foreach ([...$context->config->pathsToCheck, ...$this->declaredPaths($context)] as $path) {
             if (UnresolvablePath::is($path)) {
                 $context->writeln(UnresolvablePath::skipped(self::LABEL, $path, $paths->projectRoot));
 
@@ -113,26 +114,25 @@ final readonly class PhpLintTool implements ToolInterface
      * The paths declared unanalysed that exist, under the project root, in declaration order.
      *
      * A declaration excludes a path from style and static analysis, not from the syntax check.
-     * An ignored path stays excluded, so a declaration naming one is dropped here, and one
-     * inside a declared path is still passed to parallel-lint as an --exclude. A declaration
-     * naming nothing is the analysedPaths lane's to report, and parallel-lint fails on a path
-     * that is not there. A run narrowed with -p lints that path alone.
-     *
-     * @param string ...$excluded the ignored paths under the project root
+     * An ignored path stays excluded, so a declaration at or under one is dropped here, however
+     * the ignored path is spelt, and one inside a declared path is still passed to parallel-lint
+     * as an --exclude. A declaration naming nothing is the analysedPaths lane's to report, and
+     * parallel-lint fails on a path that is not there. A run narrowed with -p lints that path
+     * alone.
      *
      * @return list<string>
      */
-    private function declaredPaths(ToolContext $context, string ...$excluded): array
+    private function declaredPaths(ToolContext $context): array
     {
         if (null !== $context->config->specifiedPath) {
             return [];
         }
 
-        $ignored  = array_map(static fn (string $path): string => rtrim($path, '/'), $excluded);
+        $ignored  = IgnoredPaths::of($context->config);
         $declared = [];
         foreach (array_keys($context->config->unanalysedPaths) as $path) {
             $absolute = $context->config->paths->projectRoot . '/' . $path;
-            if (\in_array(rtrim($absolute, '/'), $ignored, true) || (!file_exists($absolute) && !is_link($absolute))) {
+            if ($ignored->contains($absolute) || (!file_exists($absolute) && !is_link($absolute))) {
                 continue;
             }
 
