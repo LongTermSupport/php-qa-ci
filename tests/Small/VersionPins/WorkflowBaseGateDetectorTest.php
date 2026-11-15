@@ -219,6 +219,26 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     }
 
     #[Test]
+    public function aWorkflowOnBothEventsIsAlsoToldWhenItsGateNeverRunsOnPullRequestTarget(): void
+    {
+        $yaml = "on: [pull_request, pull_request_target]\njobs:\n  qa:\n    steps:\n" . self::GATE_STEP . self::EXPENSIVE_STEPS;
+
+        self::assertSame([self::TARGET_GATE_NEVER_RUNS], $this->detector->check($yaml));
+    }
+
+    #[Test]
+    public function aWorkflowOnBothEventsNamesPullRequestWhenAJobDoesNotNeedTheGate(): void
+    {
+        $yaml = "on: [pull_request, pull_request_target]\njobs:\n  base-gate:\n    steps:\n" . self::TARGET_GATE_STEP
+            . "  other:\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame(
+            ['job "other" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
+            $this->detector->check($yaml),
+        );
+    }
+
+    #[Test]
     public function aGateThatNamesPullRequestTargetInItsConditionRunsOnIt(): void
     {
         $step = str_replace(

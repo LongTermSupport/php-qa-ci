@@ -22,8 +22,9 @@ use PHPUnit\Runner\Version;
  * None of these pins fails a test run when stale, so nothing else notices when
  * the PHP or PHPUnit requirement moves on. Thin I/O around the detectors.
  *
- * The lane also holds the workflow shape rule that a `pull_request` run stops
- * when its head is behind the base branch ({@see WorkflowBaseGateDetector}), and
+ * The lane also holds the workflow shape rule that a `pull_request` or
+ * `pull_request_target` run stops when its head is behind the base branch
+ * ({@see WorkflowBaseGateDetector}), and
  * the one that a shipped template selecting phase groups runs each of them or
  * says why not ({@see WorkflowPhaseGroupsDetector}).
  *

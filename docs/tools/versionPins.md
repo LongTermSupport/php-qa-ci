@@ -76,9 +76,12 @@ rule for it differs from the `pull_request` one in three ways:
       git merge-base --is-ancestor "origin/${BASE_REF}" FETCH_HEAD
   ```
 
-  The head is only read as data; checking it out and running it with the base repository's token
-  is the hazard GitHub describes in [securely using `pull_request_target`][securely], and nothing
-  here asks for it.
+  The job that fetches keeps its checkout's credentials: the shipped templates check out with
+  `persist-credentials: false`, and copied into a `pull_request_target` workflow that leaves
+  `git fetch` without credentials, which fails on a private or internal repository (the pull
+  request ref is never in a `fetch-depth: 0` checkout). The head is only read as data; checking it
+  out and running it with the base repository's token is the hazard GitHub describes in
+  [securely using `pull_request_target`][securely], and nothing here asks for it.
 
 - A gate conditioned on `github.event_name == 'pull_request'`, as the gate step in the shipped
   `php-qa-ci.yml` is, is skipped on this event, so the check reports it. Drop the condition, or name
