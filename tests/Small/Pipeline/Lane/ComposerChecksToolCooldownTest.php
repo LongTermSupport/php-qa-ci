@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownPolicyChecker;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\CooldownReport;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecks\RedundantSuggestDetector;
 use LTS\PHPQA\Pipeline\Lane\ComposerChecksTool;
-use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
-use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
+use LTS\PHPQA\Pipeline\Tool\ToolOutcomeEnum;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FixedProjectFiles;
 use LTS\PHPQA\Tests\Support\MutableClock;
@@ -35,7 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
+#[UsesClass(QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
@@ -43,7 +43,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\PhpInvoker::class)]
-#[UsesClass(\LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto::class)]
+#[UsesClass(ToolResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Tool\ToolContext::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ReadOnlyGuidance::class)]
 #[UsesClass(\LTS\PHPQA\Helper::class)]
@@ -572,7 +572,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $this->factory->processes->willSucceed()->willSucceed()->willSucceed()->willSucceed();
     }
 
-    private function runLane(?\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto $config = null, int $now = self::NOVEMBER_SECOND): \LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto
+    private function runLane(?QaConfigDto $config = null, int $now = self::NOVEMBER_SECOND): ToolResultDto
     {
         $tool = new ComposerChecksTool(self::COMPOSER, new RedundantSuggestDetector(), new CooldownPolicyChecker(), new MutableClock($now), new FixedProjectFiles([self::ROOT_MANIFEST]));
 
