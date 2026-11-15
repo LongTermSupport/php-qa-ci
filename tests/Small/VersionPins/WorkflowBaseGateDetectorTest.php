@@ -188,14 +188,15 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     /** @return Iterator<string, array{string, string}> */
     public static function aJobBesideReadableOnesThatCannotBeRead(): Iterator
     {
-        $readable = "  qa:\n    steps:\n      - run: echo hello\n";
+        $head     = "jobs:\n";
+        $readable = $head . "  qa:\n    steps:\n      - run: echo hello\n";
         $shapes   = [
-            'a flow mapping job after a block job'   => "jobs:\n" . $readable . "  deploy: {steps: [{run: composer install}]}\n",
-            'a flow mapping job before a block job'  => "jobs:\n  deploy: {steps: [{run: composer install}]}\n" . $readable,
-            'an alias job'                           => "jobs:\n" . $readable . "  deploy: *job\n",
-            'an anchored block job'                  => "jobs:\n" . $readable . "  deploy: &job\n    steps:\n      - run: composer install\n",
-            'a quoted job id with a flow mapping'    => "jobs:\n" . $readable . "  'deploy': {steps: []}\n",
-            'a job id with a value on its own line'  => "jobs:\n" . $readable . "  deploy: other\n",
+            'a flow mapping job after a block job'   => $readable . "  deploy: {steps: [{run: composer install}]}\n",
+            'a flow mapping job before a block job'  => $head . "  deploy: {steps: [{run: composer install}]}\n" . substr($readable, \strlen($head)),
+            'an alias job'                           => $readable . "  deploy: *job\n",
+            'an anchored block job'                  => $readable . "  deploy: &job\n    steps:\n      - run: composer install\n",
+            'a quoted job id with a flow mapping'    => $readable . "  'deploy': {steps: []}\n",
+            'a job id with a value on its own line'  => $readable . "  deploy: other\n",
         ];
 
         foreach (self::EVENTS as $event) {
