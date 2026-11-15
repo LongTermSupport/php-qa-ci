@@ -36,7 +36,8 @@
 # `gate-status` holds `statuses: write` and nothing else, runs no action and none of the
 # project's code, and posts only when the commit differs from the one the run started on (the
 # gate's own check is on that one). It is skipped for a pull request from a fork, whose token is
-# read-only (Dependabot's pull requests are treated alike, and autofix pushes nothing there). If
+# read-only (Dependabot's pull requests are treated alike, and autofix pushes nothing there), and
+# when the run is cancelled, so a superseded run leaves no failure status behind. If
 # the status cannot be posted, the head shows no check, as it did before, and this job fails.
 #
 # If your required check is tied to a source app ("GitHub Actions"), the status may not be
@@ -482,13 +483,15 @@ jobs:
   # value reaches the script as an environment variable, never as substituted text.
   # It posts only for a commit other than the one the run started on (the gate's own
   # check is on that one), and not for a fork, whose token is read-only. The context
-  # is the gate job's `name` above: change both together.
+  # is the gate job's `name` above: change both together. A cancelled run (a newer push
+  # supersedes it) posts nothing: a cancelled gate is no failure of the commit, and the
+  # newer run reports on its own commit.
   # --------------------------------------------------------------------------
   gate-status:
     name: Report the gate on the checked-out commit
     needs: gate
     if: >-
-      ${{ always() && github.event_name == 'pull_request'
+      ${{ !cancelled() && github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name == github.repository
           && needs.gate.outputs.sha != ''
           && needs.gate.outputs.sha != github.event.pull_request.head.sha }}
