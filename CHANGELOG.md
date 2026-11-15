@@ -27,6 +27,16 @@ the release and its tag. The full rules are in
 
 ### Changed — breaking
 
+- The `phpLint` lane now also syntax-checks every path declared with `withUnanalysedPath()` (issue
+  #414). It built its input from the checked paths alone, so PHP that did not parse under a
+  declared path was never reported: a declaration excluded a path from the syntax check as well as
+  from style and static analysis. A declaration now means "not analysed, but it must parse". A
+  project with a file that does not parse under a declared path fails `bin/qa` on its first run
+  after the update; fix the file, or, for a deliberately broken fixture, move the path to
+  `withIgnoredPaths()`. A run narrowed with `-p` lints that path alone, and a declaration naming a
+  path that does not exist is still left to the `analysedPaths` lane. See
+  [docs/tools/phpLint.md](docs/tools/phpLint.md) and
+  [docs/tools/analysedPaths.md](docs/tools/analysedPaths.md).
 - `versionPins` now reads a workflow's `on` trigger and jobs in every valid YAML shape (issue #471).
   It matched a few spellings only, so a workflow with `on:` as a block list, a multi-line flow
   mapping, quoted names or Windows line endings was taken for one that runs on neither pull request

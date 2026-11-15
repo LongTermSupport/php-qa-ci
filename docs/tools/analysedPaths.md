@@ -75,9 +75,12 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 ```
 
 **Declare it unanalysed** when analysing it would be wrong rather than inconvenient: generated
-code, fixtures that are deliberately broken, templates whose symbols only exist once copied into
-another project. The reason is a required argument of at least two words, not a comment, so it
-cannot be left out; it is printed beside the path on every run:
+code, templates whose symbols only exist once copied into another project. The declaration
+excludes the path from style and static analysis, and it must still parse: the
+[PHP Lint](phpLint.md) lane checks the syntax of a declared path as it does a checked one. A
+fixture that is deliberately broken does not parse, so it belongs in `withIgnoredPaths()`, which
+every scanning lane skips. The reason is a required argument of at least two words, not a
+comment, so it cannot be left out; it is printed beside the path on every run:
 
 ```php
 return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
@@ -85,8 +88,8 @@ return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa
 ```
 
 Declare the narrowest path that is true: a single file rather than its directory where only the
-file is the exception. A declaration is an exclusion from every rule the project runs, so it is an
-owner's decision, reviewed like any other suppression.
+file is the exception. A declaration is an exclusion from the style and static-analysis rules the
+project runs, so it is an owner's decision, reviewed like any other suppression.
 
 For a **stale** declaration or ignored path, delete it. For a **contradicted** one, delete it as well; to stop a
 tool reading part of a checked path, use `withIgnoredPaths()` or the tool's own exclude setting.

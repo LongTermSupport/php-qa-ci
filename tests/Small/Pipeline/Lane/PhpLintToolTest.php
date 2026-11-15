@@ -56,6 +56,8 @@ final class PhpLintToolTest extends TestCase
 
     private const string SUB_DIR = 'src/a';
 
+    private const string SUB_PATH = '/src/a';
+
     private const string GENERATED = 'generated';
 
     private const string GENERATED_FILE = 'generated/Out.php';
@@ -215,7 +217,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
         self::assertSame('PHP Lint failed (exit 254)', $result->summary);
-        self::assertSame(['--', $root . '/src/a'], \array_slice($this->factory->processes->lastSpec()->command, 7));
+        self::assertSame(['--', $root . self::SUB_PATH], \array_slice($this->factory->processes->lastSpec()->command, 7));
     }
 
     #[Test]
@@ -231,7 +233,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/src/a/Gone.php', $root . '/src/a'],
+            ['--', self::EXCLUDE, $root . '/src/a/Gone.php', $root . self::SUB_PATH],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
@@ -330,6 +332,45 @@ final class PhpLintToolTest extends TestCase
         );
     }
 
+    /** An ignored path spelt with a trailing slash is still the declared path it names. */
+    #[Test]
+    public function aDeclaredPathIgnoredWithATrailingSlashIsNotLinted(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+        $config = $this->factory->builder()
+            ->withIgnoredPaths('generated/')
+            ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
+            ->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(
+            ['--', self::EXCLUDE, $root . '/generated/', $root . self::TESTS, $root . self::SRC],
+            \array_slice($this->factory->processes->lastSpec()->command, 7),
+        );
+    }
+
+    /** A declared path that is itself a dangling symlink is named as skipped, like a checked one. */
+    #[Test]
+    public function aDeclaredPathThatIsADanglingSymlinkIsNamedAsSkipped(): void
+    {
+        $this->factory->processes->willSucceed();
+        $root = $this->factory->project->path;
+        $this->factory->project->write(self::REAL, self::PHP_FILE);
+        \Safe\symlink(self::MISSING, $root . '/' . self::GENERATED);
+        $config = $this->factory->builder()->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)->build();
+
+        new PhpLintTool()->run($this->factory->context($config));
+
+        self::assertSame(['--', $root . self::TESTS, $root . self::SRC], \array_slice($this->factory->processes->lastSpec()->command, 7));
+        self::assertSame(
+            "PHP Lint skipped generated: its real path cannot be resolved (a symlink whose target does not exist), so it was not checked\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
     /** A declaration naming nothing is the analysedPaths lane's to report; parallel-lint fails on a path that is not there. */
     #[Test]
     public function aDeclaredPathThatDoesNotExistIsNotGivenToParallelLint(): void
@@ -358,7 +399,7 @@ final class PhpLintToolTest extends TestCase
 
         new PhpLintTool()->run($this->factory->context($config));
 
-        self::assertSame(['--', $root . '/src/a'], \array_slice($this->factory->processes->lastSpec()->command, 7));
+        self::assertSame(['--', $root . self::SUB_PATH], \array_slice($this->factory->processes->lastSpec()->command, 7));
     }
 
     /** The dangling-symlink handling reaches the declared paths too (#241). */
