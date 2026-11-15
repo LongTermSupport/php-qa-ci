@@ -80,6 +80,16 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string GATE_AFTER_EXPENSIVE ='job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install';
 
+    private const string FIX = 'fix';
+
+    private const string PR_ONLY_IF = "if: github.event_name == 'pull_request'";
+
+    private const string FIX_JOB = "  fix:\n    steps:\n";
+
+    private const string FILLER_STEP = "      - run: echo filler\n";
+
+    private const string QA_WITH_BASE_REF = "on:\n  pull_request:\njobs:\n  qa:\n    env:\n      BASE_REF: \${{ github.event.pull_request.base.ref }}\n    steps:\n";
+
     private WorkflowBaseGateDetector $detector;
 
     protected function setUp(): void
@@ -92,7 +102,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     {
         $yaml = "on:\n  push:\n    branches: [main]\njobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEPS;
 
-        self::assertFalse($this->detector->runsOnPullRequest($yaml));
         self::assertSame([], $this->detector->check($yaml));
     }
 
@@ -102,12 +111,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         $yaml = self::QA_JOB . self::EXPENSIVE_STEPS;
 
         self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($yaml));
-    }
-
-    #[Test]
-    public function aFlowStyleTriggerListIsRecognised(): void
-    {
-        self::assertTrue($this->detector->runsOnPullRequest("on: [push, pull_request]\njobs:\n  qa:\n    steps: []\n"));
     }
 
     #[Test]
@@ -174,19 +177,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aWorkflowWithoutAJobsSectionHasNothingToGate(): void
     {
         self::assertSame([], $this->detector->check("on:\n  pull_request:\n"));
-    }
-
-    #[Test]
-    public function thePullRequestAndPullRequestTargetTriggersAreToldApartByExactName(): void
-    {
-        $target = "on:\n  pull_request_target:\njobs:\n";
-        $plain  = "on:\n  pull_request:\njobs:\n";
-
-        self::assertTrue($this->detector->runsOnPullRequestTarget($target));
-        self::assertFalse($this->detector->runsOnPullRequest($target));
-        self::assertTrue($this->detector->runsOnPullRequest($plain));
-        self::assertFalse($this->detector->runsOnPullRequestTarget($plain));
-        self::assertFalse($this->detector->runsOnPullRequestTarget("on:\n  pull_request_review:\njobs:\n"));
     }
 
     #[Test]
@@ -283,7 +273,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aGateThatNamesPullRequestTargetInItsConditionRunsOnIt(): void
     {
         $step = str_replace(
-            "if: github.event_name == 'pull_request'",
+            self::PR_ONLY_IF,
             "if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'",
             self::GATE_STEP,
         );
@@ -493,6 +483,220 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         self::assertSame([], $this->detector->check($yaml));
     }
 
+    /** Every job that runs without the gate is told, not only the first. */
+    #[Test]
+    public function everyJobThatDoesNotNeedTheGateIsReported(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP . self::FIX_JOB . self::EXPENSIVE_STEPS . "  lint:\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([$this->notNeedingTheGate(self::FIX), $this->notNeedingTheGate('lint')], $this->detector->check($yaml));
+    }
+
+    /** A job that holds the gate and runs expensive steps after it does not end the reading of the jobs after it. */
+    #[Test]
+    public function aJobAfterAGateJobThatIsExpensiveItselfIsStillChecked(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP . self::EXPENSIVE_STEPS . self::FIX_JOB . self::EXPENSIVE_STEPS;
+
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
+    }
+
+    /** A blank line, or one of only spaces, between or inside jobs ends nothing. */
+    #[Test]
+    #[DataProvider('blankLines')]
+    public function aBlankLineBetweenJobsDoesNotEndTheJobsSection(string $blank): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP . $blank . self::FIX_JOB . self::EXPENSIVE_STEPS;
+
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function blankLines(): Iterator
+    {
+        yield 'empty' => ["\n"];
+
+        yield 'spaces only' => ["    \n"];
+    }
+
+    /** A top-level key after `jobs:` ends it; what it holds is not part of the last job. */
+    #[Test]
+    public function aTopLevelKeyAfterTheJobsIsNotPartOfTheLastJob(): void
+    {
+        $yaml = self::TARGET_TRIGGER . "  tidy:\n    steps:\n      - run: echo hello\nx-note:\n  - composer install\n";
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** A gate needs both its base ref and its ancestry test; either alone is not a gate. */
+    #[Test]
+    #[DataProvider('halfAGate')]
+    public function aJobThatHasOnlyHalfAGateHasNoGate(string $step): void
+    {
+        $yaml = self::QA_JOB . $step . self::EXPENSIVE_STEPS;
+
+        self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($yaml));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function halfAGate(): Iterator
+    {
+        yield 'only the base ref' => ["      - uses: actions/checkout@v4\n        with:\n          ref: \${{ github.event.pull_request.base.ref }}\n"];
+
+        yield 'only the ancestry test' => ["      - run: git merge-base --is-ancestor main HEAD\n"];
+    }
+
+    /** A gate condition naming the target event runs on it, in any case, as the pull_request condition is read in any case. */
+    #[Test]
+    public function aGateConditionNamingPullRequestTargetInUpperCaseRunsOnIt(): void
+    {
+        $step = str_replace(
+            self::PR_ONLY_IF,
+            "if: github.event_name == 'pull_request' || github.event_name == 'PULL_REQUEST_TARGET'",
+            self::GATE_STEP,
+        );
+
+        self::assertSame([], $this->detector->check(self::TARGET_QA_JOB . $step . self::EXPENSIVE_STEPS));
+    }
+
+    /** The `needs:` key is found wherever it sits among the job's own keys. */
+    #[Test]
+    public function aNeedsKeyAfterOtherKeysOfTheJobIsRead(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    runs-on: ubuntu-latest\n    needs: base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    #[Test]
+    public function aBlockListNeedsNamingTheGateJobSecondIsRead(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n      - other\n      - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** A blank line inside a block list is not its end. */
+    #[Test]
+    public function aBlankLineInsideABlockListNeedsDoesNotEndIt(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n      - other\n\n      - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** Jobs that need each other in a loop are followed once, not for ever, and never reach the gate. */
+    #[Test]
+    public function aLoopOfNeedsThatNeverReachesTheGateEndsAndIsReported(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs: loop-a\n    steps:\n" . self::EXPENSIVE_STEPS
+            . "  loop-a:\n    needs: loop-b\n    steps:\n"
+            . "  loop-b:\n    needs: loop-a\n    steps:\n";
+
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
+    }
+
+    /** A dash list under another key of the job holds no `needs:` names. */
+    #[Test]
+    public function aListUnderAnotherKeyAfterTheNeedsListIsNotMoreNames(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n      - other\n    strategy:\n      matrix:\n        job:\n          - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
+    }
+
+    /** A gate just ahead of a bare qa run, deep in a long job, is ahead of it. */
+    #[Test]
+    public function aGateJustAheadOfAQaRunDeepInALongJobPasses(): void
+    {
+        $yaml = self::QA_WITH_BASE_REF . str_repeat(self::FILLER_STEP, 45) . "      - run: git merge-base --is-ancestor x/qa\n";
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** A gate just behind a bare qa run, deep in a long job, is behind it. */
+    #[Test]
+    public function aGateJustBehindAQaRunDeepInALongJobIsReported(): void
+    {
+        $yaml = self::QA_WITH_BASE_REF . str_repeat(self::FILLER_STEP, 45) . "      - run: bin/qa\n      - run: git merge-base --is-ancestor x\n";
+
+        self::assertSame([self::GATE_AFTER_EXPENSIVE], $this->detector->check($yaml));
+    }
+
+    /** YAML lets a block list's dashes sit at the key's own indentation. */
+    #[Test]
+    public function aBlockListNeedsWhoseDashesAlignWithTheKeyIsRead(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n    - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** The first line after a block list that is not a dash ends it, even at the key's indentation. */
+    #[Test]
+    public function aKeyAfterABlockListNeedsEndsTheListAndIsNotAName(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n    - other\n    runs-on: base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame(
+            ['job "fix" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
+            $this->detector->check($yaml),
+        );
+    }
+
+    #[Test]
+    #[DataProvider('flowNeedsListsWithATrailingComma')]
+    public function aFlowNeedsListWithATrailingCommaIsRead(string $needs): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP . '  fix:' . "\n    needs: " . $needs . "\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function flowNeedsListsWithATrailingComma(): Iterator
+    {
+        yield 'the gate last'          => ['[other, base-gate,]'];
+        yield 'the gate first'         => ['[base-gate, other,]'];
+        yield 'the gate alone'         => ['[base-gate,]'];
+        yield 'a space before the end' => ['[base-gate, ]'];
+    }
+
+    /** A trailing comma is valid YAML in a flow trigger and adds no event, nor makes the trigger unreadable. */
+    #[Test]
+    #[DataProvider('flowTriggersWithATrailingComma')]
+    public function aFlowTriggerWithATrailingCommaIsReadAndAskedForTheGate(string $trigger): void
+    {
+        self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($trigger . self::JOBS_HEAD . self::EXPENSIVE_STEPS));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function flowTriggersWithATrailingComma(): Iterator
+    {
+        yield 'a list' => ["on: [push, pull_request,]\n"];
+
+        yield 'a list with a space before the end' => ["on: [pull_request, ]\n"];
+
+        yield 'a mapping' => ["on: {push: {}, pull_request: {},}\n"];
+    }
+
+    /** A file written with a lone carriage return between lines is read as the same file. */
+    #[Test]
+    public function aWorkflowWithLoneCarriageReturnLineEndingsIsReadLikeOneWithNewlines(): void
+    {
+        $workflow = self::GATE_JOB . self::GATE_STEP . "  fix:\n    needs:\n      - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame($this->detector->check($workflow), $this->detector->check(str_replace("\n", "\r", $workflow)));
+        self::assertSame([], $this->detector->check(str_replace("\n", "\r", $workflow)));
+    }
+
     #[Test]
     public function aFlowNeedsListOverSeveralLinesAndQuotedNamesAreRead(): void
     {
@@ -617,7 +821,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aCommentNamingPullRequestTargetDoesNotExemptAGateThatNeverRuns(): void
     {
         $step = str_replace(
-            "if: github.event_name == 'pull_request'",
+            self::PR_ONLY_IF,
             "if: github.event_name == 'pull_request' # also for pull_request_target",
             self::GATE_STEP,
         );
@@ -639,6 +843,11 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             . self::EXPENSIVE_STEPS;
 
         self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($yaml));
+    }
+
+    private function notNeedingTheGate(string $job): string
+    {
+        return \sprintf('job "%s" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs', $job);
     }
 
     private function noGateFor(string $event): string
