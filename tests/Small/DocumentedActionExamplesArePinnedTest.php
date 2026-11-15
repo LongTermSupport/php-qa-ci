@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use Symfony\Component\Yaml\Exception\ParseException;
 
 /**
  * Defence for the class "the documentation teaches the construction the pin check bans".
@@ -28,6 +29,9 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
 {
     /** The finding for a tag, given as `owner/repo@ref`. */
     private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
+
+    /** The end of a fence of three backticks, on a line of its own. */
+    private const string CLOSE = "```\n";
 
     /** An example reference in a tag form, which every fixture below must have reported. */
     private const string TAG = 'o/r@v1';
@@ -51,7 +55,7 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
             . "\n"
             . "```yaml\n"
             . "- uses: codecov/codecov-action@v3\n"
-            . "```\n"
+            . self::CLOSE
             . "\n"
             . "  uses: prose/not-a-fence@v1\n";
 
@@ -79,6 +83,8 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
 
         yield 'a quoted key' => ["```yaml\n- 'uses': o/r@v1\n```\n"];
 
+        yield 'a yml fence' => ["```yml\n- {uses: o/r@v1}\n```\n"];
+
         yield 'a double-quoted key' => ["```yaml\n- \"uses\": o/r@v1\n```\n"];
 
         yield 'a quoted value' => ["```yaml\n- uses: 'o/r@v1'\n```\n"];
@@ -89,13 +95,25 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
 
         yield 'a fence of four backticks around one of three' => ["````markdown\n```yaml\n- uses: o/r@v1\n```\n````\n"];
 
+        yield 'a step after the inner fence has closed, inside the outer' => ["````markdown\n```yaml\n- name: x\n```\n- uses: o/r@v1\n````\n"];
+
         yield 'a fence of four backticks holding a step' => ["````yaml\n- uses: o/r@v1\n````\n"];
 
         yield 'an indented fence' => ["1. Add it:\n\n   ```yaml\n   - uses: o/r@v1\n   ```\n"];
 
-        yield 'a block that is not YAML' => ["```yaml\n- uses: o/r@v1\n  bad: [\n```\n"];
-
         yield 'a fence that is never closed' => ["```yaml\n- uses: o/r@v1\n"];
+
+        yield 'a fence with no info string, read by line' => ["```\n- uses: o/r@v1\n  bad: [\n```\n"];
+
+        yield 'a fence of another language, read by line' => ["```text\n- uses: o/r@v1\n  bad: [\n```\n"];
+    }
+
+    /** An example tagged yaml that is not YAML is a defect in the page: a reader cannot copy it. */
+    public function testAnExampleTaggedYamlThatIsNotYamlIsReported(): void
+    {
+        $this->expectException(ParseException::class);
+
+        ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n");
     }
 
     /** A pinned example, a shell example that merely mentions `uses:` and prose outside a fence are not findings. */
@@ -105,11 +123,11 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
         $page = "```yaml\n"
             . \sprintf("- uses: o/r@%s # v1.2.3\n", $sha)
             . "- {name: Local, uses: ./.github/actions/local}\n"
-            . "```\n"
+            . self::CLOSE
             . "\n"
             . "```bash\n"
             . "grep 'uses:' workflow.yml\n"
-            . "```\n"
+            . self::CLOSE
             . "\n"
             . "~~~yaml\n"
             . "- name: Say\n"

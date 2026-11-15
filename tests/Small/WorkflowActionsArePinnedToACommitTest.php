@@ -46,6 +46,9 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
     /** An action the guard workflows name, up to the ref. */
     private const string SOME_ACTION = 'some/action@';
 
+    /** A step in the pinned shape, given the commit. */
+    private const string PINNED_STEP = "      - uses: some/action@%s # v1.2.3\n";
+
     /** The finding for a reference, given as `owner/repo@ref`. */
     private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
 
@@ -77,7 +80,7 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
                 . "      - uses: actions/checkout@v4\n"
                 . "      - uses: some/action@main\n"
                 . \sprintf("      - uses: some/action@%s\n", $sha)
-                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf(self::PINNED_STEP, $sha)
                 . "      - uses: ./.github/actions/local\n",
             ),
         );
@@ -117,7 +120,7 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             [$this->notPinned(self::SOME_ACTION . $sha)],
             $this->unpinned(
                 self::WORKFLOW_HEAD
-                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf(self::PINNED_STEP, $sha)
                 . \sprintf("      - {uses: some/action@%s}\n", $sha),
             ),
         );
@@ -164,7 +167,7 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             [],
             $this->unpinned(
                 self::WORKFLOW_HEAD
-                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf(self::PINNED_STEP, $sha)
                 . "      - name: Say\n"
                 . "        run: |\n"
                 . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha),
