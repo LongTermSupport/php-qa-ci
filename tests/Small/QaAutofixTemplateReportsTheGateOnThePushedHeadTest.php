@@ -92,7 +92,7 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     #[Test]
     public function theStatusIsPostedOnlyForAPullRequestFromThisRepositoryWhoseCheckedOutCommitIsNotTheOneTheRunStartedOn(): void
     {
-        $condition = \Safe\preg_replace('/\s+/', ' ',$this->job(self::STATUS_JOB)->child('if')->text());
+        $condition = \Safe\preg_replace('/\s+/', ' ', $this->job(self::STATUS_JOB)->child('if')->text());
 
         self::assertSame(
             "\${{ always() && github.event_name == 'pull_request'"
