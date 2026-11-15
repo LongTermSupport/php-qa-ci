@@ -189,15 +189,15 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public static function jobsTheDetectorCannotRead(): Iterator
     {
         $shapes = [
-            'no jobs key'                      => '',
-            'an empty jobs key'                => "jobs:\n",
+            'no jobs key'                       => '',
+            'an empty jobs key'                 => "jobs:\n",
             'a jobs key holding only a comment' => "jobs: # none yet\n",
-            'a jobs key followed by a key'     => "jobs:\nenv:\n  A: b\n",
-            'a flow mapping'                   => "jobs: {qa: {steps: [{run: composer install}]}}\n",
+            'a jobs key followed by a key'      => "jobs:\nenv:\n  A: b\n",
+            'a flow mapping'                    => "jobs: {qa: {steps: [{run: composer install}]}}\n",
             'a flow mapping over several lines' => "jobs: {\n  qa: {steps: [{uses: shivammathur/setup-php@v2}]}\n}\n",
-            'an alias'                         => "jobs: *all\n",
-            'an anchored mapping'              => "jobs: &all\n  qa:\n    steps:\n      - run: composer install\n",
-            'a quoted key with a flow mapping' => "\"jobs\": {qa: {}}\n",
+            'an alias'                          => "jobs: *all\n",
+            'an anchored mapping'               => "jobs: &all\n  qa:\n    steps:\n      - run: composer install\n",
+            'a quoted key with a flow mapping'  => "\"jobs\": {qa: {}}\n",
         ];
 
         foreach (self::EVENTS as $event) {
