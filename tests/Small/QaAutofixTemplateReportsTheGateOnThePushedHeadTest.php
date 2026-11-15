@@ -37,6 +37,10 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
 
     private const string ENV = 'env';
 
+    private const string NEEDS = 'needs';
+
+    private const string CONDITION = 'if';
+
     private const string GATE = 'gate';
 
     private const string STATUS_JOB = 'gate-status';
@@ -65,7 +69,7 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     {
         $job = $this->job(self::STATUS_JOB);
 
-        self::assertSame(self::GATE, $job->child('needs')->string(), 'the status job does not wait for the gate alone');
+        self::assertSame(self::GATE, $job->child(self::NEEDS)->string(), 'the status job does not wait for the gate alone');
     }
 
     #[Test]
@@ -92,10 +96,10 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     #[Test]
     public function theStatusIsPostedOnlyForAPullRequestFromThisRepositoryWhoseCheckedOutCommitIsNotTheOneTheRunStartedOn(): void
     {
-        $condition = \Safe\preg_replace('/\s+/', ' ', $this->job(self::STATUS_JOB)->child('if')->text());
+        $condition = \Safe\preg_replace('/\s+/', ' ', $this->job(self::STATUS_JOB)->child(self::CONDITION)->text());
 
         self::assertSame(
-            "\${{ always() && github.event_name == 'pull_request'"
+            "\${{ !cancelled() && github.event_name == 'pull_request'"
             . ' && github.event.pull_request.head.repo.full_name == github.repository'
             . ' && ' . self::GATE_SHA . " != ''"
             . ' && ' . self::GATE_SHA . ' != github.event.pull_request.head.sha }}',
@@ -108,7 +112,7 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     {
         $job = $this->job(self::STATUS_JOB);
 
-        self::assertSame([self::NAME, 'needs', 'if', 'runs-on', 'permissions', self::STEPS], $job->keys(), 'the status job carries a key that changes how it runs or fails');
+        self::assertSame([self::NAME, self::NEEDS, self::CONDITION, 'runs-on', 'permissions', self::STEPS], $job->keys(), 'the status job carries a key that changes how it runs or fails');
         self::assertCount(1, $job->child(self::STEPS)->items(), 'the status job runs more than the one step that posts the status');
         self::assertSame([self::NAME, self::ENV, self::RUN], $job->child(self::STEPS, 0)->keys(), 'the status step carries a condition or an error-handling key');
         self::assertStringContainsString('set -euo pipefail', $job->child(self::STEPS, 0, self::RUN)->text());
@@ -119,6 +123,44 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     public function theStepThatRecordsTheCommitIsNeverSkipped(): void
     {
         self::assertSame([self::NAME, 'id', self::RUN], $this->job(self::GATE)->child(self::STEPS, 1)->keys(), 'the step that records the commit carries a condition or an error-handling key');
+    }
+
+    #[Test]
+    public function theStepThatRecordsTheCommitRecordsTheCheckedOutHeadAndNothingElse(): void
+    {
+        $run = $this->job(self::GATE)->child(self::STEPS, 1, self::RUN)->text();
+
+        self::assertSame('echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"', trim($run), 'the step records something other than the commit the checkout left, or does more than record it');
+    }
+
+    #[Test]
+    public function theGateJobCarriesNoKeyThatChangesHowItRunsOrFails(): void
+    {
+        self::assertSame(
+            [self::NAME, self::NEEDS, self::CONDITION, 'runs-on', 'outputs', self::STEPS],
+            $this->job(self::GATE)->keys(),
+            'the gate job carries a key such as continue-on-error, which lets a failed gate report success',
+        );
+    }
+
+    #[Test]
+    public function theStatusScriptIsExactlyTheOneThatPostsTheGatesResult(): void
+    {
+        $expected = <<<'SCRIPT'
+            set -euo pipefail
+            if [ "${GATE_RESULT}" = "success" ]; then
+              STATE=success
+            else
+              STATE=failure
+            fi
+            gh api --method POST "repos/${REPOSITORY}/statuses/${SHA}" \
+              -f state="${STATE}" \
+              -f context="${CONTEXT}" \
+              -f description="Read-only qa on the auto-fixed commit: ${GATE_RESULT}" \
+              -f target_url="${RUN_URL}"
+            SCRIPT;
+
+        self::assertSame($expected, trim($this->job(self::STATUS_JOB)->child(self::STEPS, 0, self::RUN)->text()), 'the status script differs from the one that was verified; a change such as `set +e`, `; true` or a pipe can post success for a failed gate');
     }
 
     #[Test]

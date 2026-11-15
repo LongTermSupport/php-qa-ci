@@ -179,6 +179,14 @@ the release and its tag. The full rules are in
   internal interface, and the test of the `.gitignore` takes its paths from those declarations, so an
   installer that gains an output cannot reach a checkout unchecked. A path an installer commits is
   held to the opposite: it must not be ignored.
+- The `gate-status` job of the shipped `qa-autofix.yml` template no longer posts a failure status
+  when its run is cancelled (issue #486). It ran under `always()`, which GitHub documents as running
+  "even when canceled", so a run cancelled by a newer one on the auto-fixed commit could post a
+  `failure` status for `QA gate (read-only qa)` beside the newer run's green check of the same name,
+  and the commit would stay blocked. That was reasoned from the documentation and not observed. The
+  job now runs under `!cancelled()` and posts nothing for a cancelled run. A project that copied the
+  template keeps the old condition until it copies the job again. See
+  [docs/github-actions.md](docs/github-actions.md).
 
 ## 85.18.1 — 2026-11-09
 
