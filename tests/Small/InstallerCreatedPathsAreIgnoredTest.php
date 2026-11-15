@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small;
 
 use Iterator;
-use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
+use LTS\PHPQA\Installer\InstallerOutput;
+use LTS\PHPQA\Installer\InstallerOutputsInterface;
 use LTS\PHPQA\Tests\Support\GitSandbox;
+use LTS\PHPQA\Tests\Support\InstallerEntryPoints;
 use LTS\PHPQA\Tests\Support\TempDir;
-use LTS\PHPQA\Turbo\TurboInstaller;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
@@ -29,9 +30,10 @@ use function Safe\symlink;
  * file or a symlink to one (a worktree seeded from another checkout's installed dependencies makes
  * it a symlink, and a pattern ending in a slash matches directories only).
  *
- * The paths are the rows of createdPaths(), taken from the installers' own constants. Nothing ties an
- * installer to that list, so an installer that gains a new output is checked only once its path is
- * added there.
+ * The paths are what each installer declares it writes (InstallerOutputsInterface), found through the
+ * `bin/*-install` entry points; {@see InstallerEntryPointsDeclareTheirOutputsTest} fails an entry
+ * point whose installer declares nothing. A path an installer commits is held to the opposite: it
+ * must not be ignored.
  *
  * @internal
  */
@@ -69,12 +71,61 @@ final class InstallerCreatedPathsAreIgnoredTest extends TestCase
     /** @return Iterator<string, array{string, bool}> */
     public static function createdPaths(): Iterator
     {
-        yield 'the PHPStan Turbo binaries (bin/turbo-install)' => [TurboInstaller::TURBO_DIR, true];
+        foreach (self::declaredOutputs() as [$label, $output]) {
+            if ($output->untrackedByDesign) {
+                yield $label => [$output->path, $output->isDirectory];
+            }
+        }
+    }
 
-        yield 'a ShellCheck build for another architecture (bin/shellcheck-install)' => [
-            ltrim(ShellCheckBinary::pathFor('', ShellCheckBinary::ARCHITECTURE_AARCH64), '/'),
-            false,
-        ];
+    /**
+     * A path an installer commits is not ignored: a pattern wide enough to catch it would hide the
+     * committed file from git.
+     */
+    #[Test]
+    #[DataProvider('committedPaths')]
+    public function aPathAnInstallerCommitsIsNotIgnored(string $path, bool $isDirectory): void
+    {
+        $this->create($path, $isDirectory, false);
+
+        self::assertSame(1, $this->checkIgnore($path), $path . ' is committed by an installer but is ignored by .gitignore');
+    }
+
+    /** @return Iterator<string, array{string, bool}> */
+    public static function committedPaths(): Iterator
+    {
+        foreach (self::declaredOutputs() as [$label, $output]) {
+            if (!$output->untrackedByDesign) {
+                yield $label => [$output->path, $output->isDirectory];
+            }
+        }
+    }
+
+    /**
+     * What every installer an entry point calls says it writes, labelled by the entry point and by
+     * what writes it.
+     *
+     * @return list<array{string, InstallerOutput}> each with its label
+     */
+    private static function declaredOutputs(): array
+    {
+        $outputs = [];
+        foreach (InstallerEntryPoints::classes() as $entryPoint => $class) {
+            if (null === $class || !is_subclass_of($class, InstallerOutputsInterface::class)) {
+                continue;
+            }
+
+            foreach ($class::outputs() as $output) {
+                $outputs[] = [self::label($entryPoint, $output), $output];
+            }
+        }
+
+        return $outputs;
+    }
+
+    private static function label(string $entryPoint, InstallerOutput $output): string
+    {
+        return \sprintf('%s (%s, written by %s)', $output->path, $entryPoint, $output->printedCommand ? 'a command it prints' : 'the installer');
     }
 
     /** An empty repository holding only this package's own .gitignore. */

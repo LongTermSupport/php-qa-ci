@@ -107,6 +107,14 @@ the release and its tag. The full rules are in
   reports, so a project that followed it set branch protection to wait for a check that never
   arrives. Only the comment changes: the job's name, and so what existing branch protection matches,
   is unchanged. A test now requires the header to name the gate job's `name:`.
+- The package's `.gitignore` now ignores the ShellCheck update staging directory when it is a
+  symlink, not only when it is a directory (issue #435). The entry
+  `/vendor-bin/.phpqa-shellcheck*/` ended in a slash, which matches directories only, the same
+  defect as `vendor-phar/turbo-ext` (issue #402). Each installer (`TurboInstaller`,
+  `ShellCheckInstaller`, `PhpstanDocsInstaller`) now declares the paths it writes through a small
+  internal interface, and the test of the `.gitignore` takes its paths from those declarations, so an
+  installer that gains an output cannot reach a checkout unchecked. A path an installer commits is
+  held to the opposite: it must not be ignored.
 
 ## 85.18.1 — 2026-11-09
 

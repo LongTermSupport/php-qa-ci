@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Turbo;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
+use LTS\PHPQA\Installer\InstallerOutput;
+use LTS\PHPQA\Installer\InstallerOutputsInterface;
 use LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue;
 use RuntimeException;
 use Symfony\Component\Console\Output\ConsoleOutputInterface;
@@ -31,7 +33,7 @@ use UnexpectedValueException;
  *
  * @api
  */
-final readonly class TurboInstaller
+final readonly class TurboInstaller implements InstallerOutputsInterface
 {
     /** Fetch the host's binary if it is missing or stale; the manifest is left as committed. */
     public const string MODE_INSTALL = 'install';
@@ -69,6 +71,21 @@ final readonly class TurboInstaller
         private OutputInterface $output,
         private OutputInterface $errors,
     ) {
+    }
+
+    /**
+     * The binaries are untracked by design, one directory a host; the manifest is committed and only
+     * the maintainer update regenerates it. The stamp and the staging directory sit inside the
+     * binaries' directory.
+     *
+     * @internal
+     */
+    public static function outputs(): array
+    {
+        return [
+            new InstallerOutput(self::TURBO_DIR, true, true),
+            new InstallerOutput(TurboManifest::PATH, false, false),
+        ];
     }
 
     /** @return int the process exit code */

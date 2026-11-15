@@ -6,6 +6,8 @@ namespace LTS\PHPQA\ShellCheck;
 
 use Closure;
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
+use LTS\PHPQA\Installer\InstallerOutput;
+use LTS\PHPQA\Installer\InstallerOutputsInterface;
 use LTS\PHPQA\Pipeline\Config\ShellCheckBinary;
 use PharData;
 use RuntimeException;
@@ -32,7 +34,7 @@ use Throwable;
  *
  * @api
  */
-final readonly class ShellCheckInstaller
+final readonly class ShellCheckInstaller implements InstallerOutputsInterface
 {
     /** Verify only: the binary is committed, so a composer install never downloads. */
     public const string MODE_INSTALL = 'install';
@@ -52,6 +54,12 @@ final readonly class ShellCheckInstaller
     /** Long enough for a 3.7 MB asset on a slow runner, short enough not to hang a composer event. */
     private const int TIMEOUT_SECONDS = 60;
 
+    /** What an update's staging directory beside the binary is named from; a random suffix follows. */
+    private const string STAGING_PREFIX = '.phpqa-shellcheck';
+
+    /** A suffix of the length TemporaryDirectory::besides() adds, to show what a staging directory is called. */
+    private const string STAGING_SAMPLE_SUFFIX = '0123456789abcdef';
+
     /**
      * @param Closure(string, string...): string $fetch      the body at a URL, given the request headers; throws when the request fails
      * @param bool                               $maintainer whether this is a maintainer build, the only kind an update changes
@@ -62,6 +70,24 @@ final readonly class ShellCheckInstaller
         private Closure $fetch,
         private bool $maintainer,
     ) {
+    }
+
+    /**
+     * The committed binary, its licence and its pin are tracked; an update stages beside the
+     * binary, and the build for another architecture is fetched by a command the installer prints.
+     *
+     * @internal
+     */
+    public static function outputs(): array
+    {
+        $directory = \dirname(ShellCheckBinary::RELATIVE_PATH);
+
+        return [
+            new InstallerOutput(ShellCheckBinary::RELATIVE_PATH, false, false),
+            new InstallerOutput(ShellCheckBinary::VERSION_FILE, false, false),
+            new InstallerOutput($directory . '/' . self::STAGING_PREFIX . self::STAGING_SAMPLE_SUFFIX, true, true),
+            new InstallerOutput(ltrim(ShellCheckBinary::pathFor('', ShellCheckBinary::ARCHITECTURE_AARCH64), '/'), false, true, true),
+        ];
     }
 
     /** @return int the process exit code */
@@ -134,7 +160,7 @@ final readonly class ShellCheckInstaller
         $staging = null;
 
         try {
-            $staging = TemporaryDirectory::besides($binary, '.phpqa-shellcheck');
+            $staging = TemporaryDirectory::besides($binary, self::STAGING_PREFIX);
             foreach ($staging->unremovedLeftovers as $leftover => $why) {
                 $this->error(\sprintf('WARNING: could not remove %s, a staging directory a killed update left: %s', $leftover, $why));
             }

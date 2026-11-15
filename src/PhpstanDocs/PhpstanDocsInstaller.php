@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace LTS\PHPQA\PhpstanDocs;
 
 use LTS\PHPQA\Filesystem\TemporaryDirectory;
+use LTS\PHPQA\Installer\InstallerOutput;
+use LTS\PHPQA\Installer\InstallerOutputsInterface;
 use RuntimeException;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\ExecutableFinder;
@@ -22,7 +24,7 @@ use Throwable;
  *
  * @internal
  */
-final readonly class PhpstanDocsInstaller
+final readonly class PhpstanDocsInstaller implements InstallerOutputsInterface
 {
     /** Verify the committed catalogue; never fetch. */
     public const string MODE_INSTALL = 'install';
@@ -47,6 +49,16 @@ final readonly class PhpstanDocsInstaller
         private PhpstanDocsFetcherInterface $fetcher = new GitPhpstanDocsFetcher(),
         private ?bool $maintainer = null,
     ) {
+    }
+
+    /**
+     * The catalogue is committed, and so is its version; the staging is under the system temp directory.
+     *
+     * @internal
+     */
+    public static function outputs(): array
+    {
+        return [new InstallerOutput(PhpstanDocsCatalogue::DIRECTORY, true, false)];
     }
 
     /** @return int the process exit code */
