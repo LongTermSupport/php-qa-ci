@@ -72,6 +72,8 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string UNREADABLE_TRIGGER = 'its `on` trigger is written in a shape this check cannot read, so whether it runs on pull_request or pull_request_target is unknown: write it as a scalar (`on: pull_request`), a list (`on: [push, pull_request]` or a block list) or a mapping (`on:` then `  pull_request:`), without an anchor, an alias or a merge key';
 
+    private const string UNREADABLE_JOBS = 'its `jobs` key is missing, empty or written in a shape this check cannot read, so whether its jobs are gated is unknown: write `jobs:` on a line of its own, then each job id as an indented key, without a flow mapping, an anchor or an alias';
+
     private const string JOBS_HEAD = self::JOBS_QA;
 
     private const string OTHER_JOB = "  other:\n    steps:\n";
@@ -173,10 +175,34 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         self::assertSame([], $this->detector->check($yaml));
     }
 
+    /** Jobs the check cannot read are reported, never passed, whichever of the two events the workflow runs on. */
     #[Test]
-    public function aWorkflowWithoutAJobsSectionHasNothingToGate(): void
+    #[DataProvider('jobsTheDetectorCannotRead')]
+    public function jobsThatCannotBeReadAreReportedNotPassed(string $event, string $jobs): void
     {
-        self::assertSame([], $this->detector->check("on:\n  pull_request:\n"));
+        self::assertSame([self::UNREADABLE_JOBS], $this->detector->check("on:\n  " . $event . ":\n" . $jobs));
+    }
+
+    /** @return Iterator<string, array{string, string}> */
+    public static function jobsTheDetectorCannotRead(): Iterator
+    {
+        $shapes = [
+            'no jobs key'                      => '',
+            'an empty jobs key'                => "jobs:\n",
+            'a jobs key holding only a comment' => "jobs: # none yet\n",
+            'a jobs key followed by a key'     => "jobs:\nenv:\n  A: b\n",
+            'a flow mapping'                   => "jobs: {qa: {steps: [{run: composer install}]}}\n",
+            'a flow mapping over several lines' => "jobs: {\n  qa: {steps: [{uses: shivammathur/setup-php@v2}]}\n}\n",
+            'an alias'                         => "jobs: *all\n",
+            'an anchored mapping'              => "jobs: &all\n  qa:\n    steps:\n      - run: composer install\n",
+            'a quoted key with a flow mapping' => "\"jobs\": {qa: {}}\n",
+        ];
+
+        foreach (['pull_request', 'pull_request_target'] as $event) {
+            foreach ($shapes as $label => $jobs) {
+                yield $event . ': ' . $label => [$event, $jobs];
+            }
+        }
     }
 
     #[Test]
@@ -440,6 +466,16 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         yield 'no on key at all' => [''];
 
         yield 'an on key with nothing under it' => ["on:\n"];
+
+        yield 'a null written as a tilde' => ["on: ~\n"];
+
+        yield 'a null written out' => ["on: null\n"];
+
+        yield 'a block list item written as a mapping' => ["on:\n  - pull_request:\n"];
+
+        yield 'a block list item written as a mapping among others' => ["on:\n  - push\n  - pull_request:\n      types: [opened]\n"];
+
+        yield 'a flow list item written as a mapping' => ["on: [push, pull_request:]\n"];
     }
 
     /** The job, however its header is written, is found and asked for the gate. */
