@@ -112,11 +112,11 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, $output->fetch());
     }
 
-    /** The analyser maps `xdebug_info()` to `ext-xdebug` only where the extension is installed, so there is no finding to see on a host without it. */
+    /** The analyser maps `xdebug_info()` to `ext-xdebug` only where the extension is loaded, so there is no finding to see on a host without it. */
     private function requireXdebug(): void
     {
         if (!\extension_loaded('xdebug')) {
-            self::markTestSkipped('the analyser reports ext-xdebug only on a host where Xdebug is installed');
+            self::markTestSkipped('the analyser reports ext-xdebug only on a host where Xdebug is loaded');
         }
     }
 
