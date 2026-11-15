@@ -66,7 +66,7 @@ final class ComposerChecksToolTest extends TestCase
         }
         JSON;
 
-    private const string COOLDOWN_HEADING = "\n\nChecking Composer Cooldown Policy\n---------------------\n\n\nComposer cooldown policy is in place.\n";
+    private const string COOLDOWN_HEADING = "\n\nChecking Composer Cooldown Policy\n---------------------\n\n\nComposer cooldown policy is in place for the root composer.json.\n";
 
     private const string NORMALIZE_PHAR = 'composer-normalize.phar';
 

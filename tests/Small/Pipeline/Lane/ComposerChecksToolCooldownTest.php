@@ -81,6 +81,8 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
     private const string NESTED_HEADING = 'Nested composer.json files';
 
+    private const string ROOT_IN_PLACE = 'Composer cooldown policy is in place for the root composer.json.';
+
     private const string ENFORCED_ONE = '1 Composer cooldown finding(s)';
 
     private const string ENFORCED_TWO = '2 Composer cooldown finding(s)';
@@ -114,7 +116,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString("\n\nChecking Composer Cooldown Policy\n---------------------\n\n", $printed);
-        self::assertStringContainsString('Composer cooldown policy is in place.', $printed);
+        self::assertStringContainsString(self::ROOT_IN_PLACE, $printed);
         self::assertStringNotContainsString(self::REPORT_ONLY, $printed);
     }
 
@@ -316,7 +318,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString("Security overrides in force (config.policy.cooldown.ignore):\n  - thirdparty/lib: CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20\n", $printed);
-        self::assertStringContainsString('Composer cooldown policy is in place.', $printed);
+        self::assertStringContainsString(self::ROOT_IN_PLACE, $printed);
     }
 
     #[Test]
@@ -399,6 +401,21 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
 
         self::assertStringContainsString(self::TOOL_MANIFEST . ': config.policy.cooldown is false', $this->factory->output->fetch());
+    }
+
+    /** The root's line is about the root alone: a nested finding follows it, so the line must not read as the project's verdict. */
+    #[Test]
+    public function theRootLineSaysItIsAboutTheRootWhenANestedFileHasAFinding(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested(['name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringContainsString(self::ROOT_IN_PLACE . "\n\n" . self::NESTED_HEADING . ' (1 checked) have 1 finding(s):', $printed);
+        self::assertStringNotContainsString("is in place.\n", $printed);
     }
 
     #[Test]
