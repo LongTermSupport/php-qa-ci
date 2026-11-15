@@ -139,11 +139,13 @@ A `composer.json` below the project root is a Composer project of its own (a `to
 directory that pins a tool, a build step's manifest), and Composer resolves its packages under
 that file's policy, not the root's. The lane therefore applies the cooldown policy to each one
 too, and prints a `Nested composer.json files` block listing the findings, each prefixed with the
-file it came from. The installed-Composer version check and the root's internal vendor are not
-repeated per file: the version is the same Composer, and the internal vendors are the root's
-`name` and `withComposerCooldownInternalVendors()`. Findings and security overrides follow the
-same rules as the root file, and the same report-only or enforced status: the nested findings
-count toward `enforceComposerCooldown`.
+file it came from. The installed-Composer version check is not repeated per file: it is the same
+Composer. Each nested file is judged for the vendor of its own `name` and the vendors named by
+`withComposerCooldownInternalVendors()`; the root's `name` is not applied to it. Findings and
+security overrides (listed with their file) follow the same rules as the root file, and the same
+report-only or enforced status: the nested findings count toward `enforceComposerCooldown`. A root
+`composer.json` that cannot be read is a finding of its own and does not stop the nested files
+being checked.
 
 The files come from `git ls-files` (tracked, and untracked files git does not ignore), so a
 project that is not a git work tree reports that the nested files were not checked, rather than

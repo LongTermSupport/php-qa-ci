@@ -479,6 +479,47 @@ final class ComposerChecksToolCooldownTest extends TestCase
     }
 
     #[Test]
+    public function aNestedManifestsSecurityOverrideIsListedWithItsFile(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(['thirdparty/lib' => self::OVERRIDE]), 'name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
+
+        self::assertStringContainsString(
+            "Security overrides in force in those files (config.policy.cooldown.ignore):\n  - " . self::TOOL_MANIFEST . ': thirdparty/lib: CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20' . "\n",
+            $this->factory->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function noOverrideHeadingIsPrintedForNestedManifestsThatHaveNone(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(), 'name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
+
+        self::assertStringNotContainsString('Security overrides in force in those files', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function anUnreadableRootManifestDoesNotHideTheNestedOnes(): void
+    {
+        $this->factory->project->write(self::ROOT_MANIFEST, '{not json');
+        $this->writeNested(['name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringContainsString(self::TOOL_MANIFEST . ': ' . self::NO_COOLDOWN, $printed);
+        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+    }
+
+    #[Test]
     public function aNestedManifestMustExemptTheInternalVendorsTheProjectNamed(): void
     {
         $this->writeComposerJson([...$this->goodPolicy(), 'config' => ['policy' => ['cooldown' => ['period' => '7 days', 'ignore' => ['acme/*' => 'ours', 'acme-tools/*' => 'ours']]]]]);

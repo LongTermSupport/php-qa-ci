@@ -193,15 +193,19 @@ final readonly class ComposerChecksTool implements ToolInterface
         }
 
         $root     = $context->config->paths->projectRoot;
+        $today    = gmdate('Y-m-d', $this->clock->now());
         $manifest = $this->readManifest($root . self::COMPOSER_JSON);
         if (\is_string($manifest)) {
             $context->writeln(self::UNREADABLE . $manifest);
+            $nested = $this->nestedStep($context, $today);
 
-            return $this->enforcementOutcome($context, self::UNREADABLE . $manifest);
+            return $this->enforcementOutcome(
+                $context,
+                0 === $nested ? self::UNREADABLE . $manifest : \sprintf('%d Composer cooldown finding(s)', 1 + $nested),
+            );
         }
 
         $probe  = $context->php->withoutXdebug($composer, ['--version', '--no-ansi'], $root, streamOutput: false);
-        $today  = gmdate('Y-m-d', $this->clock->now());
         $report = $this->cooldown->check(
             $manifest,
             $probe->succeeded() ? $probe->stdout : null,
