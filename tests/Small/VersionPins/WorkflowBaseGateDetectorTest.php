@@ -177,6 +177,34 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         self::assertSame([], $this->detector->check($yaml));
     }
 
+    /** One job the check cannot read is enough to report the workflow: it would be passed without being judged. */
+    #[Test]
+    #[DataProvider('aJobBesideReadableOnesThatCannotBeRead')]
+    public function aSingleJobThatCannotBeReadIsReportedNotPassed(string $event, string $jobs): void
+    {
+        self::assertSame([self::UNREADABLE_JOBS], $this->detector->check("on:\n  " . $event . ":\n" . $jobs));
+    }
+
+    /** @return Iterator<string, array{string, string}> */
+    public static function aJobBesideReadableOnesThatCannotBeRead(): Iterator
+    {
+        $readable = "  qa:\n    steps:\n      - run: echo hello\n";
+        $shapes   = [
+            'a flow mapping job after a block job'   => "jobs:\n" . $readable . "  deploy: {steps: [{run: composer install}]}\n",
+            'a flow mapping job before a block job'  => "jobs:\n  deploy: {steps: [{run: composer install}]}\n" . $readable,
+            'an alias job'                           => "jobs:\n" . $readable . "  deploy: *job\n",
+            'an anchored block job'                  => "jobs:\n" . $readable . "  deploy: &job\n    steps:\n      - run: composer install\n",
+            'a quoted job id with a flow mapping'    => "jobs:\n" . $readable . "  'deploy': {steps: []}\n",
+            'a job id with a value on its own line'  => "jobs:\n" . $readable . "  deploy: other\n",
+        ];
+
+        foreach (self::EVENTS as $event) {
+            foreach ($shapes as $label => $jobs) {
+                yield $event . ': ' . $label => [$event, $jobs];
+            }
+        }
+    }
+
     /** Jobs the check cannot read are reported, never passed, whichever of the two events the workflow runs on. */
     #[Test]
     #[DataProvider('jobsTheDetectorCannotRead')]
@@ -397,6 +425,9 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             'a flow list of quoted names'             => "on: ['push', \"%E%\"]\n",
             'a flow mapping'                          => "on: {push: {branches: [main]}, %E%: {types: [opened]}}\n",
             'a flow mapping over several lines'       => "on: {\n  push: {},\n  %E%: {}\n}\n",
+            'a flow mapping of bare names'            => "on: {push, %E%}\n",
+            'a flow mapping of bare names over lines' => "on: {\n  push,\n  %E%\n}\n",
+            'a flow mapping of bare and valued names' => "on: {push, %E%: {types: [opened]}}\n",
             'a quoted on key'                         => "\"on\":\n  %E%:\n",
             'a single-quoted on key'                  => "'on':\n  %E%:\n",
             'a scalar followed by a comment'          => "on: %E% # runs on every pull request\n",
