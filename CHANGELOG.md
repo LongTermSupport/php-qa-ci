@@ -32,8 +32,8 @@ the release and its tag. The full rules are in
   `parent::` calls, so a test that only delegates to an asserting parent test is no longer given
   `#[DoesNotPerformAssertions]`, which was the reason for the skip. The rule runs again: a writable
   run adds the attribute to a test that asserts nothing, and a read-only run fails on one that lacks
-  it, so a project with such a test fails `bin/qa` on its first run after the update; run `bin/qa`
-  writable and commit the change. A project `rector-phpunit.php` override that skips the rule may
+  it, so a project with such a test fails a read-only (CI) `bin/qa` run after the update until the
+  change is applied by a writable run and committed. A project `rector-phpunit.php` override that skips the rule may
   drop the skip. See
   [docs/tools/rector.md](docs/tools/rector.md#rector-never-marks-an-asserting-test-as-not-asserting).
 - The `composerChecks` cooldown check now reads every `composer.json` below the project root, not

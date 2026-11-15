@@ -184,7 +184,7 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
         $this->runShippedRector();
 
         self::assertSame([], $this->markedMethods(self::DELEGATING_FIXTURE), 'rector-phpunit.php marked these tests #[DoesNotPerformAssertions], yet each delegates to a parent test that asserts, so PHPUnit reports them risky. '
-            . 'Skip ' . self::RULE . ' in rector-phpunit.php, with the reason beside the skip: it does not follow parent:: calls.');
+            . self::RULE . ' no longer follows parent:: calls, so the Rector in vendor-phar/rector.phar has regressed: take the release before it, or report it, rather than skipping the rule, which the control tests above hold on.');
     }
 
     #[Test]
