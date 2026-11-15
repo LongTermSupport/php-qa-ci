@@ -46,7 +46,15 @@ is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEA
 - a `pull_request` workflow with no such gate;
 - a gate placed after PHP setup, `composer install` or a `qa` run in the same job;
 - a job that installs or runs anything without the gate job among its `needs:`, directly or through
-  other jobs.
+  other jobs;
+- a workflow whose `on` trigger the check cannot reduce to event names, since whether it runs on
+  `pull_request` or `pull_request_target` is then unknown: an alias, an anchor, a tag, a merge key, a null (`on: ~`, `on: null`), a list item
+  written as a mapping (`- pull_request:`) or nothing under the key. The result would be a guess,
+  so it is reported; write the trigger as a scalar, a list or a mapping;
+- a workflow on either event whose `jobs` key is missing, empty or written as a flow mapping
+  (`jobs: {qa: {...}}`), an alias or an anchored mapping. A workflow with no jobs it can read has no
+  gate it can see, so it is reported rather than passed; write `jobs:` on a line of its own, then each
+  job id as an indented key.
 
 Fix it by adding the gate step right after the checkout (which needs `fetch-depth: 0`), or a
 `base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and
