@@ -36,6 +36,8 @@ final class ChangelogEntryAdderTest extends TestCase
 
     private const string PATCHED = 'Patched.';
 
+    private const string THIRD = 'Third.';
+
     #[Test]
     public function anEntryGoesAfterTheLastEntryOfAnExistingHeading(): void
     {
@@ -48,15 +50,23 @@ final class ChangelogEntryAdderTest extends TestCase
     #[Test]
     public function anEntryJoinsAListOfTightEntriesWithoutABlankLine(): void
     {
-        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n- Second,\n  continued.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, 'Third.');
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n- Second,\n  continued.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, self::THIRD);
 
         self::assertSame("## Unreleased\n\n### Changed\n\n- First.\n- Second,\n  continued.\n- Third.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, $added);
     }
 
     #[Test]
+    public function aTightListOfSingleLineEntriesStaysTight(): void
+    {
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n- Second.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, self::THIRD);
+
+        self::assertSame("## Unreleased\n\n### Changed\n\n- First.\n- Second.\n- Third.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, $added);
+    }
+
+    #[Test]
     public function anEntryJoinsAListOfLooseEntriesWithABlankLine(): void
     {
-        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n\n- Second.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, 'Third.');
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First.\n\n- Second.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, ChangelogHeadingEnum::Changed, self::THIRD);
 
         self::assertSame("## Unreleased\n\n### Changed\n\n- First.\n\n- Second.\n\n- Third.\n\n### Fixed\n\n- A fix.\n\n" . self::OLDER, $added);
     }
@@ -64,7 +74,7 @@ final class ChangelogEntryAdderTest extends TestCase
     #[Test]
     public function aTightListWhoseEntryContinuesOverSeveralLinesStaysTight(): void
     {
-        $added = $this->add("## Unreleased\n\n### Changed\n\n- First,\n  continued\n  again.\n- Second,\n  continued.\n" . self::OLDER, ChangelogHeadingEnum::Changed, 'Third.');
+        $added = $this->add("## Unreleased\n\n### Changed\n\n- First,\n  continued\n  again.\n- Second,\n  continued.\n" . self::OLDER, ChangelogHeadingEnum::Changed, self::THIRD);
 
         self::assertSame("## Unreleased\n\n### Changed\n\n- First,\n  continued\n  again.\n- Second,\n  continued.\n- Third.\n" . self::OLDER, $added);
     }

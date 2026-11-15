@@ -215,6 +215,9 @@ The version is `<major>.<minor>.<patch>`, moved on from the newest release tag b
 section or a version that already has a section. `notes` writes headings as underlined text, not
 `###`, so the notes also survive as an annotated tag's message, whose default cleanup deletes
 lines that start with `#`. `pending-tags` refuses a version section no commit has written yet.
+`add-entry` and `add-tool-updates` join the entry to the list under its heading the way that list is
+written: no blank line before it when the heading holds two or more entries with none between them,
+a blank line otherwise, since the markdown formatter keeps a list tight or loose as a whole.
 `add-tool-updates` reads php-qa-ci's own pins (`phive.xml`'s `installed`, the ShellCheck version
 file, `build/*/composer.lock`), never a tool's `--version` banner. Every package in a build lock
 counts, not only the tool it builds: a moved dependency changes the shipped PHAR as well, and is

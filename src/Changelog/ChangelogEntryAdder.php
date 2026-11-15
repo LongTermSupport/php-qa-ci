@@ -9,7 +9,8 @@ use LTS\PHPQA\Changelog\Exception\ChangelogReleaseException;
 
 /**
  * Adds one `- ` entry to the `## Unreleased` section: after the last entry
- * of its heading, or under a new heading placed in canonical order (before
+ * of its heading, with a blank line before it unless the heading's entries
+ * are a tight list, which it keeps tight, or under a new heading placed in canonical order (before
  * the first existing heading that ranks after it, else at the end of the
  * section). The rest of the file is left as it was.
  *
@@ -29,7 +30,7 @@ final readonly class ChangelogEntryAdder
 
         $existing = $document->block($heading);
         if ($existing instanceof Dto\ChangelogHeadingBlockDto) {
-            array_splice($lines, $existing->lastIndex + 1, 0, ['', $entry]);
+            array_splice($lines, $existing->lastIndex + 1, 0, $this->entriesAreTight($existing, ...$lines) ? [$entry] : ['', $entry]);
 
             return implode("\n", $lines);
         }
@@ -56,5 +57,33 @@ final readonly class ChangelogEntryAdder
         array_splice($lines, $after + 1, 0, null !== $next && '' !== trim($next) ? ['', ...$newBlock, ''] : ['', ...$newBlock]);
 
         return implode("\n", $lines);
+    }
+
+    /**
+     * Whether the heading's entries are a tight list: two or more, none separated from the next by a
+     * blank line. The markdown formatter keeps a list tight or loose as a whole, so an entry added to
+     * a tight list must not bring a blank line with it. A block with one entry has no separator to
+     * follow and gets the blank line.
+     *
+     * @param string ...$lines every line of the document
+     */
+    private function entriesAreTight(Dto\ChangelogHeadingBlockDto $block, string ...$lines): bool
+    {
+        $entries = 0;
+        for ($index = $block->headingIndex + 1; $index <= $block->lastIndex; ++$index) {
+            if ('' === trim($lines[$index])) {
+                if ($entries > 0) {
+                    return false;
+                }
+
+                continue;
+            }
+
+            if (str_starts_with($lines[$index], '- ')) {
+                ++$entries;
+            }
+        }
+
+        return $entries >= 2;
     }
 }

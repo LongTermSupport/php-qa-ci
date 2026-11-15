@@ -115,6 +115,13 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- `bin/changelog-release add-entry` and `add-tool-updates` no longer break a tight list of entries
+  (issue #490). They put a blank line before the entry they added, so a heading whose entries were
+  written without blank lines became a mixed list, which the markdown formatter rewrites and
+  `bin/qa -t markdownFormat` rejects; the dependency update workflow, which has no formatter,
+  never saw it, and the next checkout with the daemon did. An entry now joins a list of two or
+  more tight entries without a blank line, and a loose list or a single entry as before. See
+  [docs/tools/changelog.md](docs/tools/changelog.md).
 - The `qa-autofix.yml` template now puts the gate's result on the commit its auto-fix job pushes
   (issue #399). That push uses `GITHUB_TOKEN`, which starts no workflow run, and a check belongs to
   the commit its run started on, so the pull request head showed no check and a required
