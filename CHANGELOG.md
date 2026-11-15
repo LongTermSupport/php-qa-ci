@@ -90,6 +90,13 @@ the release and its tag. The full rules are in
   first run after the update: write `jobs:` on a line of its own with each job id as an indented
   key, and the trigger as a scalar, a list or a mapping. See
   [docs/tools/versionPins.md](docs/tools/versionPins.md).
+- `versionPins` now reports a workflow on `pull_request` or `pull_request_target` in which one job
+  is written as anything but its id alone on a line (issue #499). A job written as a flow mapping
+  (`deploy: {steps: [...]}`), an alias (`deploy: *job`), an anchored block (`deploy: &job`) or a
+  value was not read as a job: it was judged as part of the job before it, or not at all, so it
+  passed with no up-to-date-with-base gate beside readable block jobs. A workflow in one of these
+  shapes now fails `bin/qa` on its first run after the update: write each job id alone on a line,
+  with its keys indented under it. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
 
 ### Added
 
@@ -198,6 +205,11 @@ the release and its tag. The full rules are in
   job now runs under `!cancelled()` and posts nothing for a cancelled run. A project that copied the
   template keeps the old condition until it copies the job again. See
   [docs/github-actions.md](docs/github-actions.md).
+- `versionPins` no longer reports a workflow whose `on` is a flow mapping of bare event names, such
+  as `on: {push, pull_request}` (issue #499). Each name is a key with a null value, which YAML
+  allows; the check took a name with no `key: value` for a shape it could not read and reported a
+  workflow GitHub may accept. It now reads the names, so such a workflow is judged for the
+  up-to-date-with-base gate like any other. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
 
 ## 85.18.1 — 2026-11-09
 

@@ -51,6 +51,14 @@ final class WorkflowTriggerReaderTest extends TestCase
 
         yield 'a flow mapping over several lines' => ["on: {\n  push: {},\n  \"pull_request\": {}\n}\n", $both];
 
+        yield 'a flow mapping of bare names' => ["on: {push, pull_request}\n", $both];
+
+        yield 'a flow mapping of bare names over several lines' => ["on: {\n  push,\n  'pull_request'\n}\n", $both];
+
+        yield 'a flow mapping of bare and valued names' => ["on: {push, pull_request: {types: [opened]}}\n", $both];
+
+        yield 'a flow mapping holding a bare alias' => ["on: {push, *x}\n", null];
+
         yield 'a block mapping' => ["on:\n  push:\n    branches: [main]\n  pull_request:\n    types: [opened]\njobs:\n", $both];
 
         yield 'a block mapping indented four spaces' => ["on:\n    pull_request:\njobs:\n", [self::PULL_REQUEST]];

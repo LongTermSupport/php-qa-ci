@@ -52,9 +52,11 @@ is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEA
   written as a mapping (`- pull_request:`) or nothing under the key. The result would be a guess,
   so it is reported; write the trigger as a scalar, a list or a mapping;
 - a workflow on either event whose `jobs` key is missing, empty or written as a flow mapping
-  (`jobs: {qa: {...}}`), an alias or an anchored mapping. A workflow with no jobs it can read has no
-  gate it can see, so it is reported rather than passed; write `jobs:` on a line of its own, then each
-  job id as an indented key.
+  (`jobs: {qa: {...}}`), an alias or an anchored mapping, or in which any one job is written as
+  anything but its id alone on a line (`deploy: {steps: [...]}`, `deploy: *job`, `deploy: &job`). A
+  job the check cannot read would be passed without being judged, so the workflow is reported
+  rather than passed; write `jobs:` on a line of its own, then each job id alone on a line as an
+  indented key.
 
 Fix it by adding the gate step right after the checkout (which needs `fetch-depth: 0`), or a
 `base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and
@@ -99,13 +101,14 @@ rule for it differs from the `pull_request` one in three ways:
 
 The check reads the file as text, after removing its comments and normalising line endings: a
 comment never counts as the thing it names. The `on` trigger is read in every valid shape: a scalar
-(`on: pull_request`), a flow list or mapping on one line or several, a block list at any
-indentation (including none), a block mapping, quoted names, and a quoted `on` key. Only the first
+(`on: pull_request`), a flow list or mapping on one line or several (a flow mapping may hold bare
+names, `on: {push, pull_request}`), a block list at any indentation (including none), a block
+mapping, quoted names, and a quoted `on` key. Only the first
 level under `on` names events, so a branch called `pull_request` under `push` is not one.
 
 A trigger the check cannot reduce to event names is reported, never passed: an alias, an anchor, a
-tag, a merge key, no `on` key, or nothing under it. Write it as a scalar, a list or a mapping,
-without an anchor, an alias or a merge key.
+tag, a merge key, a null, a list item written as a mapping, no `on` key, or nothing under it. Write
+it as a scalar, a list or a mapping, without an anchor, an alias or a merge key.
 
 Jobs are read with quoted ids, trailing comments and any consistent indentation. A `needs:` is read
 at the job's own key indentation as a scalar, a flow list (over several lines too) or a block list.

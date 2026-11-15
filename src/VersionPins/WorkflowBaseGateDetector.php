@@ -150,7 +150,11 @@ final readonly class WorkflowBaseGateDetector
     }
 
     /**
-     * Each job's id, its text and the indentation of its own keys, in file order.
+     * Each job's id, its text and the indentation of its own keys, in file order. Empty when a job
+     * cannot be read: an entry at the jobs' own indentation that is not an id alone on its line (a
+     * flow mapping, an alias, an anchor, a value) would be judged as part of the job before it, or
+     * not at all. A list item at that indentation is no entry of the mapping and stays with the
+     * job before it.
      *
      * @return list<array{id: string, body: string, indent: int}>
      */
@@ -186,10 +190,16 @@ final readonly class WorkflowBaseGateDetector
             }
 
             $headerIndent ??= $indent;
-            if ($indent === $headerIndent && 1 === \Safe\preg_match(self::JOB_HEADER, trim($line))) {
-                $found[] = ['id' => $this->text->unquote(substr(trim($line), 0, -1)), 'body' => ''];
+            if ($indent === $headerIndent) {
+                if (1 === \Safe\preg_match(self::JOB_HEADER, trim($line))) {
+                    $found[] = ['id' => $this->text->unquote(substr(trim($line), 0, -1)), 'body' => ''];
 
-                continue;
+                    continue;
+                }
+
+                if (!str_starts_with(trim($line), '-')) {
+                    return [];
+                }
             }
 
             $this->appendToLast($found, $line);
