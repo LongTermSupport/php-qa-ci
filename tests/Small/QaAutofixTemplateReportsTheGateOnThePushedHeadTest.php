@@ -95,7 +95,7 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
         $condition = \Safe\preg_replace('/\s+/', ' ', $this->job(self::STATUS_JOB)->child('if')->text());
 
         self::assertSame(
-            "\${{ always() && github.event_name == 'pull_request'"
+            "\${{ !cancelled() && github.event_name == 'pull_request'"
             . ' && github.event.pull_request.head.repo.full_name == github.repository'
             . ' && ' . self::GATE_SHA . " != ''"
             . ' && ' . self::GATE_SHA . ' != github.event.pull_request.head.sha }}',
