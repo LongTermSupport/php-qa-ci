@@ -302,7 +302,8 @@ final class PhpLintToolTest extends TestCase
         $config = $this->factory->builder()
             ->withIgnoredPaths('generated/broken')
             ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
-            ->build();
+            ->build()
+        ;
 
         new PhpLintTool()->run($this->factory->context($config));
 
@@ -322,7 +323,8 @@ final class PhpLintToolTest extends TestCase
         $config = $this->factory->builder()
             ->withIgnoredPaths(self::GENERATED)
             ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
-            ->build();
+            ->build()
+        ;
 
         new PhpLintTool()->run($this->factory->context($config));
 
@@ -342,7 +344,8 @@ final class PhpLintToolTest extends TestCase
         $config = $this->factory->builder()
             ->withIgnoredPaths('generated/')
             ->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)
-            ->build();
+            ->build()
+        ;
 
         new PhpLintTool()->run($this->factory->context($config));
 
@@ -395,6 +398,7 @@ final class PhpLintToolTest extends TestCase
         $root = $this->factory->project->path;
         $this->factory->project->write('src/a/Real.php', self::PHP_FILE);
         $this->factory->project->write(self::GENERATED_FILE, self::PHP_FILE);
+
         $config = $this->factory->builder(specifiedPath: self::SUB_DIR)->withUnanalysedPath(self::GENERATED, self::DECLARED_REASON)->build();
 
         new PhpLintTool()->run($this->factory->context($config));
