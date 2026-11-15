@@ -70,6 +70,8 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
     #[Test]
     public function aTestThatCallsXdebugInfoIsReportedAsUsingAnUndeclaredExtension(): void
     {
+        $this->requireXdebug();
+
         $this->writeComposerJson('{}');
         $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');"));
 
@@ -85,6 +87,8 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
     #[Test]
     public function declaringTheExtensionInRequireDevClearsTheFinding(): void
     {
+        $this->requireXdebug();
+
         $this->writeComposerJson('{"' . self::EXT_XDEBUG . '": "*"}');
         $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');"));
 
@@ -106,6 +110,14 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
         $result = new ComposerDependencyAnalyserTool()->run(RealLaneContext::over($this->project->path, true, $output));
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome, $output->fetch());
+    }
+
+    /** The analyser maps `xdebug_info()` to `ext-xdebug` only where the extension is installed, so there is no finding to see on a host without it. */
+    private function requireXdebug(): void
+    {
+        if (!\extension_loaded('xdebug')) {
+            self::markTestSkipped('the analyser reports ext-xdebug only on a host where Xdebug is installed');
+        }
     }
 
     private function writeComposerJson(string $requireDev): void

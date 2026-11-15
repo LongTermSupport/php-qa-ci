@@ -71,7 +71,9 @@ the package unexplained is the thing to avoid.
 obligation to keep doing so, and a minor release of an unrelated dependency can remove it.
 
 A PHP extension is a dependency like any package: a test that calls `xdebug_info()` gets
-`ext-xdebug` reported as a shadow dependency, and the shipped default does not hide it. Declare
+`ext-xdebug` reported as a shadow dependency on a host where Xdebug is installed (on one without
+it there is no extension to map the function to, so no finding), and the shipped default does not
+hide it. Declare
 `ext-xdebug` in `require-dev`, mind that every install then checks for the extension, or read
 the mode without an `xdebug_*` function (see
 [Guarding on the Xdebug Mode](phpunit.md#guarding-on-the-xdebug-mode)).
