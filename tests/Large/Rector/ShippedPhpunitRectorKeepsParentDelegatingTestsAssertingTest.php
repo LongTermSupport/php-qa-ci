@@ -73,25 +73,25 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
 
     /** The control: a test whose body asserts nothing, and which calls nothing that does. */
     private const string CONTROL_SOURCE = <<<'PHP_WRAP'
-    <?php
-    
-    declare(strict_types=1);
-    
-    namespace Fixture\DoesNotPerformAssertions;
-    
-    use PHPUnit\Framework\Attributes\Test;
-    use PHPUnit\Framework\TestCase;
-    
-    final class NoAssertionControlTest extends TestCase
-    {
-        #[Test]
-        public function itAssertsNothingAtAll(): void
+        <?php
+
+        declare(strict_types=1);
+
+        namespace Fixture\DoesNotPerformAssertions;
+
+        use PHPUnit\Framework\Attributes\Test;
+        use PHPUnit\Framework\TestCase;
+
+        final class NoAssertionControlTest extends TestCase
         {
-            $value = 1 + 1;
-            unset($value);
+            #[Test]
+            public function itAssertsNothingAtAll(): void
+            {
+                $value = 1 + 1;
+                unset($value);
+            }
         }
-    }
-    PHP_WRAP;
+        PHP_WRAP;
 
     /** The rule writes the attribute only when PHPUnit has it (major * 10000 + minor * 100 + patch). */
     private const int FIRST_PHPUNIT_WITH_THE_ATTRIBUTE = 100_000;
