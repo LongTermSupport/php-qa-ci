@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small;
 
+use LTS\PHPQA\Tests\Support\ActionPins;
 use PHPUnit\Framework\Attributes\CoversNothing;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
@@ -22,6 +23,10 @@ use SplFileInfo;
  * The templates under templates/github-actions are copied into consuming projects, so a tag there
  * spreads. A reference to an action in this repository (`./`) is a path, not a tag, and is exempt.
  *
+ * The YAML says which actions a workflow names, at any depth and written any way; the lines say how
+ * they are written. Each reference the YAML holds must be matched by a line in the pinned shape, so
+ * a reference written as a flow mapping is reported whatever it names.
+ *
  * @internal
  */
 #[CoversNothing]
@@ -34,11 +39,14 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
         __DIR__ . '/../../templates/github-actions',
     ];
 
-    /** `uses: <reference>`, the reference being everything up to a comment or the end of the line. */
-    private const string USES = '/^\s*-?\s*uses:\s*([^\s#]+)/';
+    /** What every guard workflow starts with, up to the first step. */
+    private const string WORKFLOW_HEAD = "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n";
 
-    /** `owner/repo[/path]@<40 hex digits>` followed by the release it is, as `# v1.2.3`. */
-    private const string PINNED = '/^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\s+#\s+v\d+(\.\d+)*\s*$/';
+    /** An action the guard workflows name, up to the ref. */
+    private const string SOME_ACTION = 'some/action@';
+
+    /** The finding for a reference, given as `owner/repo@ref`. */
+    private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
 
     public function testEveryRemoteActionIsPinnedToACommitWithItsReleaseBeside(): void
     {
@@ -59,12 +67,13 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
 
         self::assertSame(
             [
-                'actions/checkout@v4 is not a commit SHA with its release beside it',
-                'some/action@main is not a commit SHA with its release beside it',
-                \sprintf('some/action@%s is not a commit SHA with its release beside it', $sha),
+                $this->notPinned('actions/checkout@v4'),
+                $this->notPinned('some/action@main'),
+                $this->notPinned(self::SOME_ACTION . $sha),
             ],
             $this->unpinned(
-                "      - uses: actions/checkout@v4\n"
+                self::WORKFLOW_HEAD
+                . "      - uses: actions/checkout@v4\n"
                 . "      - uses: some/action@main\n"
                 . \sprintf("      - uses: some/action@%s\n", $sha)
                 . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
@@ -73,25 +82,55 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
         );
     }
 
+    /**
+     * A reference written as a flow mapping (`- {uses: owner/repo@v1}`) is read by the YAML, not by
+     * the start of a line, so a tag written that way is reported, and so is a commit written that
+     * way with no release beside it.
+     */
+    public function testTheGuardReportsAReferenceWrittenAsAFlowMapping(): void
+    {
+        $sha = str_repeat('b', 40);
+
+        self::assertSame(
+            [
+                $this->notPinned('actions/checkout@v4'),
+                $this->notPinned(self::SOME_ACTION . $sha),
+            ],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . "      - {uses: actions/checkout@v4}\n"
+                . \sprintf("      - {name: Other, uses: 'some/action@%s'}\n", $sha),
+            ),
+        );
+    }
+
+    /**
+     * A pinned line accounts for one reference the YAML holds, not for every reference naming the
+     * same commit: the same commit written a second time as a flow mapping is reported.
+     */
+    public function testAPinnedLineAccountsForOneReferenceOnly(): void
+    {
+        $sha = str_repeat('c', 40);
+
+        self::assertSame(
+            [$this->notPinned(self::SOME_ACTION . $sha)],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+            ),
+        );
+    }
+
+    private function notPinned(string $reference): string
+    {
+        return \sprintf(self::NOT_PINNED, $reference);
+    }
+
     /** @return list<string> */
     private function unpinned(string $workflow): array
     {
-        $problems = [];
-        foreach (explode("\n", $workflow) as $line) {
-            if (1 !== \Safe\preg_match(self::USES, $line, $match) || !isset($match[1])) {
-                continue;
-            }
-
-            if (str_starts_with($match[1], './')) {
-                continue;
-            }
-
-            if (1 !== \Safe\preg_match(self::PINNED, $line)) {
-                $problems[] = $match[1] . ' is not a commit SHA with its release beside it';
-            }
-        }
-
-        return $problems;
+        return ActionPins::unpinnedInWorkflow($workflow);
     }
 
     /** @return list<string> */
