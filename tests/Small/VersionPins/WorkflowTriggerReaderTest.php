@@ -101,6 +101,8 @@ final class WorkflowTriggerReaderTest extends TestCase
 
         yield 'a null written capitalised' => ["on: Null\n", null];
 
+        yield 'a null written in capitals' => ["on: NULL\n", null];
+
         yield 'a block list item written as a mapping' => ["on:\n  - pull_request:\n", null];
 
         yield 'a flow list item written as a mapping' => ["on: [push, pull_request:]\n", null];
