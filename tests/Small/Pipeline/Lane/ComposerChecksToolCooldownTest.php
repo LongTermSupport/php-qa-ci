@@ -83,6 +83,8 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
     private const string ENFORCED_ONE = '1 Composer cooldown finding(s)';
 
+    private const string ENFORCED_TWO = '2 Composer cooldown finding(s)';
+
     private const string NESTED_UNLISTED = "Nested composer.json files could not be checked: git could not list the project's files (the project is not a git work tree, or git failed), and the cooldown policy is enforced, so they cannot be shown to be protected. Run the lane from a git checkout, or say why the project is exempt with withoutComposerCooldownCheck('<reason>').";
 
     private const int NOVEMBER_SECOND = 1_793_620_800;
@@ -384,7 +386,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         $result = $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
 
-        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+        self::assertSame(self::ENFORCED_TWO, $result->summary);
     }
 
     #[Test]
@@ -467,7 +469,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
-        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+        self::assertSame(self::ENFORCED_TWO, $result->summary);
         self::assertStringContainsString(self::NESTED_UNLISTED, $printed);
     }
 
@@ -559,7 +561,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertStringContainsString(self::TOOL_MANIFEST . ': ' . self::NO_COOLDOWN, $printed);
-        self::assertSame('2 Composer cooldown finding(s)', $result->summary);
+        self::assertSame(self::ENFORCED_TWO, $result->summary);
     }
 
     #[Test]
