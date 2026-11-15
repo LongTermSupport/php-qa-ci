@@ -163,6 +163,19 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     }
 
     #[Test]
+    public function thePullRequestAndPullRequestTargetTriggersAreToldApartByExactName(): void
+    {
+        $target = "on:\n  pull_request_target:\njobs:\n";
+        $plain  = "on:\n  pull_request:\njobs:\n";
+
+        self::assertTrue($this->detector->runsOnPullRequestTarget($target));
+        self::assertFalse($this->detector->runsOnPullRequest($target));
+        self::assertTrue($this->detector->runsOnPullRequest($plain));
+        self::assertFalse($this->detector->runsOnPullRequestTarget($plain));
+        self::assertFalse($this->detector->runsOnPullRequestTarget("on:\n  pull_request_review:\njobs:\n"));
+    }
+
+    #[Test]
     public function aPullRequestTargetJobThatInstallsAndHasNoGateIsReported(): void
     {
         self::assertSame([self::TARGET_NO_GATE], $this->detector->check(self::TARGET_QA_JOB . self::EXPENSIVE_STEPS));
@@ -195,6 +208,26 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         $yaml = self::TARGET_QA_JOB . self::GATE_STEP . self::EXPENSIVE_STEPS;
 
         self::assertSame([self::TARGET_GATE_NEVER_RUNS], $this->detector->check($yaml));
+    }
+
+    #[Test]
+    public function oneExpensiveJobAmongCheapOnesIsEnoughToAskAPullRequestTargetWorkflowForTheGate(): void
+    {
+        $yaml = self::TARGET_QA_JOB . "      - run: echo hello\n  other:\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([self::TARGET_NO_GATE], $this->detector->check($yaml));
+    }
+
+    #[Test]
+    public function aGateThatNamesPullRequestTargetInItsConditionRunsOnIt(): void
+    {
+        $step = str_replace(
+            "if: github.event_name == 'pull_request'",
+            "if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'",
+            self::GATE_STEP,
+        );
+
+        self::assertSame([], $this->detector->check(self::TARGET_QA_JOB . $step . self::EXPENSIVE_STEPS));
     }
 
     #[Test]

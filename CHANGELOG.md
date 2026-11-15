@@ -33,6 +33,13 @@ the release and its tag. The full rules are in
   with such a file that breaks one of those rules fails `bin/qa` on its first run after the update;
   fix the file as for a `.yml` one. A composite action's `action.yml` in a subdirectory is still not
   read. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
+- `versionPins` now asks a workflow on `pull_request_target` for the up-to-date-with-base gate when
+  a job sets up PHP, runs `composer install` or runs `qa` (issue #467). It read only `pull_request`,
+  so such a workflow passed with no gate. A project with one and no gate, or with a gate conditioned
+  on `github.event_name == 'pull_request'`, which GitHub skips on this event, fails `bin/qa` on its
+  first run after the update; a `pull_request_target` workflow that installs and runs nothing is not
+  affected. The page gives the gate that fits the event: it fetches the pull request head and does
+  not check it out. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
 
 ### Added
 

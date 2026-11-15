@@ -54,7 +54,7 @@ final class VersionPinsCheckTest extends TestCase
     #[Test]
     public function itReturnsZeroAndPrintsTheExactOkMessageWhenEveryPinAgrees(): void
     {
-        self::expectOutputString('Version pins agree with the toolchain in use (PHPUnit 13.3.2, PHP 8.5) and pull_request workflows gate on an up-to-date base: phpunit.xml, safe scan-files, GitHub Actions workflows — OK.' . \PHP_EOL);
+        self::expectOutputString('Version pins agree with the toolchain in use (PHPUnit 13.3.2, PHP 8.5) and pull request workflows gate on an up-to-date base: phpunit.xml, safe scan-files, GitHub Actions workflows — OK.' . \PHP_EOL);
         self::assertSame(0, $this->check()->run(self::CURRENT, self::CURRENT . self::PHPUNIT_XML, self::CURRENT . self::CRC_JSON));
     }
 
@@ -64,7 +64,7 @@ final class VersionPinsCheckTest extends TestCase
         $phpunit = self::STALE . self::PHPUNIT_XML;
         $crc     = self::STALE . self::CRC_JSON;
 
-        $expected = \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull_request workflow has no up-to-date-base gate' . \PHP_EOL
+        $expected = \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull request workflow has no up-to-date-base gate' . \PHP_EOL
             . '------------------------------------------------------------------------------------------------------------------' . \PHP_EOL
             . 'Installed: PHPUnit 13.3.2, PHP 8.5' . \PHP_EOL . \PHP_EOL
             . '  - phpunit.xml (' . $phpunit . '): xsi:noNamespaceSchemaLocation points at the PHPUnit 10 schema but PHPUnit 13.3.2 is installed; set it to https://schema.phpunit.de/13.3/phpunit.xsd' . \PHP_EOL
@@ -84,7 +84,7 @@ final class VersionPinsCheckTest extends TestCase
     #[Test]
     public function aShippedTemplateThatSelectsPhaseGroupsMustRunEachOrSayWhyNot(): void
     {
-        $expected = \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull_request workflow has no up-to-date-base gate' . \PHP_EOL
+        $expected = \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull request workflow has no up-to-date-base gate' . \PHP_EOL
             . '------------------------------------------------------------------------------------------------------------------' . \PHP_EOL
             . 'Installed: PHPUnit 13.3.2, PHP 8.5' . \PHP_EOL . \PHP_EOL
             . '  - templates/github-actions/gate.yml: runs qa phase groups but not allLints: add a step that runs `qa -t allLints`, or say why it is left out with a comment line `# qa-phase-deferred: allLints - <reason>`' . \PHP_EOL

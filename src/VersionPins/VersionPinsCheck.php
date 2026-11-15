@@ -71,7 +71,7 @@ final readonly class VersionPinsCheck
 
         if ([] === $problems) {
             echo \sprintf(
-                'Version pins agree with the toolchain in use (PHPUnit %s, PHP %s) and pull_request workflows gate on an up-to-date base: phpunit.xml, safe scan-files, GitHub Actions workflows — OK.',
+                'Version pins agree with the toolchain in use (PHPUnit %s, PHP %s) and pull request workflows gate on an up-to-date base: phpunit.xml, safe scan-files, GitHub Actions workflows — OK.',
                 $this->installedPhpUnitVersion,
                 $this->phpMajorMinor,
             ) . \PHP_EOL;
@@ -79,7 +79,7 @@ final readonly class VersionPinsCheck
             return 0;
         }
 
-        echo \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull_request workflow has no up-to-date-base gate' . \PHP_EOL
+        echo \PHP_EOL . 'ERROR — the QA configuration does not match the toolchain in use, or a pull request workflow has no up-to-date-base gate' . \PHP_EOL
             . '------------------------------------------------------------------------------------------------------------------' . \PHP_EOL
             . 'Installed: PHPUnit ' . $this->installedPhpUnitVersion . ', PHP ' . $this->phpMajorMinor . \PHP_EOL . \PHP_EOL;
         foreach ($problems as $problem) {
