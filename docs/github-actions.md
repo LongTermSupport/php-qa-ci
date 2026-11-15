@@ -407,9 +407,9 @@ QA_READONLY=1 vendor/bin/qa
 
 ```yaml
 - name: Upload to Codecov
-  uses: codecov/codecov-action@v3
+  uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
   with:
-    file: var/qa/phpunit_logs/coverage.clover
+    files: var/qa/phpunit_logs/coverage.clover
 ```
 
 ### Slack Notifications
@@ -417,10 +417,13 @@ QA_READONLY=1 vendor/bin/qa
 ```yaml
 - name: Slack Notification
   if: failure()
-  uses: 8398a7/action-slack@v3
+  uses: 8398a7/action-slack@77eaa4f1c608a7d68b38af4e3f739dcd8cba273e # v3.19.0
   with:
     status: ${{ job.status }}
 ```
+
+An action a project adds is named by the full commit of the release it wants, with the release in
+a comment beside it, as the shipped templates do: a tag is a pointer its owner can move.
 
 ## References
 

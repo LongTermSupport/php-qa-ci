@@ -23,6 +23,10 @@ use SplFileInfo;
  * The templates under templates/github-actions are copied into consuming projects, so a tag there
  * spreads. A reference to an action in this repository (`./`) is a path, not a tag, and is exempt.
  *
+ * The YAML says which actions a workflow names, at any depth and written any way; the lines say how
+ * they are written. Each reference the YAML holds must be matched by a line in the pinned shape, so
+ * a reference written as a flow mapping is reported whatever it names.
+ *
  * @internal
  */
 #[CoversNothing]
@@ -34,6 +38,15 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
         __DIR__ . '/../../.github',
         __DIR__ . '/../../templates/github-actions',
     ];
+
+    /** What every guard workflow starts with, up to the first step. */
+    private const string WORKFLOW_HEAD = "jobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n";
+
+    /** An action the guard workflows name, up to the ref. */
+    private const string SOME_ACTION = 'some/action@';
+
+    /** The finding for a reference, given as `owner/repo@ref`. */
+    private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
 
     public function testEveryRemoteActionIsPinnedToACommitWithItsReleaseBeside(): void
     {
@@ -54,12 +67,13 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
 
         self::assertSame(
             [
-                'actions/checkout@v4 is not a commit SHA with its release beside it',
-                'some/action@main is not a commit SHA with its release beside it',
-                \sprintf('some/action@%s is not a commit SHA with its release beside it', $sha),
+                $this->notPinned('actions/checkout@v4'),
+                $this->notPinned('some/action@main'),
+                $this->notPinned(self::SOME_ACTION . $sha),
             ],
             $this->unpinned(
-                "      - uses: actions/checkout@v4\n"
+                self::WORKFLOW_HEAD
+                . "      - uses: actions/checkout@v4\n"
                 . "      - uses: some/action@main\n"
                 . \sprintf("      - uses: some/action@%s\n", $sha)
                 . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
@@ -79,24 +93,44 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
 
         self::assertSame(
             [
-                'actions/checkout@v4 is not a commit SHA with its release beside it',
-                \sprintf('some/action@%s is not a commit SHA with its release beside it', $sha),
+                $this->notPinned('actions/checkout@v4'),
+                $this->notPinned(self::SOME_ACTION . $sha),
             ],
             $this->unpinned(
-                "jobs:\n"
-                . "  build:\n"
-                . "    runs-on: ubuntu-latest\n"
-                . "    steps:\n"
+                self::WORKFLOW_HEAD
                 . "      - {uses: actions/checkout@v4}\n"
                 . \sprintf("      - {name: Other, uses: 'some/action@%s'}\n", $sha),
             ),
         );
     }
 
+    /**
+     * A pinned line accounts for one reference the YAML holds, not for every reference naming the
+     * same commit: the same commit written a second time as a flow mapping is reported.
+     */
+    public function testAPinnedLineAccountsForOneReferenceOnly(): void
+    {
+        $sha = str_repeat('c', 40);
+
+        self::assertSame(
+            [$this->notPinned(self::SOME_ACTION . $sha)],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+            ),
+        );
+    }
+
+    private function notPinned(string $reference): string
+    {
+        return \sprintf(self::NOT_PINNED, $reference);
+    }
+
     /** @return list<string> */
     private function unpinned(string $workflow): array
     {
-        return ActionPins::unpinnedLines($workflow);
+        return ActionPins::unpinnedInWorkflow($workflow);
     }
 
     /** @return list<string> */
