@@ -8,7 +8,7 @@
 #                                                  gate-status (PR only, posts a commit status) ◄─┘
 #
 # 0. base-gate fails a pull request whose head is behind its base branch, before
-#    anything is installed; the other two jobs then do not run.
+#    anything is installed; the other three jobs then do not run.
 #
 # 1. autofix runs ONLY on pull_request. It checks out the PR branch TIP, applies
 #    the fixers in WRITE mode (QA_READONLY=0 → Rector + PHP CS Fixer rewrite),
@@ -36,7 +36,8 @@
 # `gate-status` holds `statuses: write` and nothing else, runs no action and none of the
 # project's code, and posts only when the commit differs from the one the run started on (the
 # gate's own check is on that one). It is skipped for a pull request from a fork, whose token is
-# read-only. If the status cannot be posted, the head shows no check, as it did before.
+# read-only (Dependabot's pull requests are treated alike, and autofix pushes nothing there). If
+# the status cannot be posted, the head shows no check, as it did before, and this job fails.
 #
 # If your required check is tied to a source app ("GitHub Actions"), the status may not be
 # accepted: choose "any source" for it, or confirm it on a real pull request.

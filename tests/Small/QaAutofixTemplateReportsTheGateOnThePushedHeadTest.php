@@ -29,6 +29,8 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
 {
     private const string TEMPLATE = __DIR__ . '/../../templates/github-actions/qa-autofix.yml';
 
+    private const string NAME = 'name';
+
     private const string STEPS = 'steps';
 
     private const string RUN = 'run';
@@ -90,17 +92,33 @@ final class QaAutofixTemplateReportsTheGateOnThePushedHeadTest extends TestCase
     #[Test]
     public function theStatusIsPostedOnlyForAPullRequestFromThisRepositoryWhoseCheckedOutCommitIsNotTheOneTheRunStartedOn(): void
     {
-        $condition = $this->job(self::STATUS_JOB)->child('if')->text();
+        $condition = \Safe\preg_replace('/\s+/', ' ',$this->job(self::STATUS_JOB)->child('if')->text());
 
-        foreach ([
-            'always()',
-            "github.event_name == 'pull_request'",
-            'github.event.pull_request.head.repo.full_name == github.repository',
-            self::GATE_SHA . " != ''",
-            self::GATE_SHA . ' != github.event.pull_request.head.sha',
-        ] as $required) {
-            self::assertStringContainsString($required, $condition);
-        }
+        self::assertSame(
+            "\${{ always() && github.event_name == 'pull_request'"
+            . ' && github.event.pull_request.head.repo.full_name == github.repository'
+            . ' && ' . self::GATE_SHA . " != ''"
+            . ' && ' . self::GATE_SHA . ' != github.event.pull_request.head.sha }}',
+            $condition,
+        );
+    }
+
+    #[Test]
+    public function theStatusJobIsOneStepWithNothingToSwallowAFailureOrRunSomethingElse(): void
+    {
+        $job = $this->job(self::STATUS_JOB);
+
+        self::assertSame([self::NAME, 'needs', 'if', 'runs-on', 'permissions', self::STEPS], $job->keys(), 'the status job carries a key that changes how it runs or fails');
+        self::assertCount(1, $job->child(self::STEPS)->items(), 'the status job runs more than the one step that posts the status');
+        self::assertSame([self::NAME, self::ENV, self::RUN], $job->child(self::STEPS, 0)->keys(), 'the status step carries a condition or an error-handling key');
+        self::assertStringContainsString('set -euo pipefail', $job->child(self::STEPS, 0, self::RUN)->text());
+        self::assertStringNotContainsString('||', $job->child(self::STEPS, 0, self::RUN)->text(), 'the script tolerates a failure of the call that posts the status');
+    }
+
+    #[Test]
+    public function theStepThatRecordsTheCommitIsNeverSkipped(): void
+    {
+        self::assertSame([self::NAME, 'id', self::RUN], $this->job(self::GATE)->child(self::STEPS, 1)->keys(), 'the step that records the commit carries a condition or an error-handling key');
     }
 
     #[Test]

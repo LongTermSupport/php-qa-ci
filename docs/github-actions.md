@@ -165,8 +165,9 @@ a required status check:
    nothing else, checks nothing out and runs no action or project code; every value reaches
    its script as an environment variable.
 3. It posts only when that commit differs from the one the run started on (the gate's own check
-   is on that one), and not for a pull request from a fork, whose `GITHUB_TOKEN` is read-only.
-   If the status cannot be posted, the head shows no check, as before.
+   is on that one), and not for a pull request from a fork, whose `GITHUB_TOKEN` is read-only
+   (Dependabot's pull requests are treated alike, and autofix pushes nothing there). If the
+   status cannot be posted, the head shows no check, as before, and the `gate-status` job fails.
 
 The status context is the gate job's `name`; rename one and the other with it. When you
 require the check, choose "any source": the documentation does not say whether a rule tied to
