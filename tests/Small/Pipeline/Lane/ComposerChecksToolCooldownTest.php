@@ -73,6 +73,8 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
     private const string TOOL_MANIFEST = 'tools/a/composer.json';
 
+    private const string SECOND_TOOL_MANIFEST = 'tools/b/composer.json';
+
     private const string FIXTURE_MANIFEST = 'tests/assets/p/composer.json';
 
     private const string NESTED_NAME = 'acme/tool';
@@ -80,6 +82,8 @@ final class ComposerChecksToolCooldownTest extends TestCase
     private const string REPORT_ONLY_NOTE = 'Report-only: these findings do not fail the lane.';
 
     private const string NESTED_HEADING = 'Nested composer.json files';
+
+    private const string ROOT_IN_PLACE = 'Composer cooldown policy is in place for the root composer.json.';
 
     private const string ENFORCED_ONE = '1 Composer cooldown finding(s)';
 
@@ -114,7 +118,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString("\n\nChecking Composer Cooldown Policy\n---------------------\n\n", $printed);
-        self::assertStringContainsString('Composer cooldown policy is in place.', $printed);
+        self::assertStringContainsString(self::ROOT_IN_PLACE, $printed);
         self::assertStringNotContainsString(self::REPORT_ONLY, $printed);
     }
 
@@ -316,7 +320,7 @@ final class ComposerChecksToolCooldownTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString("Security overrides in force (config.policy.cooldown.ignore):\n  - thirdparty/lib: CVE-2026-1234, fixed in 1.2.3, remove after 2026-11-20\n", $printed);
-        self::assertStringContainsString('Composer cooldown policy is in place.', $printed);
+        self::assertStringContainsString(self::ROOT_IN_PLACE, $printed);
     }
 
     #[Test]
@@ -399,6 +403,21 @@ final class ComposerChecksToolCooldownTest extends TestCase
         $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
 
         self::assertStringContainsString(self::TOOL_MANIFEST . ': config.policy.cooldown is false', $this->factory->output->fetch());
+    }
+
+    /** The root's line is about the root alone: a nested finding follows it, so the line must not read as the project's verdict. */
+    #[Test]
+    public function theRootLineSaysItIsAboutTheRootWhenANestedFileHasAFinding(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested(['name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
+        $printed = $this->factory->output->fetch();
+
+        self::assertStringContainsString(self::ROOT_IN_PLACE . "\n\n" . self::NESTED_HEADING . ' (1 checked) have 1 finding(s):', $printed);
+        self::assertStringNotContainsString("is in place.\n", $printed);
     }
 
     #[Test]
@@ -564,6 +583,68 @@ final class ComposerChecksToolCooldownTest extends TestCase
         self::assertSame(self::ENFORCED_TWO, $result->summary);
     }
 
+    /** A nested file's override is judged against the clock the lane was given, not a fixed date. */
+    #[Test]
+    public function aNestedManifestsExpiredSecurityOverrideIsAFindingJudgedAgainstTheClock(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(['thirdparty/lib' => self::OVERRIDE]), 'name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build(), self::NOVEMBER_TWENTY_FIRST);
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertSame(self::ENFORCED_ONE, $result->summary);
+        self::assertStringContainsString(self::TOOL_MANIFEST . ': ', $printed);
+        self::assertStringContainsString('2026-11-20 has passed', $printed);
+    }
+
+    /** An override in force is listed, not counted: it is not a finding. */
+    #[Test]
+    public function aNestedManifestsValidSecurityOverrideIsListedAndDoesNotFailAnEnforcedLane(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested([...$this->goodPolicy(['thirdparty/lib' => self::OVERRIDE]), 'name' => self::NESTED_NAME]);
+        $this->queue(self::MODERN);
+
+        $result  = $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST], $this->factory->builder()->withComposerCooldownEnforced(true)->build());
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString(self::NESTED_HEADING . ' (1 checked): the cooldown policy is in place in each.', $printed);
+        self::assertStringContainsString('  - ' . self::TOOL_MANIFEST . ': thirdparty/lib: CVE-2026-1234', $printed);
+    }
+
+    /** The heading says how many files were checked and how many findings they hold, which are different numbers. */
+    #[Test]
+    public function theNestedHeadingCountsTheFilesCheckedAndTheFindingsSeparately(): void
+    {
+        $this->writeComposerJson($this->goodPolicy());
+        $this->writeNested(['name' => self::NESTED_NAME]);
+        $this->factory->project->write(self::SECOND_TOOL_MANIFEST, \Safe\json_encode([...$this->goodPolicy(), 'name' => 'acme/other'], JSON_THROW_ON_ERROR));
+        $this->queue(self::MODERN);
+
+        $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST, self::SECOND_TOOL_MANIFEST]);
+
+        self::assertStringContainsString(self::NESTED_HEADING . " (2 checked) have 1 finding(s):\n\n  - " . self::TOOL_MANIFEST . ': ' . self::NO_COOLDOWN, $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function theRootsOwnUnreadableLineIsPrintedBeforeTheNestedBlockAndNamesTheFile(): void
+    {
+        \Safe\unlink($this->factory->project->path . self::COMPOSER_JSON);
+        $this->writeNested(['name' => self::NESTED_NAME]);
+        $this->queueWithoutVersionProbe();
+
+        $this->runWithFiles([self::ROOT_MANIFEST, self::TOOL_MANIFEST]);
+        $printed = $this->factory->output->fetch();
+
+        $rootLine = "\n" . self::UNREADABLE . ': there is no such file: ' . $this->factory->project->path . self::COMPOSER_JSON . "\n";
+        self::assertStringContainsString($rootLine, $printed);
+        self::assertLessThan(strpos($printed, self::NESTED_HEADING), strpos($printed, $rootLine), 'the root line comes before the nested block');
+    }
+
     #[Test]
     public function aNestedManifestMustExemptTheInternalVendorsTheProjectNamed(): void
     {
@@ -611,14 +692,14 @@ final class ComposerChecksToolCooldownTest extends TestCase
     }
 
     /** @param list<string>|null $files */
-    private function runWithFiles(?array $files, ?QaConfigDto $config = null): ToolResultDto
+    private function runWithFiles(?array $files, ?QaConfigDto $config = null, int $now = self::NOVEMBER_SECOND): ToolResultDto
     {
-        return $this->runWithProjectFiles(new FixedProjectFiles($files), $config);
+        return $this->runWithProjectFiles(new FixedProjectFiles($files), $config, $now);
     }
 
-    private function runWithProjectFiles(FixedProjectFiles $files, ?QaConfigDto $config = null): ToolResultDto
+    private function runWithProjectFiles(FixedProjectFiles $files, ?QaConfigDto $config = null, int $now = self::NOVEMBER_SECOND): ToolResultDto
     {
-        $tool = new ComposerChecksTool(self::COMPOSER, new RedundantSuggestDetector(), new CooldownPolicyChecker(), new MutableClock(self::NOVEMBER_SECOND), $files);
+        $tool = new ComposerChecksTool(self::COMPOSER, new RedundantSuggestDetector(), new CooldownPolicyChecker(), new MutableClock($now), $files);
 
         return $tool->run($this->factory->context($config ?? $this->factory->builder()->build()));
     }
