@@ -145,7 +145,7 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
     {
         $this->runRuleAlone();
 
-        self::assertSame([], $this->markedMethods(self::DELEGATING_FIXTURE), 'The rule on its own marks the parent-delegating tests #[DoesNotPerformAssertions], so the Rector in vendor-phar/rector.phar still misfires on them and rector-phpunit.php has to skip the rule.');
+        self::assertSame([], $this->markedMethods(self::DELEGATING_FIXTURE), 'The rule on its own marks the parent-delegating tests #[DoesNotPerformAssertions], so the Rector in vendor-phar/rector.phar has regressed: it no longer follows parent:: calls. Do not take this Rector update until the Owner has decided how to answer it; skipping the rule is not the answer.');
     }
 
     #[Test]
@@ -184,7 +184,7 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
         $this->runShippedRector();
 
         self::assertSame([], $this->markedMethods(self::DELEGATING_FIXTURE), 'rector-phpunit.php marked these tests #[DoesNotPerformAssertions], yet each delegates to a parent test that asserts, so PHPUnit reports them risky. '
-            . self::RULE . ' no longer follows parent:: calls, so the Rector in vendor-phar/rector.phar has regressed: take the release before it, or report it, rather than skipping the rule, which the control tests above hold on.');
+            . self::RULE . ' no longer follows parent:: calls, so the Rector in vendor-phar/rector.phar has regressed. Do not take this Rector update until the Owner has decided how to answer it; skipping the rule is not the answer, which the control tests above hold on.');
     }
 
     #[Test]
