@@ -578,6 +578,28 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         self::assertSame([], $this->detector->check($yaml));
     }
 
+    /** A blank line inside a block list is not its end. */
+    #[Test]
+    public function aBlankLineInsideABlockListNeedsDoesNotEndIt(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n      - other\n\n      - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** Jobs that need each other in a loop are followed once, not for ever, and never reach the gate. */
+    #[Test]
+    public function aLoopOfNeedsThatNeverReachesTheGateEndsAndIsReported(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs: loop-a\n    steps:\n" . self::EXPENSIVE_STEPS
+            . "  loop-a:\n    needs: loop-b\n    steps:\n"
+            . "  loop-b:\n    needs: loop-a\n    steps:\n";
+
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
+    }
+
     /** A dash list under another key of the job holds no `needs:` names. */
     #[Test]
     public function aListUnderAnotherKeyAfterTheNeedsListIsNotMoreNames(): void
