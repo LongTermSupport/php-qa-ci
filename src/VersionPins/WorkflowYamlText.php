@@ -127,7 +127,7 @@ final readonly class WorkflowYamlText
                 continue;
             }
 
-            if ('#' === $line[$i] && (0 === $i || ctype_space($line[$i - 1]))) {
+            if ('#' === $line[$i] && (0 === $i || \in_array($line[$i - 1], [' ', "\t"], true))) {
                 return rtrim(substr($line, 0, $i));
             }
         }

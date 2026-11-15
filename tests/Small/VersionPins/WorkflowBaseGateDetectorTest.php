@@ -361,24 +361,24 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public static function triggerShapesForBothEvents(): Iterator
     {
         $shapes = [
-            'a block list' => "on:\n  - %E%\n",
-            'a block list with no indent' => "on:\n- %E%\n",
-            'a block list among others' => "on:\n  - push\n  - %E%\n  - workflow_dispatch\n",
-            'a mapping indented four spaces' => "on:\n    %E%:\n",
-            'a mapping indented six spaces' => "on:\n      %E%:\n        types: [opened]\n",
-            'a single-quoted key' => "on:\n  '%E%':\n",
-            'a double-quoted key' => "on:\n  \"%E%\":\n",
-            'a quoted scalar' => "on: '%E%'\n",
-            'a double-quoted scalar' => "on: \"%E%\"\n",
-            'a flow list over several lines' => "on: [\n  push,\n  %E%\n]\n",
-            'a flow list of quoted names' => "on: ['push', \"%E%\"]\n",
-            'a flow mapping' => "on: {push: {branches: [main]}, %E%: {types: [opened]}}\n",
-            'a flow mapping over several lines' => "on: {\n  push: {},\n  %E%: {}\n}\n",
-            'a quoted on key' => "\"on\":\n  %E%:\n",
-            'a single-quoted on key' => "'on':\n  %E%:\n",
-            'a scalar followed by a comment' => "on: %E% # runs on every pull request\n",
-            'a key followed by a comment' => "on:\n  %E%: # the event\n    types: [opened]\n",
-            'a mapping after another event' => "on:\n  push:\n    branches: [main]\n  %E%:\n    types: [opened]\n",
+            'a block list'                            => "on:\n  - %E%\n",
+            'a block list with no indent'             => "on:\n- %E%\n",
+            'a block list among others'               => "on:\n  - push\n  - %E%\n  - workflow_dispatch\n",
+            'a mapping indented four spaces'          => "on:\n    %E%:\n",
+            'a mapping indented six spaces'           => "on:\n      %E%:\n        types: [opened]\n",
+            'a single-quoted key'                     => "on:\n  '%E%':\n",
+            'a double-quoted key'                     => "on:\n  \"%E%\":\n",
+            'a quoted scalar'                         => "on: '%E%'\n",
+            'a double-quoted scalar'                  => "on: \"%E%\"\n",
+            'a flow list over several lines'          => "on: [\n  push,\n  %E%\n]\n",
+            'a flow list of quoted names'             => "on: ['push', \"%E%\"]\n",
+            'a flow mapping'                          => "on: {push: {branches: [main]}, %E%: {types: [opened]}}\n",
+            'a flow mapping over several lines'       => "on: {\n  push: {},\n  %E%: {}\n}\n",
+            'a quoted on key'                         => "\"on\":\n  %E%:\n",
+            'a single-quoted on key'                  => "'on':\n  %E%:\n",
+            'a scalar followed by a comment'          => "on: %E% # runs on every pull request\n",
+            'a key followed by a comment'             => "on:\n  %E%: # the event\n    types: [opened]\n",
+            'a mapping after another event'           => "on:\n  push:\n    branches: [main]\n  %E%:\n    types: [opened]\n",
             'a mapping with a comment line before it' => "on:\n  # when it runs\n  %E%:\n",
         ];
 
@@ -554,19 +554,19 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         yield 'a qa run in a block' => ["      - run: |\n          echo start\n          bin/qa\n"];
     }
 
+    #[Test]
+    #[DataProvider('cheapStepsThatLookLikeQa')]
+    public function aWordThatOnlyContainsQaIsNotAQaRun(string $step): void
+    {
+        self::assertSame([], $this->detector->check(self::TARGET_QA_JOB . $step));
+    }
+
     /** @return Iterator<string, array{string}> */
     public static function cheapStepsThatLookLikeQa(): Iterator
     {
         yield 'a word ending in qa' => ["      - run: echo vqa\n"];
 
         yield 'a path containing qa as a part' => ["      - run: echo docs/qa-notes.md\n"];
-    }
-
-    #[Test]
-    #[DataProvider('cheapStepsThatLookLikeQa')]
-    public function aWordThatOnlyContainsQaIsNotAQaRun(string $step): void
-    {
-        self::assertSame([], $this->detector->check(self::TARGET_QA_JOB . $step));
     }
 
     /** The condition is read in whatever spacing, case or operand order GitHub accepts. */

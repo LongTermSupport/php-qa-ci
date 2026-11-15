@@ -49,7 +49,7 @@ final readonly class WorkflowTriggerReader
     }
 
     /**
-     * @param string $rest  what follows the colon of the `on` key
+     * @param string $rest         what follows the colon of the `on` key
      * @param string ...$following the lines after the `on:` line
      *
      * @return list<string>|null

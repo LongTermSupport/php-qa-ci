@@ -31,9 +31,11 @@ final class WorkflowYamlTextTest extends TestCase
     {
         yield 'a whole-line comment' => ["# note\n", "\n"];
 
-        yield 'an indented comment' => ["    # note", ''];
+        yield 'an indented comment' => ['    # note', ''];
 
         yield 'a trailing comment' => ['on: push # note', 'on: push'];
+
+        yield 'a tab before a hash' => ["run: echo a\t# note", 'run: echo a'];
 
         yield 'a hash in a word' => ['run: echo a#b', 'run: echo a#b'];
 
