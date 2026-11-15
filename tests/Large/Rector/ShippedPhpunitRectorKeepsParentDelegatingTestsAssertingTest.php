@@ -64,6 +64,34 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
     /** The directory of the temp project the tools run over. */
     private const string TESTS_DIR = 'tests';
 
+    /** A test that asserts nothing and has no attribute, written into the temp project by the tests that need it. */
+    private const string CONTROL_FIXTURE = 'tests/NoAssertionControlTest.php';
+
+    /** The one test method of the control. */
+    private const string CONTROL_METHOD = 'itAssertsNothingAtAll';
+
+    /** The control: a test whose body asserts nothing, and which calls nothing that does. */
+    private const string CONTROL_SOURCE = <<<'PHP'
+        <?php
+
+        declare(strict_types=1);
+
+        namespace Fixture\DoesNotPerformAssertions;
+
+        use PHPUnit\Framework\Attributes\Test;
+        use PHPUnit\Framework\TestCase;
+
+        final class NoAssertionControlTest extends TestCase
+        {
+            #[Test]
+            public function itAssertsNothingAtAll(): void
+            {
+                $value = 1 + 1;
+                unset($value);
+            }
+        }
+        PHP;
+
     /** The rule writes the attribute only when PHPUnit has it (major * 10000 + minor * 100 + patch). */
     private const int FIRST_PHPUNIT_WITH_THE_ATTRIBUTE = 100_000;
 
@@ -112,21 +140,32 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
     }
 
     #[Test]
-    public function theRuleOnItsOwnStillMisfiresOnTheFixtures(): void
+    public function theRuleOnItsOwnLeavesParentDelegatingTestsAlone(): void
     {
-        $cache = $this->project->path . '/cache/rector-rule-alone';
-        $this->project->mkdir('cache/rector-rule-alone/files');
-        $this->project->mkdir('cache/rector-rule-alone/container');
+        $this->runRuleAlone();
 
-        $config = $this->project->write('rector-rule-alone.php', "<?php\n\ndeclare(strict_types=1);\n\nreturn static function (Rector\\Config\\RectorConfig \$rectorConfig): void {\n"
-            . '    $rectorConfig->cacheDirectory(' . var_export($cache . '/files', true) . ");\n"
-            . '    $rectorConfig->containerCacheDirectory(' . var_export($cache . '/container', true) . ");\n"
-            . '    $rectorConfig->rule(' . var_export(self::RULE, true) . ");\n};\n");
+        self::assertSame([], $this->markedMethods(self::DELEGATING_FIXTURE), 'The rule on its own marks the parent-delegating tests #[DoesNotPerformAssertions], so the Rector in vendor-phar/rector.phar still misfires on them and rector-phpunit.php has to skip the rule.');
+    }
 
-        $this->runRector($config);
+    #[Test]
+    public function theRuleOnItsOwnStillMarksATestThatAssertsNothing(): void
+    {
+        $this->project->write(self::CONTROL_FIXTURE, self::CONTROL_SOURCE);
 
-        self::assertSame(['itCountsTheLetters', 'testGreetsByName'], $this->markedMethods(self::DELEGATING_FIXTURE), 'The rule on its own no longer marks the parent-delegating tests: either the fixture stopped reproducing the misfire, or a Rector release fixed it. '
-            . 'If the latter, the skip of ' . self::RULE . ' in rector-phpunit.php may be dropped; either way this test proves nothing until the fixture reproduces again or the test is retired.');
+        $this->runRuleAlone();
+
+        self::assertSame([self::CONTROL_METHOD], $this->markedMethods(self::CONTROL_FIXTURE), 'The rule on its own did not mark a test that asserts nothing, so a clean verdict on the delegating tests proves nothing: the rule no longer runs here.');
+    }
+
+    #[Test]
+    public function theShippedConfigMarksATestThatAssertsNothing(): void
+    {
+        $this->project->write(self::CONTROL_FIXTURE, self::CONTROL_SOURCE);
+
+        $this->runShippedRector();
+
+        self::assertSame([self::CONTROL_METHOD], $this->markedMethods(self::CONTROL_FIXTURE), 'rector-phpunit.php skips ' . self::RULE . ', so a test that asserts nothing is not given #[DoesNotPerformAssertions]. '
+            . 'The rule no longer misfires on parent-delegating tests, so the skip has no reason left.');
     }
 
     #[Test]
@@ -173,6 +212,20 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
         self::assertNotSame([], $found, 'tests/assets/rectorDoesNotPerformAssertions holds no fixture.');
 
         return $found;
+    }
+
+    private function runRuleAlone(): void
+    {
+        $cache = $this->project->path . '/cache/rector-rule-alone';
+        $this->project->mkdir('cache/rector-rule-alone/files');
+        $this->project->mkdir('cache/rector-rule-alone/container');
+
+        $config = $this->project->write('rector-rule-alone.php', "<?php\n\ndeclare(strict_types=1);\n\nreturn static function (Rector\\Config\\RectorConfig \$rectorConfig): void {\n"
+            . '    $rectorConfig->cacheDirectory(' . var_export($cache . '/files', true) . ");\n"
+            . '    $rectorConfig->containerCacheDirectory(' . var_export($cache . '/container', true) . ");\n"
+            . '    $rectorConfig->rule(' . var_export(self::RULE, true) . ");\n};\n");
+
+        $this->runRector($config);
     }
 
     private function runShippedRector(): void
