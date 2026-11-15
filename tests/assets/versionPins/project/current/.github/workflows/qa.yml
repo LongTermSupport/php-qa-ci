@@ -1,4 +1,5 @@
 name: QA
+on: push
 jobs:
   detect:
     steps:

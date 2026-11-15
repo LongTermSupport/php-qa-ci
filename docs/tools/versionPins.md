@@ -87,6 +87,25 @@ rule for it differs from the `pull_request` one in three ways:
   `php-qa-ci.yml` is, is skipped on this event, so the check reports it. Drop the condition, or name
   `pull_request_target` in it. The check reads the condition as text, like the rest of the gate.
 
+### How the workflow is read
+
+The check reads the file as text, after removing its comments and normalising line endings: a
+comment never counts as the thing it names. The `on` trigger is read in every valid shape: a scalar
+(`on: pull_request`), a flow list or mapping on one line or several, a block list at any
+indentation (including none), a block mapping, quoted names, and a quoted `on` key. Only the first
+level under `on` names events, so a branch called `pull_request` under `push` is not one.
+
+A trigger the check cannot reduce to event names is reported, never passed: an alias, an anchor, a
+tag, a merge key, no `on` key, or nothing under it. Write it as a scalar, a list or a mapping,
+without an anchor, an alias or a merge key.
+
+Jobs are read with quoted ids, trailing comments and any consistent indentation. A `needs:` is read
+at the job's own key indentation as a scalar, a flow list (over several lines too) or a block list.
+A job that installs or runs something is one that sets up PHP, runs `composer install`, runs `qa`
+(`bin/qa`, `vendor/bin/qa`, `composer qa`), or calls a reusable workflow with a job-level `uses:`.
+The `github.event_name == 'pull_request'` condition is recognised in any spacing or letter case and
+with either operand first.
+
 A workflow that lists both events keeps the `pull_request` rule, plus the condition rule above.
 `pull_request_review` and `pull_request_review_comment` are different events and are not asked for
 the gate. GitHub's description of the event is in [events that trigger workflows][events].

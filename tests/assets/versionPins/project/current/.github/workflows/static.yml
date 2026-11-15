@@ -1,4 +1,5 @@
 name: Static
+on: push
 jobs:
   a:
     steps:

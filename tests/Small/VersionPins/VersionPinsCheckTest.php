@@ -12,6 +12,8 @@ use LTS\PHPQA\VersionPins\VersionPinsCheck;
 use LTS\PHPQA\VersionPins\WorkflowBaseGateDetector;
 use LTS\PHPQA\VersionPins\WorkflowPhaseGroupsDetector;
 use LTS\PHPQA\VersionPins\WorkflowPhpVersionDetector;
+use LTS\PHPQA\VersionPins\WorkflowTriggerReader;
+use LTS\PHPQA\VersionPins\WorkflowYamlText;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,6 +29,8 @@ use PHPUnit\Runner\Version;
 #[UsesClass(SafeScanFilesDetector::class)]
 #[UsesClass(WorkflowPhpVersionDetector::class)]
 #[UsesClass(WorkflowBaseGateDetector::class)]
+#[UsesClass(WorkflowTriggerReader::class)]
+#[UsesClass(WorkflowYamlText::class)]
 #[UsesClass(WorkflowPhaseGroupsDetector::class)]
 #[UsesClass(PhaseEnum::class)]
 #[UsesClass(PhaseDto::class)]

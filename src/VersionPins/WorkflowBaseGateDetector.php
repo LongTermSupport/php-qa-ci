@@ -13,7 +13,8 @@ namespace LTS\PHPQA\VersionPins;
  * and tests `git merge-base --is-ancestor`. It either sits in the same job
  * ahead of the first expensive step (PHP setup, `composer install`, a `qa`
  * run), or in a job of its own that every expensive job lists, directly or
- * through other jobs, under `needs:`.
+ * through other jobs, under `needs:`. A job that only calls a reusable workflow
+ * is expensive too: its steps are not in this file to be read.
  *
  * A workflow on `pull_request_target` alone is asked for the gate only when a
  * job installs or runs something, since one that only labels or comments costs
@@ -23,21 +24,20 @@ namespace LTS\PHPQA\VersionPins;
  * this event. A workflow on both events keeps the `pull_request` rule.
  *
  * Text-level, like its sibling {@see WorkflowPhpVersionDetector}: a workflow
- * is read for the shape of its jobs, not evaluated.
+ * is read for the shape of its jobs, not evaluated. It is read after its
+ * comments are removed (a comment is not the thing it names), and its trigger
+ * is read in every valid shape by {@see WorkflowTriggerReader}. A trigger that
+ * cannot be reduced to event names is reported, never passed.
  *
  * @internal
  */
 final readonly class WorkflowBaseGateDetector
 {
-    private const string TRIGGER_PATTERN = '/^(?:on:.*\bpull_request\b|[ \t]{2}pull_request:)/m';
-
-    private const string TARGET_TRIGGER_PATTERN = '/^(?:on:.*\bpull_request_target\b|[ \t]{2}pull_request_target:)/m';
-
     private const string EVENT_PULL_REQUEST = 'pull_request';
 
     private const string EVENT_PULL_REQUEST_TARGET = 'pull_request_target';
 
-    private const string PULL_REQUEST_ONLY_CONDITION = "github.event_name == 'pull_request'";
+    private const string PULL_REQUEST_ONLY_CONDITION = '/github\.event_name\s*==\s*\'pull_request\'|\'pull_request\'\s*==\s*github\.event_name/i';
 
     private const string NO_GATE = 'runs on pull_request but has no up-to-date-with-base gate: add a step that fails when `git merge-base --is-ancestor "origin/${BASE_REF}" "${HEAD_SHA}"` is false, with BASE_REF set from github.event.pull_request.base.ref';
 
@@ -45,27 +45,40 @@ final readonly class WorkflowBaseGateDetector
 
     private const string GATE_NEVER_RUNS = "its up-to-date-with-base gate is conditioned on `github.event_name == 'pull_request'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it";
 
-    private const string JOB_HEADER_PATTERN = '/^  ([A-Za-z0-9_-]+):[ \t]*$/';
+    private const string UNREADABLE_TRIGGER = 'its `on` trigger is written in a shape this check cannot read, so whether it runs on pull_request or pull_request_target is unknown: write it as a scalar (`on: pull_request`), a list (`on: [push, pull_request]` or a block list) or a mapping (`on:` then `  pull_request:`), without an anchor, an alias or a merge key';
 
-    private const string NEEDS_PATTERN = '/^    needs:[ \t]*(.+)$/m';
+    private const string JOBS_KEY = '/^(?:jobs|"jobs"|\'jobs\'):$/';
+
+    private const string JOB_HEADER = '/^(?:"[A-Za-z0-9_-]+"|\'[A-Za-z0-9_-]+\'|[A-Za-z0-9_-]+):$/';
+
+    private const string NEEDS_KEY = 'needs:';
+
+    private const string USES_KEY = 'uses:';
+
+    private const string QA_AT_END_OF_LINE = '/qa';
 
     private const string GATE_BASE_REF = 'github.event.pull_request.base.ref';
 
     private const string GATE_TEST = 'merge-base --is-ancestor';
 
-    /** @var list<string> */
-    private const array EXPENSIVE_MARKERS = ['shivammathur/setup-php', 'composer install', '/qa"', '/qa '];
+    private const array EXPENSIVE_MARKERS = ['shivammathur/setup-php', 'composer install', 'composer qa', '/qa"', "/qa'", '/qa '];
+
+    public function __construct(
+        private WorkflowYamlText $text = new WorkflowYamlText(),
+        private WorkflowTriggerReader $triggers = new WorkflowTriggerReader(),
+    ) {
+    }
 
     /** Whether the workflow runs on pull_request at all. */
     public function runsOnPullRequest(string $workflowYaml): bool
     {
-        return 1 === \Safe\preg_match(self::TRIGGER_PATTERN, $workflowYaml);
+        return \in_array(self::EVENT_PULL_REQUEST, $this->events($workflowYaml) ?? [], true);
     }
 
     /** Whether the workflow runs on pull_request_target at all. */
     public function runsOnPullRequestTarget(string $workflowYaml): bool
     {
-        return 1 === \Safe\preg_match(self::TARGET_TRIGGER_PATTERN, $workflowYaml);
+        return \in_array(self::EVENT_PULL_REQUEST_TARGET, $this->events($workflowYaml) ?? [], true);
     }
 
     /**
@@ -77,20 +90,26 @@ final readonly class WorkflowBaseGateDetector
      */
     public function check(string $workflowYaml): array
     {
-        $onPullRequest = $this->runsOnPullRequest($workflowYaml);
-        $onTarget      = $this->runsOnPullRequestTarget($workflowYaml);
+        $text   = $this->text->withoutComments($workflowYaml);
+        $events = $this->triggers->events($text);
+        if (null === $events) {
+            return [self::UNREADABLE_TRIGGER];
+        }
+
+        $onPullRequest = \in_array(self::EVENT_PULL_REQUEST, $events, true);
+        $onTarget      = \in_array(self::EVENT_PULL_REQUEST_TARGET, $events, true);
         if (!$onPullRequest && !$onTarget) {
             return [];
         }
 
-        $jobs = $this->jobs($workflowYaml);
+        $jobs = $this->jobs($text);
         if ([] === $jobs) {
             return [];
         }
 
-        $gateBodies = array_filter($jobs, $this->hasGate(...));
-        $gateJobs   = array_map(strval(...), array_keys($gateBodies));
-        if ([] === $gateJobs) {
+        $gates   = array_values(array_filter($jobs, $this->hasGate(...)));
+        $gateIds = array_map(static fn (array $job): string => $job['id'], $gates);
+        if ([] === $gates) {
             if ($onPullRequest) {
                 return [self::NO_GATE];
             }
@@ -99,86 +118,154 @@ final readonly class WorkflowBaseGateDetector
         }
 
         $event    = $onPullRequest ? self::EVENT_PULL_REQUEST : self::EVENT_PULL_REQUEST_TARGET;
-        $needs    = $this->needsMap($jobs);
+        $needs    = $this->needsMap(...$jobs);
         $problems = [];
-        foreach ($jobs as $key => $body) {
-            if (!$this->isExpensive($body)) {
+        foreach ($jobs as $job) {
+            if (!$this->isExpensive($job)) {
                 continue;
             }
 
-            $id = (string)$key;
-
-            if (\in_array($id, $gateJobs, true)) {
-                if ($this->gatePosition($body) > $this->firstExpensivePosition($body)) {
-                    $problems[] = \sprintf('job "%s" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install', $id);
+            if (\in_array($job['id'], $gateIds, true)) {
+                if ($this->gatePosition($job['body']) > $this->firstExpensivePosition($job)) {
+                    $problems[] = \sprintf('job "%s" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install', $job['id']);
                 }
 
                 continue;
             }
 
-            if (!$this->needsAny($id, $needs, ...$gateJobs)) {
-                $problems[] = \sprintf('job "%s" runs on %s without depending on the up-to-date-with-base gate; add the gate job (%s) to its needs', $id, $event, implode(', ', $gateJobs));
+            if (!$this->needsAny($job['id'], $needs, ...$gateIds)) {
+                $problems[] = \sprintf('job "%s" runs on %s without depending on the up-to-date-with-base gate; add the gate job (%s) to its needs', $job['id'], $event, implode(', ', $gateIds));
             }
         }
 
-        if ($onTarget && array_any($gateBodies, $this->skippedOnPullRequestTarget(...))) {
+        if ($onTarget && array_any($gates, $this->skippedOnPullRequestTarget(...))) {
             $problems[] = self::GATE_NEVER_RUNS;
         }
 
         return $problems;
     }
 
-    /** A gate conditioned on the pull_request event alone is skipped when the event is pull_request_target. */
-    private function skippedOnPullRequestTarget(string $gateJobBody): bool
+    /** @return list<string>|null */
+    private function events(string $workflowYaml): ?array
     {
-        return str_contains($gateJobBody, self::PULL_REQUEST_ONLY_CONDITION)
-            && !str_contains($gateJobBody, self::EVENT_PULL_REQUEST_TARGET);
+        return $this->triggers->events($this->text->withoutComments($workflowYaml));
     }
 
-    /** @return array<array-key, string> job id => the job's text; an all-digit id is an int key */
-    private function jobs(string $workflowYaml): array
+    /**
+     * A gate conditioned on the pull_request event alone is skipped when the event is pull_request_target.
+     *
+     * @param array{id: string, body: string, indent: int} $gateJob
+     */
+    private function skippedOnPullRequestTarget(array $gateJob): bool
     {
-        $start = strpos($workflowYaml, "\njobs:");
-        if (false === $start) {
+        return 1 === \Safe\preg_match(self::PULL_REQUEST_ONLY_CONDITION, $gateJob['body'])
+            && !str_contains(strtolower($gateJob['body']), self::EVENT_PULL_REQUEST_TARGET);
+    }
+
+    /**
+     * Each job's id, its text and the indentation of its own keys, in file order.
+     *
+     * @return list<array{id: string, body: string, indent: int}>
+     */
+    private function jobs(string $text): array
+    {
+        $lines = explode("\n", $text);
+        $start = null;
+        foreach ($lines as $index => $line) {
+            if (1 === \Safe\preg_match(self::JOBS_KEY, $line)) {
+                $start = $index;
+
+                break;
+            }
+        }
+
+        if (null === $start) {
             return [];
         }
 
-        $jobs    = [];
-        $current = null;
-        foreach (explode("\n", substr($workflowYaml, $start + 1)) as $line) {
-            if (1 === \Safe\preg_match(self::JOB_HEADER_PATTERN, $line, $matches) && isset($matches[1])) {
-                $current        = $matches[1];
-                $jobs[$current] = '';
+        /** @var list<array{id: string, body: string}> $found */
+        $found        = [];
+        $headerIndent = null;
+        foreach (\array_slice($lines, $start + 1) as $line) {
+            if ('' === trim($line)) {
+                $this->appendToLast($found, '');
 
                 continue;
             }
 
-            if (null !== $current) {
-                $jobs[$current] .= $line . "\n";
+            $indent = $this->text->indentOf($line);
+            if (0 === $indent) {
+                break;
+            }
+
+            $headerIndent ??= $indent;
+            if ($indent === $headerIndent && 1 === \Safe\preg_match(self::JOB_HEADER, trim($line))) {
+                $found[] = ['id' => $this->text->unquote(substr(trim($line), 0, -1)), 'body' => ''];
+
+                continue;
+            }
+
+            $this->appendToLast($found, $line);
+        }
+
+        return array_map(fn (array $job): array => ['id' => $job['id'], 'body' => $job['body'], 'indent' => $this->keyIndent($job['body'])], $found);
+    }
+
+    /** @param list<array{id: string, body: string}> $jobs */
+    private function appendToLast(array &$jobs, string $line): void
+    {
+        $last = array_key_last($jobs);
+        if (null !== $last) {
+            $jobs[$last]['body'] .= $line . "\n";
+        }
+    }
+
+    /** The indentation of the first line a job's text holds, which is where its own keys are. */
+    private function keyIndent(string $body): int
+    {
+        foreach (explode("\n", $body) as $line) {
+            if ('' !== trim($line)) {
+                return $this->text->indentOf($line);
             }
         }
 
-        return $jobs;
+        return 0;
     }
 
-    private function hasGate(string $jobBody): bool
+    /** @param array{id: string, body: string, indent: int} $job */
+    private function hasGate(array $job): bool
     {
-        return str_contains($jobBody, self::GATE_BASE_REF) && str_contains($jobBody, self::GATE_TEST);
+        return str_contains($job['body'], self::GATE_BASE_REF) && str_contains($job['body'], self::GATE_TEST);
     }
 
-    private function isExpensive(string $jobBody): bool
+    /** @param array{id: string, body: string, indent: int} $job */
+    private function isExpensive(array $job): bool
     {
-        return \PHP_INT_MAX !== $this->firstExpensivePosition($jobBody);
+        return \PHP_INT_MAX !== $this->firstExpensivePosition($job);
     }
 
-    private function firstExpensivePosition(string $jobBody): int
+    /** @param array{id: string, body: string, indent: int} $job */
+    private function firstExpensivePosition(array $job): int
     {
         $first = \PHP_INT_MAX;
         foreach (self::EXPENSIVE_MARKERS as $marker) {
-            $position = strpos($jobBody, $marker);
+            $position = strpos($job['body'], $marker);
             if (false !== $position) {
                 $first = min($first, $position);
             }
+        }
+
+        $offset = 0;
+        foreach (explode("\n", $job['body']) as $line) {
+            if ($this->text->indentOf($line) === $job['indent'] && str_starts_with(ltrim($line), self::USES_KEY)) {
+                $first = min($first, $offset);
+            }
+
+            if (str_ends_with($line, self::QA_AT_END_OF_LINE)) {
+                $first = min($first, $offset + \strlen($line) - \strlen(self::QA_AT_END_OF_LINE));
+            }
+
+            $offset += \strlen($line) + 1;
         }
 
         return $first;
@@ -192,26 +279,77 @@ final readonly class WorkflowBaseGateDetector
     }
 
     /**
-     * @param array<array-key, string> $jobs
+     * @param array{id: string, body: string, indent: int} ...$jobs
      *
      * @return array<array-key, list<string>> job id => the job ids it lists under needs
      */
-    private function needsMap(array $jobs): array
+    private function needsMap(array ...$jobs): array
     {
         $map = [];
-        foreach ($jobs as $id => $body) {
-            $map[$id] = [];
-            if (1 !== \Safe\preg_match(self::NEEDS_PATTERN, $body, $matches) || !isset($matches[1])) {
-                continue;
-            }
-
-            $map[$id] = array_values(array_filter(
-                explode(' ', str_replace(["\t", ',', '[', ']'], ' ', $matches[1])),
-                static fn (string $name): bool => '' !== $name,
-            ));
+        foreach ($jobs as $job) {
+            $map[$job['id']] = $this->needsOf($job);
         }
 
         return $map;
+    }
+
+    /**
+     * The job ids a job lists under its own `needs:` key, as a scalar, a flow list on one line or
+     * several, or a block list.
+     *
+     * @param array{id: string, body: string, indent: int} $job
+     *
+     * @return list<string>
+     */
+    private function needsOf(array $job): array
+    {
+        $lines = explode("\n", $job['body']);
+        foreach ($lines as $index => $line) {
+            if ($this->text->indentOf($line) !== $job['indent'] || !str_starts_with(ltrim($line), self::NEEDS_KEY)) {
+                continue;
+            }
+
+            $rest      = trim(substr(ltrim($line), \strlen(self::NEEDS_KEY)));
+            $following = \array_slice($lines, $index + 1);
+            if ('' === $rest) {
+                return $this->blockNames($job['indent'], ...$following);
+            }
+
+            if ('[' === $rest[0]) {
+                $balanced = $this->text->balanced($rest . "\n" . implode("\n", $following));
+
+                return null === $balanced ? [] : array_map($this->text->unquote(...), $this->text->flowItems($balanced));
+            }
+
+            return [$this->text->unquote($rest)];
+        }
+
+        return [];
+    }
+
+    /**
+     * The names in the block list that follows a bare `needs:`, at the job's own indentation or deeper.
+     *
+     * @param string ...$lines the lines after the `needs:` line
+     *
+     * @return list<string>
+     */
+    private function blockNames(int $keyIndent, string ...$lines): array
+    {
+        $names = [];
+        foreach ($lines as $line) {
+            if ('' === trim($line)) {
+                continue;
+            }
+
+            if ($this->text->indentOf($line) < $keyIndent || !str_starts_with(ltrim($line), '-')) {
+                break;
+            }
+
+            $names[] = $this->text->unquote(substr(ltrim($line), 1));
+        }
+
+        return $names;
     }
 
     /**

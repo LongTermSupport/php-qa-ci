@@ -27,6 +27,16 @@ the release and its tag. The full rules are in
 
 ### Changed — breaking
 
+- `versionPins` now reads a workflow's `on` trigger and jobs in every valid YAML shape (issue #471).
+  It matched a few spellings only, so a workflow with `on:` as a block list, a multi-line flow
+  mapping, quoted names or Windows line endings was taken for one that runs on neither pull request
+  event and passed with no up-to-date-with-base gate; a job header with a quoted id or a trailing
+  comment, a `needs:` written as a block list, a reusable-workflow `uses:` job and a bare `qa` run
+  were missed the same way, and a comment could count as the thing it names. A workflow in one of
+  these shapes with no gate now fails `bin/qa` on its first run after the update. A trigger the
+  check cannot reduce to event names (an alias, an anchor, a merge key, no `on` key) is now
+  reported rather than passed: write it as a scalar, a list or a mapping. See
+  [docs/tools/versionPins.md](docs/tools/versionPins.md#how-the-workflow-is-read).
 - `versionPins` now reads a workflow or template written as `.yaml` as well as `.yml` (issue #455).
   It listed `*.yml` only, so a `.yaml` workflow, which GitHub runs just the same, was never checked
   for the up-to-date-with-base gate, the phase-group rule or a stale PHP version list. A project
