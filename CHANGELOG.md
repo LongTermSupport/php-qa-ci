@@ -122,6 +122,11 @@ the release and its tag. The full rules are in
   never saw it, and the next checkout with the daemon did. An entry now joins a list of two or
   more tight entries without a blank line, and a loose list or a single entry as before. See
   [docs/tools/changelog.md](docs/tools/changelog.md).
+- The lint lane now excludes an ignored path spelt with a leading `./` (issue #479). It passed
+  `withIgnoredPaths('./generated')` to parallel-lint as `<root>/./generated`, which matches no path
+  the phar walks, so a syntax error under that directory still failed the lane although every other
+  lane skipped it. The lane now reads the ignored paths as every other lane does, without a leading
+  `./` or a trailing slash. See [docs/tools/phpLint.md](docs/tools/phpLint.md).
 - The `qa-autofix.yml` template now puts the gate's result on the commit its auto-fix job pushes
   (issue #399). That push uses `GITHUB_TOKEN`, which starts no workflow run, and a check belongs to
   the commit its run started on, so the pull request head showed no check and a required
