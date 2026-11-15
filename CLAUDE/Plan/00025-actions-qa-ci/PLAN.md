@@ -254,10 +254,14 @@ This plan does three things:
   [#462](https://github.com/LongTermSupport/php-qa-ci/issues/462)) and the `versionPins` lane reads
   `.yaml` workflows and templates as well as `.yml`
   ([#468](https://github.com/LongTermSupport/php-qa-ci/pull/468), for
-  [#455](https://github.com/LongTermSupport/php-qa-ci/issues/455)); both followed a stand-in's
-  ruling, which an Owner message can overturn. Open until the Owner confirms those rulings and
-  settles the one gap that remains: the base-gate detector ignores a `pull_request_target` trigger
-  ([#467](https://github.com/LongTermSupport/php-qa-ci/issues/467)).
+  [#455](https://github.com/LongTermSupport/php-qa-ci/issues/455)), and the base-gate detector
+  asks a `pull_request_target` workflow that installs or runs anything for the gate
+  ([#470](https://github.com/LongTermSupport/php-qa-ci/pull/470), for
+  [#467](https://github.com/LongTermSupport/php-qa-ci/issues/467)); all three followed a
+  stand-in's ruling, which an Owner message can overturn. Open until the Owner confirms those
+  rulings and settles the one gap that remains: the trigger shapes and job text the detectors
+  read as text, shared by `pull_request` and `pull_request_target`
+  ([#471](https://github.com/LongTermSupport/php-qa-ci/issues/471)).
 - [ ] actions-qa-ci runs green on its own repository and on php-qa-ci.
 
 ## Delivery & Milestones
