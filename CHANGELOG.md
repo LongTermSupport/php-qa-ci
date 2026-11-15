@@ -27,6 +27,15 @@ the release and its tag. The full rules are in
 
 ### Changed — breaking
 
+- The shipped PHPUnit Rector configuration (`rector-phpunit.php`) no longer skips
+  `AddDoesNotPerformAssertionToNonAssertingTestRector` (issue #482). The bundled Rector 2.8.5 follows
+  `parent::` calls, so a test that only delegates to an asserting parent test is no longer given
+  `#[DoesNotPerformAssertions]`, which was the reason for the skip. The rule runs again: a writable
+  run adds the attribute to a test that asserts nothing, and a read-only run fails on one that lacks
+  it, so a project with such a test fails a read-only (CI) `bin/qa` run after the update until the
+  change is applied by a writable run and committed. A project `rector-phpunit.php` override that skips the rule may
+  drop the skip. See
+  [docs/tools/rector.md](docs/tools/rector.md#rector-never-marks-an-asserting-test-as-not-asserting).
 - The `composerChecks` cooldown check now reads every `composer.json` below the project root, not
   only the root one (issue #394). A nested manifest (a `tools/<tool>/composer.json`, a build
   step's manifest) is a Composer project whose packages resolve under its own policy, so a
@@ -101,7 +110,7 @@ the release and its tag. The full rules are in
   again. Nothing in a consumer's copy keeps the SHAs current; the consumer's own updater does that.
   This repository's own workflows are pinned the same way and a Dependabot configuration for
   `github-actions` keeps them current.
-- **Bundled tool versions updated** by the dependency update: php-cs-fixer 3.95.29 → 3.95.30; composer-normalize 2.56.0 → 2.57.0.
+- **Bundled tool versions updated** by the dependency update: php-cs-fixer 3.95.29 → 3.95.30; composer-normalize 2.56.0 → 2.57.0; rector/rector 2.8.4 → 2.8.5.
 
 ### Fixed
 
