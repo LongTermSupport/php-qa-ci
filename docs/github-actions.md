@@ -123,11 +123,12 @@ permissions".
 
 Template: `templates/github-actions/qa-autofix.yml`
 
-Two jobs daisy-chained with `needs:`. The autofix job writes and commits fixes back on PRs;
-the gate job validates the fixed tree read-only in the **same run**:
+Jobs daisy-chained with `needs:`. The autofix job writes and commits fixes back on PRs;
+the gate job validates the fixed tree read-only in the **same run**; on a pull request the
+gate's result is then posted as a commit status on the commit the gate checked out:
 
 ```text
-autofix (PR only: WRITE fixers + commit back) ──needs──► gate (READ-ONLY qa)
+autofix (PR only: WRITE fixers + commit back) ──needs──► gate (READ-ONLY qa) ──needs──► gate-status (PR only)
 ```
 
 1. **autofix** runs only on `pull_request`. It checks out the PR branch **tip**, applies the
@@ -148,6 +149,30 @@ does not.)
 
 > The `php-qa-ci.yml` template commits nothing and runs read-only. Here the fixers run
 > **before** the gate, and the gate re-validates the fixed tree read-only.
+
+### The auto-fix commit's check
+
+A check belongs to the commit its run started on, and a push made with `GITHUB_TOKEN` starts no
+run. The commit autofix pushes therefore has no check, and a required check never arrives on
+the pull request's head. The template closes this with a commit status, which GitHub accepts as
+a required status check:
+
+1. The `gate` job records the commit it checked out (`git rev-parse HEAD`), in the step right
+   after its checkout and before anything from the project runs, as the job output `sha`.
+2. The `gate-status` job (`needs: gate`, pull requests only) posts one commit status for that
+   commit, with the gate's job name (`QA gate (read-only qa)`) as its context: `success` only
+   when the gate's result is `success`, `failure` otherwise. It holds `statuses: write` and
+   nothing else, checks nothing out and runs no action or project code; every value reaches
+   its script as an environment variable.
+3. It posts only when that commit differs from the one the run started on (the gate's own check
+   is on that one), and not for a pull request from a fork, whose `GITHUB_TOKEN` is read-only
+   (Dependabot's pull requests are treated alike, and autofix pushes nothing there). If the
+   status cannot be posted, the head shows no check, as before, and the `gate-status` job fails.
+
+The status context is the gate job's `name`; rename one and the other with it. When you
+require the check, choose "any source": the documentation does not say whether a rule tied to
+the GitHub Actions app accepts a status posted with `GITHUB_TOKEN`. Confirm it on a real pull
+request if your rule names a source.
 
 ### Default branch is dynamic (no hardcoded name)
 

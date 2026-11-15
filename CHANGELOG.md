@@ -105,6 +105,18 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- The `qa-autofix.yml` template now puts the gate's result on the commit its auto-fix job pushes
+  (issue #399). That push uses `GITHUB_TOKEN`, which starts no workflow run, and a check belongs to
+  the commit its run started on, so the pull request head showed no check and a required
+  `QA gate (read-only qa)` never arrived until someone pushed again. The `gate` job now records the
+  commit it checked out, and a new `gate-status` job posts a commit status for it under the gate's
+  name, which GitHub accepts as a required status check. The job holds `statuses: write` and
+  nothing else, runs no action and none of the project's code, posts only for a commit other than
+  the one the run started on, and is skipped for a pull request from a fork. Copy the template
+  again to receive it; a project that already copied it keeps its old workflow. A required check
+  tied to the GitHub Actions app as its source may not accept a status posted with `GITHUB_TOKEN`:
+  choose "any source", or confirm it on a real pull request. See
+  [docs/github-actions.md](docs/github-actions.md#the-auto-fix-commits-check).
 - A full run no longer lets Infection score a branch against coverage left on disk by an earlier
   `qa -t infection` run (issue #392). The `phpunit` lane now removes `var/qa/phpunit_logs/coverage-xml`
   first thing on every run, whatever the mode and even if the lane then fails, so the directory Infection reuses is one this run's PHPUnit wrote (when the

@@ -1,12 +1,14 @@
 # ============================================================================
 # PHP QA CI — Inline-Barrier Workflow Template (autofix → read-only gate)
 # ============================================================================
-# Three jobs, daisy-chained with `needs:`:
+# Four jobs, daisy-chained with `needs:`:
 #
 #   base-gate (PR only) ──► autofix (PR only, WRITES + commits back) ──► gate (READ-ONLY qa)
+#                                                                            │
+#                                                  gate-status (PR only, posts a commit status) ◄─┘
 #
 # 0. base-gate fails a pull request whose head is behind its base branch, before
-#    anything is installed; the other two jobs then do not run.
+#    anything is installed; the other three jobs then do not run.
 #
 # 1. autofix runs ONLY on pull_request. It checks out the PR branch TIP, applies
 #    the fixers in WRITE mode (QA_READONLY=0 → Rector + PHP CS Fixer rewrite),
@@ -24,6 +26,21 @@
 # default GITHUB_TOKEN, which deliberately starts NO new workflow run — so there
 # is no loop, no cancellation, and nothing to wait for. (A re-trigger-based
 # design would need a PAT; this one does not.)
+#
+# THE AUTO-FIX COMMIT AND ITS CHECK
+# ---------------------------------
+# A check belongs to the commit its run started on, so the commit autofix pushes has none: the
+# pull request head would show no check, and a required one would never arrive. The gate
+# therefore records the commit it checked out, and `gate-status` posts a COMMIT STATUS for that
+# commit under the gate's name. GitHub accepts a commit status as a required status check.
+# `gate-status` holds `statuses: write` and nothing else, runs no action and none of the
+# project's code, and posts only when the commit differs from the one the run started on (the
+# gate's own check is on that one). It is skipped for a pull request from a fork, whose token is
+# read-only (Dependabot's pull requests are treated alike, and autofix pushes nothing there). If
+# the status cannot be posted, the head shows no check, as it did before, and this job fails.
+#
+# If your required check is tied to a source app ("GitHub Actions"), the status may not be
+# accepted: choose "any source" for it, or confirm it on a real pull request.
 #
 # REQUIRED GITHUB CONFIGURATION
 # -----------------------------
@@ -307,6 +324,8 @@ jobs:
               || github.event_name == 'workflow_dispatch'
               || github.ref_name == github.event.repository.default_branch) }}
     runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.tip.outputs.sha }}
     steps:
       - name: Checkout the (possibly auto-fixed) tip
         # Full history: the linting group includes the opt-in changelog check, which
@@ -315,6 +334,12 @@ jobs:
         with:
           ref: ${{ github.head_ref || github.ref }}
           fetch-depth: 0
+
+      - name: Record the commit this gate checked
+        # Directly after the checkout and before anything from the project runs, so the
+        # commit named here is the one the gate validates. gate-status reports on it.
+        id: tip
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Detect PHP version from composer.json
         id: php
@@ -448,3 +473,46 @@ jobs:
         env:
           CI: 'true'
         run: '"$(composer config bin-dir)/qa" -t allStatic'
+
+  # --------------------------------------------------------------------------
+  # PR-only: put the gate's result on the commit the gate checked out. The commit
+  # autofix pushes starts no run, so no check is attached to it; a required status
+  # check can also be a commit status, which needs no new run. This job holds the one
+  # scope it needs, checks nothing out and runs none of the project's code. Every
+  # value reaches the script as an environment variable, never as substituted text.
+  # It posts only for a commit other than the one the run started on (the gate's own
+  # check is on that one), and not for a fork, whose token is read-only. The context
+  # is the gate job's `name` above: change both together.
+  # --------------------------------------------------------------------------
+  gate-status:
+    name: Report the gate on the checked-out commit
+    needs: gate
+    if: >-
+      ${{ always() && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && needs.gate.outputs.sha != ''
+          && needs.gate.outputs.sha != github.event.pull_request.head.sha }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Post the gate's result as a commit status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GATE_RESULT: ${{ needs.gate.result }}
+          SHA: ${{ needs.gate.outputs.sha }}
+          CONTEXT: QA gate (read-only qa)
+          REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "${GATE_RESULT}" = "success" ]; then
+            STATE=success
+          else
+            STATE=failure
+          fi
+          gh api --method POST "repos/${REPOSITORY}/statuses/${SHA}" \
+            -f state="${STATE}" \
+            -f context="${CONTEXT}" \
+            -f description="Read-only qa on the auto-fixed commit: ${GATE_RESULT}" \
+            -f target_url="${RUN_URL}"
