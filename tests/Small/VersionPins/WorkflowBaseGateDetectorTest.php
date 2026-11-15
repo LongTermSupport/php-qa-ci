@@ -80,6 +80,10 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string GATE_AFTER_EXPENSIVE ='job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install';
 
+    private const string FIX = 'fix';
+
+    private const string PR_ONLY_IF = "if: github.event_name == 'pull_request'";
+
     private const string FIX_JOB = "  fix:\n    steps:\n";
 
     private const string FILLER_STEP = "      - run: echo filler\n";
@@ -91,11 +95,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     protected function setUp(): void
     {
         $this->detector = new WorkflowBaseGateDetector();
-    }
-
-    private function notNeedingTheGate(string $job): string
-    {
-        return \sprintf('job "%s" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs', $job);
     }
 
     #[Test]
@@ -274,7 +273,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aGateThatNamesPullRequestTargetInItsConditionRunsOnIt(): void
     {
         $step = str_replace(
-            "if: github.event_name == 'pull_request'",
+            self::PR_ONLY_IF,
             "if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'",
             self::GATE_STEP,
         );
@@ -490,7 +489,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     {
         $yaml = self::GATE_JOB . self::GATE_STEP . self::FIX_JOB . self::EXPENSIVE_STEPS . "  lint:\n    steps:\n" . self::EXPENSIVE_STEPS;
 
-        self::assertSame([$this->notNeedingTheGate('fix'), $this->notNeedingTheGate('lint')], $this->detector->check($yaml));
+        self::assertSame([$this->notNeedingTheGate(self::FIX), $this->notNeedingTheGate('lint')], $this->detector->check($yaml));
     }
 
     /** A job that holds the gate and runs expensive steps after it does not end the reading of the jobs after it. */
@@ -499,7 +498,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     {
         $yaml = self::GATE_JOB . self::GATE_STEP . self::EXPENSIVE_STEPS . self::FIX_JOB . self::EXPENSIVE_STEPS;
 
-        self::assertSame([$this->notNeedingTheGate('fix')], $this->detector->check($yaml));
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
     }
 
     /** A blank line, or one of only spaces, between or inside jobs ends nothing. */
@@ -509,7 +508,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     {
         $yaml = self::GATE_JOB . self::GATE_STEP . $blank . self::FIX_JOB . self::EXPENSIVE_STEPS;
 
-        self::assertSame([$this->notNeedingTheGate('fix')], $this->detector->check($yaml));
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
     }
 
     /** @return Iterator<string, array{string}> */
@@ -552,7 +551,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aGateConditionNamingPullRequestTargetInUpperCaseRunsOnIt(): void
     {
         $step = str_replace(
-            "if: github.event_name == 'pull_request'",
+            self::PR_ONLY_IF,
             "if: github.event_name == 'pull_request' || github.event_name == 'PULL_REQUEST_TARGET'",
             self::GATE_STEP,
         );
@@ -586,7 +585,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         $yaml = self::GATE_JOB . self::GATE_STEP
             . "  fix:\n    needs:\n      - other\n    strategy:\n      matrix:\n        job:\n          - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
 
-        self::assertSame([$this->notNeedingTheGate('fix')], $this->detector->check($yaml));
+        self::assertSame([$this->notNeedingTheGate(self::FIX)], $this->detector->check($yaml));
     }
 
     /** A gate just ahead of a bare qa run, deep in a long job, is ahead of it. */
@@ -800,7 +799,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aCommentNamingPullRequestTargetDoesNotExemptAGateThatNeverRuns(): void
     {
         $step = str_replace(
-            "if: github.event_name == 'pull_request'",
+            self::PR_ONLY_IF,
             "if: github.event_name == 'pull_request' # also for pull_request_target",
             self::GATE_STEP,
         );
@@ -822,6 +821,11 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             . self::EXPENSIVE_STEPS;
 
         self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($yaml));
+    }
+
+    private function notNeedingTheGate(string $job): string
+    {
+        return \sprintf('job "%s" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs', $job);
     }
 
     private function noGateFor(string $event): string
