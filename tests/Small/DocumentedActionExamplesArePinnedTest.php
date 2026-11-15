@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small;
 
 use LTS\PHPQA\Tests\Support\ActionPins;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -25,13 +26,17 @@ use SplFileInfo;
 #[Small]
 final class DocumentedActionExamplesArePinnedTest extends TestCase
 {
-    private const string FENCE = '/^\s*```/';
+    /** The finding for a tag, given as `owner/repo@ref`. */
+    private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
+
+    /** An example reference in a tag form, which every fixture below must have reported. */
+    private const string TAG = 'o/r@v1';
 
     public function testEveryActionExampleInTheDocumentationIsPinnedToACommitWithItsReleaseBeside(): void
     {
         $problems = [];
         foreach ($this->markdownFiles() as $file) {
-            foreach (ActionPins::unpinnedLines($this->fencedText(\Safe\file_get_contents($file))) as $problem) {
+            foreach (ActionPins::unpinnedInMarkdown(\Safe\file_get_contents($file)) as $problem) {
                 $problems[] = str_replace(__DIR__ . '/../../', '', $file) . ': ' . $problem;
             }
         }
@@ -52,28 +57,66 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
 
         self::assertSame(
             ['codecov/codecov-action@v3 is not a commit SHA with its release beside it'],
-            ActionPins::unpinnedLines($this->fencedText($page)),
+            ActionPins::unpinnedInMarkdown($page),
         );
     }
 
-    /** The lines inside fenced code blocks, and nothing else. */
-    private function fencedText(string $markdown): string
+    /**
+     * Every way an example can name a tag is reported: the block is read as YAML where it is YAML, so
+     * the key can be quoted and the step written as a flow mapping, and the fence can be any of the
+     * ways markdown writes one.
+     */
+    #[DataProvider('tagsInAnyExampleShape')]
+    public function testTheGuardReportsATagWhicheverWayTheExampleWritesIt(string $page): void
     {
-        $inside = false;
-        $kept   = [];
-        foreach (explode("\n", $markdown) as $line) {
-            if (1 === \Safe\preg_match(self::FENCE, $line)) {
-                $inside = !$inside;
+        self::assertSame([\sprintf(self::NOT_PINNED, self::TAG)], ActionPins::unpinnedInMarkdown($page));
+    }
 
-                continue;
-            }
+    /** @return iterable<string, array{string}> */
+    public static function tagsInAnyExampleShape(): iterable
+    {
+        yield 'a flow mapping step' => ["```yaml\n- {uses: o/r@v1}\n```\n"];
 
-            if ($inside) {
-                $kept[] = $line;
-            }
-        }
+        yield 'a quoted key' => ["```yaml\n- 'uses': o/r@v1\n```\n"];
 
-        return implode("\n", $kept);
+        yield 'a double-quoted key' => ["```yaml\n- \"uses\": o/r@v1\n```\n"];
+
+        yield 'a quoted value' => ["```yaml\n- uses: 'o/r@v1'\n```\n"];
+
+        yield 'a mapping at the root' => ["```yaml\nuses: o/r@v1\n```\n"];
+
+        yield 'a tilde fence' => ["~~~yaml\n- uses: o/r@v1\n~~~\n"];
+
+        yield 'a fence of four backticks around one of three' => ["````markdown\n```yaml\n- uses: o/r@v1\n```\n````\n"];
+
+        yield 'a fence of four backticks holding a step' => ["````yaml\n- uses: o/r@v1\n````\n"];
+
+        yield 'an indented fence' => ["1. Add it:\n\n   ```yaml\n   - uses: o/r@v1\n   ```\n"];
+
+        yield 'a block that is not YAML' => ["```yaml\n- uses: o/r@v1\n  bad: [\n```\n"];
+
+        yield 'a fence that is never closed' => ["```yaml\n- uses: o/r@v1\n"];
+    }
+
+    /** A pinned example, a shell example that merely mentions `uses:` and prose outside a fence are not findings. */
+    public function testTheGuardPassesAPinnedExampleAndWhatIsNotAnAction(): void
+    {
+        $sha  = str_repeat('a', 40);
+        $page = "```yaml\n"
+            . \sprintf("- uses: o/r@%s # v1.2.3\n", $sha)
+            . "- {name: Local, uses: ./.github/actions/local}\n"
+            . "```\n"
+            . "\n"
+            . "```bash\n"
+            . "grep 'uses:' workflow.yml\n"
+            . "```\n"
+            . "\n"
+            . "~~~yaml\n"
+            . "- name: Say\n"
+            . "  run: echo uses o/r@v1\n"
+            . "~~~\n";
+
+        self::assertSame([], ActionPins::unpinnedInMarkdown($page));
     }
 
     /** @return list<string> */

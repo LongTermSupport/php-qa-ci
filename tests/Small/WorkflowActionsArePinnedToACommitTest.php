@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small;
 
 use LTS\PHPQA\Tests\Support\ActionPins;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\TestCase;
 use RecursiveDirectoryIterator;
@@ -118,6 +119,55 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
                 self::WORKFLOW_HEAD
                 . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
                 . \sprintf("      - {uses: some/action@%s}\n", $sha),
+            ),
+        );
+    }
+
+    /**
+     * A line in the pinned shape inside a `run:` block scalar is shell text, not a step. It must not
+     * account for a reference the YAML holds: the flow mapping beside it, naming the same commit, is
+     * still reported.
+     */
+    #[DataProvider('blockScalarIndicators')]
+    public function testAPinnedShapedLineInsideARunBlockAccountsForNothing(string $indicator): void
+    {
+        $sha = str_repeat('d', 40);
+
+        self::assertSame(
+            [$this->notPinned(self::SOME_ACTION . $sha)],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . "      - name: Say\n"
+                . \sprintf("        run: %s\n", $indicator)
+                . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+            ),
+        );
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function blockScalarIndicators(): iterable
+    {
+        yield 'literal' => ['|'];
+
+        yield 'folded' => ['>'];
+
+        yield 'literal that keeps its newlines' => ['|+'];
+    }
+
+    /** The same text in a block scalar beside a real pinned step does not hide the step's own pin. */
+    public function testARealPinnedStepStillPassesBesideARunBlockThatQuotesIt(): void
+    {
+        $sha = str_repeat('e', 40);
+
+        self::assertSame(
+            [],
+            $this->unpinned(
+                self::WORKFLOW_HEAD
+                . \sprintf("      - uses: some/action@%s # v1.2.3\n", $sha)
+                . "      - name: Say\n"
+                . "        run: |\n"
+                . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha),
             ),
         );
     }

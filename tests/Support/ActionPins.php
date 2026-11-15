@@ -21,8 +21,22 @@ final readonly class ActionPins
     /** `owner/repo[/path]@<40 hex digits>` followed by the release it is, as `# v1.2.3`. */
     private const string PINNED = '/^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\s+#\s+v\d+(\.\d+)*\s*$/';
 
+    /** The start or the end of a fenced code block in markdown. */
+    private const string FENCE = '/^\s*```/';
+
     private function __construct()
     {
+    }
+
+    /**
+     * The remote references in the fenced code blocks of a page, each that is not a commit SHA with
+     * its release beside it. Prose outside a fence is never read.
+     *
+     * @return list<string> one message per reference
+     */
+    public static function unpinnedInMarkdown(string $markdown): array
+    {
+        return self::unpinnedLines(self::fencedText($markdown));
     }
 
     /**
@@ -81,6 +95,26 @@ final readonly class ActionPins
         }
 
         return $problems;
+    }
+
+    /** The lines inside fenced code blocks, and nothing else. */
+    private static function fencedText(string $markdown): string
+    {
+        $inside = false;
+        $kept   = [];
+        foreach (explode("\n", $markdown) as $line) {
+            if (1 === \Safe\preg_match(self::FENCE, $line)) {
+                $inside = !$inside;
+
+                continue;
+            }
+
+            if ($inside) {
+                $kept[] = $line;
+            }
+        }
+
+        return implode("\n", $kept);
     }
 
     /** @return list<string> the reference on each line in the pinned shape */
