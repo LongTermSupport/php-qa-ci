@@ -73,8 +73,8 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
         $this->writeComposerJson('{}');
         $this->project->write(self::GUARD, $this->guard("return xdebug_info('mode');"));
 
-        $output = new BufferedOutput();
-        $result = new ComposerDependencyAnalyserTool()->run(RealLaneContext::over($this->project->path, true, $output));
+        $output  = new BufferedOutput();
+        $result  = new ComposerDependencyAnalyserTool()->run(RealLaneContext::over($this->project->path, true, $output));
         $printed = $output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Failed, $result->outcome, $printed);
@@ -110,7 +110,7 @@ final class ComposerDependencyAnalyserXdebugGuardTest extends TestCase
 
     private function writeComposerJson(string $requireDev): void
     {
-        $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "ext-json": "*"}, "require-dev": ' . $requireDev . ', "autoload": {"psr-4": {"Probe\\\\": "src/"}}, "autoload-dev": {"psr-4": {"Probe\\\\Tests\\\\": "tests/"}}}');
+        $this->project->write('composer.json', '{"name": "probe/probe", "type": "project", "require": {"php": "^8.5", "ext-json": "*"}, "require-dev": ' . $requireDev . ', "autoload": {"psr-4": {"Probe\\\": "src/"}}, "autoload-dev": {"psr-4": {"Probe\\\Tests\\\": "tests/"}}}');
     }
 
     private function guard(string $body): string
