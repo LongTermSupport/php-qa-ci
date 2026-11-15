@@ -61,7 +61,9 @@ final class WorkflowBaseGateDetectorTest extends TestCase
 
     private const string TARGET_GATE_NEVER_RUNS = "its up-to-date-with-base gate is conditioned on `github.event_name == 'pull_request'`, which is false on pull_request_target, so the gate never runs: drop the condition or name pull_request_target in it";
 
-    private const string GATE_AFTER_EXPENSIVE = 'job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install';
+    private const string OTHER_JOB = "  other:\n    steps:\n";
+
+    private const string GATE_AFTER_EXPENSIVE ='job "qa" runs its gate after its first expensive step; move the gate ahead of PHP setup and composer install';
 
     private WorkflowBaseGateDetector $detector;
 
@@ -139,7 +141,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function anExpensiveJobThatDoesNotNeedTheGateIsReported(): void
     {
         $yaml = self::GATE_JOB . self::GATE_STEP
-            . "  other:\n    steps:\n" . self::EXPENSIVE_STEPS;
+            . self::OTHER_JOB . self::EXPENSIVE_STEPS;
 
         self::assertSame(
             ['job "other" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
@@ -230,7 +232,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aWorkflowOnBothEventsNamesPullRequestWhenAJobDoesNotNeedTheGate(): void
     {
         $yaml = "on: [pull_request, pull_request_target]\njobs:\n  base-gate:\n    steps:\n" . self::TARGET_GATE_STEP
-            . "  other:\n    steps:\n" . self::EXPENSIVE_STEPS;
+            . self::OTHER_JOB . self::EXPENSIVE_STEPS;
 
         self::assertSame(
             ['job "other" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
@@ -254,7 +256,7 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aPullRequestTargetExpensiveJobThatDoesNotNeedTheGateIsReported(): void
     {
         $yaml = self::TARGET_GATE_JOB . self::TARGET_GATE_STEP
-            . "  other:\n    steps:\n" . self::EXPENSIVE_STEPS;
+            . self::OTHER_JOB . self::EXPENSIVE_STEPS;
 
         self::assertSame(
             ['job "other" runs on pull_request_target without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
