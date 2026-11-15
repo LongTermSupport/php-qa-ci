@@ -16,19 +16,20 @@ use Symfony\Component\Process\Process;
  * not asserting".
  *
  * AddDoesNotPerformAssertionToNonAssertingTestRector, which PHPUnitSetList::COMPOSER_BASED
- * registers for PHPUnit 6.0 and newer, follows $this->method() and self::method() into the
- * method called but not parent::method(). A test that overrides an asserting parent test to
- * attach a #[DataProvider], and whose whole body is parent::<the same method>(), is read as
- * asserting nothing and given #[DoesNotPerformAssertions]. PHPUnit then reports it risky ("This
+ * registers for PHPUnit 6.0 and newer, reads a test as asserting nothing when it neither asserts
+ * nor calls a method that does. A test that overrides an asserting parent test to attach a
+ * #[DataProvider], and whose whole body is parent::<the same method>(), asserts through its
+ * parent, and must not be given #[DoesNotPerformAssertions]: PHPUnit would report it risky ("This
  * test is not expected to perform assertions but performed N assertions"), which fails a run
- * under failOnRisky. Rector redoes the rewrite on every writable run, so a consumer cannot hold
- * the passing state.
+ * under failOnRisky, and Rector redoes the rewrite on every writable run. Rector releases before
+ * 2.8.5 did not follow parent:: calls, and rector-phpunit.php skipped the rule for them.
  *
  * The fixtures in tests/assets/rectorDoesNotPerformAssertions/ are correct as written and pass
  * PHPUnit without a risky result. rector-phpunit.php is run, writable, over a copy of them; the
- * delegating tests must come back without the attribute, and PHPUnit must still pass them.
- * Running the rule on its own over the same fixtures proves they reproduce the misfire, so a
- * clean verdict from the shipped config means the config keeps the rule out.
+ * delegating tests must come back without the attribute, and PHPUnit must still pass them. A
+ * control that really asserts nothing is run through the rule alone and through the shipped
+ * config, and must be marked by both: a rule that no longer runs, or a config that skips it,
+ * would otherwise pass the check on the delegating tests for the wrong reason.
  *
  * @internal
  */
@@ -71,26 +72,26 @@ final class ShippedPhpunitRectorKeepsParentDelegatingTestsAssertingTest extends 
     private const string CONTROL_METHOD = 'itAssertsNothingAtAll';
 
     /** The control: a test whose body asserts nothing, and which calls nothing that does. */
-    private const string CONTROL_SOURCE = <<<'PHP'
-        <?php
-
-        declare(strict_types=1);
-
-        namespace Fixture\DoesNotPerformAssertions;
-
-        use PHPUnit\Framework\Attributes\Test;
-        use PHPUnit\Framework\TestCase;
-
-        final class NoAssertionControlTest extends TestCase
+    private const string CONTROL_SOURCE = <<<'PHP_WRAP'
+    <?php
+    
+    declare(strict_types=1);
+    
+    namespace Fixture\DoesNotPerformAssertions;
+    
+    use PHPUnit\Framework\Attributes\Test;
+    use PHPUnit\Framework\TestCase;
+    
+    final class NoAssertionControlTest extends TestCase
+    {
+        #[Test]
+        public function itAssertsNothingAtAll(): void
         {
-            #[Test]
-            public function itAssertsNothingAtAll(): void
-            {
-                $value = 1 + 1;
-                unset($value);
-            }
+            $value = 1 + 1;
+            unset($value);
         }
-        PHP;
+    }
+    PHP_WRAP;
 
     /** The rule writes the attribute only when PHPUnit has it (major * 10000 + minor * 100 + patch). */
     private const int FIRST_PHPUNIT_WITH_THE_ATTRIBUTE = 100_000;

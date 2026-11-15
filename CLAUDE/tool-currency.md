@@ -63,6 +63,14 @@ an update, is often this process failing for someone, and it is acted on in the 
 4. Merge your fix through the normal gate, then run the workflow again (`gh workflow run update-deps.yml`).
    Close the issue when an update lands green.
 
+When the failing step is a test that goes red because the new release fixed something (a canary on
+a skipped rule, for example), the fix needs that release: a branch off `php8.5` still has the old
+PHAR, where the same change fails. Take that one tool by hand in the same pull request: its
+manifest bump and PHAR rebuild from "Doing it by hand", plus `php bin/changelog-release add-tool-updates`,
+with the config and test change that the release makes possible. The builds are reproducible, so
+the next update run finds the tool current; a rebuild that differs shows as a PHAR change in that
+update's pull request.
+
 A tool is held back only by the Owner's decision. Pinning an older version is a narrowing, so it is
 recorded and never made as a silent edit.
 
