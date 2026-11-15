@@ -49,6 +49,15 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
     /** A step in the pinned shape, given the commit. */
     private const string PINNED_STEP = "      - uses: some/action@%s # v1.2.3\n";
 
+    /** A step written as a flow mapping, given the commit. */
+    private const string FLOW_STEP = "      - {uses: some/action@%s}\n";
+
+    /** A step whose script is the text under it. */
+    private const string SAY_STEP = "      - name: Say\n";
+
+    /** A line in the pinned shape inside a block scalar, given the commit. */
+    private const string QUOTED_PIN = "          uses: some/action@%s # v1.2.3\n";
+
     /** The finding for a reference, given as `owner/repo@ref`. */
     private const string NOT_PINNED = '%s is not a commit SHA with its release beside it';
 
@@ -121,7 +130,7 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             $this->unpinned(
                 self::WORKFLOW_HEAD
                 . \sprintf(self::PINNED_STEP, $sha)
-                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+                . \sprintf(self::FLOW_STEP, $sha),
             ),
         );
     }
@@ -140,10 +149,10 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             [$this->notPinned(self::SOME_ACTION . $sha)],
             $this->unpinned(
                 self::WORKFLOW_HEAD
-                . "      - name: Say\n"
+                . self::SAY_STEP
                 . \sprintf("        run: %s\n", $indicator)
-                . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha)
-                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+                . \sprintf(self::QUOTED_PIN, $sha)
+                . \sprintf(self::FLOW_STEP, $sha),
             ),
         );
     }
@@ -170,11 +179,11 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             [$this->notPinned(self::SOME_ACTION . $sha)],
             $this->unpinned(
                 self::WORKFLOW_HEAD
-                . "      - name: Say\n"
+                . self::SAY_STEP
                 . "        run: >\n"
-                . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha)
+                . \sprintf(self::QUOTED_PIN, $sha)
                 . "          and then more text\n"
-                . \sprintf("      - {uses: some/action@%s}\n", $sha),
+                . \sprintf(self::FLOW_STEP, $sha),
             ),
         );
     }
@@ -189,9 +198,9 @@ final class WorkflowActionsArePinnedToACommitTest extends TestCase
             $this->unpinned(
                 self::WORKFLOW_HEAD
                 . \sprintf(self::PINNED_STEP, $sha)
-                . "      - name: Say\n"
+                . self::SAY_STEP
                 . "        run: |\n"
-                . \sprintf("          uses: some/action@%s # v1.2.3\n", $sha),
+                . \sprintf(self::QUOTED_PIN, $sha),
             ),
         );
     }

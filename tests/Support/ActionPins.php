@@ -22,7 +22,7 @@ final readonly class ActionPins
     private const string PINNED = '/^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\s+#\s+v\d+(\.\d+)*\s*$/';
 
     /** The opening of a fenced code block: any indent, then three or more backticks or tildes, then the info string. */
-    private const string FENCE_OPEN = '/^(\s*)(`{3,}|~{3,})\s*(\S*)/';
+    private const string FENCE_OPEN = '/^(\s*)(`{3,}|~{3,})\s*([A-Za-z]*)/';
 
     /** The info strings of a fence that holds YAML. */
     private const array YAML_INFO = ['yaml', 'yml'];
@@ -167,17 +167,14 @@ final readonly class ActionPins
      */
     private static function pinnedReferences(string $workflow, mixed $tree): array
     {
-        $scalarLines = self::scalarLines($tree);
-        $references  = [];
+        $scalars    = self::scalars($tree);
+        $references = [];
         foreach (explode("\n", $workflow) as $line) {
             if (1 !== \Safe\preg_match(self::PINNED, $line) || 1 !== \Safe\preg_match(self::USES, $line, $match) || !isset($match[1])) {
                 continue;
             }
 
-            $index = array_search(self::normalised($line), $scalarLines, true);
-            if (false !== $index) {
-                unset($scalarLines[$index]);
-
+            if (self::consumedByScalar(self::normalised($line), $scalars)) {
                 continue;
             }
 
@@ -187,31 +184,54 @@ final readonly class ActionPins
         return $references;
     }
 
-    /** @return list<string> every line of every string a parsed node holds, other than a `uses` value */
-    private static function scalarLines(mixed $node): array
+    /**
+     * Whether a scalar holds the text, taking one occurrence out of it so that a scalar quoting a
+     * step once accounts for one line and not for every line the same.
+     *
+     * @param list<string> $scalars
+     */
+    private static function consumedByScalar(string $text, array &$scalars): bool
+    {
+        foreach ($scalars as $index => $scalar) {
+            $at = strpos($scalar, $text);
+            if (false !== $at) {
+                $scalars[$index] = substr_replace($scalar, '', $at, \strlen($text));
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Every string a parsed node holds, other than a `uses` value. A literal block keeps its lines
+     * and a folded one joins them, so a line is looked for inside the text, not as the whole of it.
+     *
+     * @return list<string>
+     */
+    private static function scalars(mixed $node): array
     {
         if (!\is_array($node)) {
             return [];
         }
 
-        $lines = [];
+        $scalars = [];
         foreach ($node as $key => $value) {
             if (self::USES_KEY === $key) {
                 continue;
             }
 
             if (\is_string($value)) {
-                foreach (explode("\n", $value) as $line) {
-                    $lines[] = self::normalised($line);
-                }
+                $scalars[] = $value;
 
                 continue;
             }
 
-            array_push($lines, ...self::scalarLines($value));
+            array_push($scalars, ...self::scalars($value));
         }
 
-        return $lines;
+        return $scalars;
     }
 
     private static function normalised(string $line): string
