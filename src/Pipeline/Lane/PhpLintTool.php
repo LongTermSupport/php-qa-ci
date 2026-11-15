@@ -20,7 +20,9 @@ use SplFileInfo;
  * Fast parallel syntax check of every checked path, and of every path declared
  * unanalysed, via the shipped vendor-phar/parallel-lint.phar: a declaration
  * excludes PHP from style and static analysis, and it must still parse. Each
- * ignored path is passed as an --exclude, resolved against the project root.
+ * ignored path is passed as an --exclude, resolved against the project root the
+ * way every other lane reads it (IgnoredPaths: no leading `./`, no trailing slash),
+ * since parallel-lint compares an exclude with the exact path its walk yields.
  * Any non-zero exit is a lint failure.
  *
  * parallel-lint reports a file whose real path cannot be resolved (a dangling
@@ -58,12 +60,8 @@ final readonly class PhpLintTool implements ToolInterface
     public function run(ToolContext $context): ToolResultDto
     {
         $paths    = $context->config->paths;
-        $excluded = [];
-        foreach ($context->config->pathsToIgnore as $ignore) {
-            $excluded[] = $paths->projectRoot . '/' . $ignore;
-        }
-
-        $checked = [];
+        $excluded = IgnoredPaths::of($context->config)->absolute;
+        $checked  = [];
         foreach ([...$context->config->pathsToCheck, ...$this->declaredPaths($context)] as $path) {
             if (UnresolvablePath::is($path)) {
                 $context->writeln(UnresolvablePath::skipped(self::LABEL, $path, $paths->projectRoot));

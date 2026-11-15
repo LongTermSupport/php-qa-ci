@@ -55,6 +55,8 @@ final class PhpLintToolTest extends TestCase
 
     private const string ASSET_DANGLING = '/tests/Asset/Ignored.php';
 
+    private const string ASSET_DIR = '/tests/Asset';
+
     private const string SUB_DIR = 'src/a';
 
     private const string SUB_PATH = '/src/a';
@@ -104,7 +106,7 @@ final class PhpLintToolTest extends TestCase
         new PhpLintTool()->run($this->factory->context($config));
 
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/tests/Asset', self::EXCLUDE, $root . '/src/Generated', $root . self::TESTS, $root . self::SRC],
+            ['--', self::EXCLUDE, $root . self::ASSET_DIR, self::EXCLUDE, $root . '/src/Generated', $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
@@ -126,7 +128,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/tests/Asset', self::EXCLUDE, $root . '/src/Gone.PHP', $root . self::TESTS, $root . self::SRC],
+            ['--', self::EXCLUDE, $root . self::ASSET_DIR, self::EXCLUDE, $root . '/src/Gone.PHP', $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
         self::assertSame(
@@ -153,7 +155,7 @@ final class PhpLintToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/tests/Asset/', $root . self::TESTS, $root . self::SRC],
+            ['--', self::EXCLUDE, $root . self::ASSET_DIR, $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
         self::assertSame('', $this->factory->output->fetch());
@@ -351,7 +353,7 @@ final class PhpLintToolTest extends TestCase
         new PhpLintTool()->run($this->factory->context($config));
 
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/generated/', $root . self::TESTS, $root . self::SRC],
+            ['--', self::EXCLUDE, $root . '/generated', $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
@@ -372,7 +374,7 @@ final class PhpLintToolTest extends TestCase
         new PhpLintTool()->run($this->factory->context($config));
 
         self::assertSame(
-            ['--', self::EXCLUDE, $root . '/./generated', $root . self::TESTS, $root . self::SRC],
+            ['--', self::EXCLUDE, $root . '/generated', $root . self::TESTS, $root . self::SRC],
             \array_slice($this->factory->processes->lastSpec()->command, 7),
         );
     }
