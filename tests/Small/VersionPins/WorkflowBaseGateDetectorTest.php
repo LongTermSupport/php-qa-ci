@@ -92,7 +92,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     {
         $yaml = "on:\n  push:\n    branches: [main]\njobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEPS;
 
-        self::assertFalse($this->detector->runsOnPullRequest($yaml));
         self::assertSame([], $this->detector->check($yaml));
     }
 
@@ -102,12 +101,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
         $yaml = self::QA_JOB . self::EXPENSIVE_STEPS;
 
         self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($yaml));
-    }
-
-    #[Test]
-    public function aFlowStyleTriggerListIsRecognised(): void
-    {
-        self::assertTrue($this->detector->runsOnPullRequest("on: [push, pull_request]\njobs:\n  qa:\n    steps: []\n"));
     }
 
     #[Test]
@@ -174,19 +167,6 @@ final class WorkflowBaseGateDetectorTest extends TestCase
     public function aWorkflowWithoutAJobsSectionHasNothingToGate(): void
     {
         self::assertSame([], $this->detector->check("on:\n  pull_request:\n"));
-    }
-
-    #[Test]
-    public function thePullRequestAndPullRequestTargetTriggersAreToldApartByExactName(): void
-    {
-        $target = "on:\n  pull_request_target:\njobs:\n";
-        $plain  = "on:\n  pull_request:\njobs:\n";
-
-        self::assertTrue($this->detector->runsOnPullRequestTarget($target));
-        self::assertFalse($this->detector->runsOnPullRequest($target));
-        self::assertTrue($this->detector->runsOnPullRequest($plain));
-        self::assertFalse($this->detector->runsOnPullRequestTarget($plain));
-        self::assertFalse($this->detector->runsOnPullRequestTarget("on:\n  pull_request_review:\njobs:\n"));
     }
 
     #[Test]
@@ -491,6 +471,75 @@ final class WorkflowBaseGateDetectorTest extends TestCase
             . "  fix:\n    needs:\n      - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
 
         self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** YAML lets a block list's dashes sit at the key's own indentation. */
+    #[Test]
+    public function aBlockListNeedsWhoseDashesAlignWithTheKeyIsRead(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n    - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** The first line after a block list that is not a dash ends it, even at the key's indentation. */
+    #[Test]
+    public function aKeyAfterABlockListNeedsEndsTheListAndIsNotAName(): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP
+            . "  fix:\n    needs:\n    - other\n    runs-on: base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame(
+            ['job "fix" runs on pull_request without depending on the up-to-date-with-base gate; add the gate job (base-gate) to its needs'],
+            $this->detector->check($yaml),
+        );
+    }
+
+    #[Test]
+    #[DataProvider('flowNeedsListsWithATrailingComma')]
+    public function aFlowNeedsListWithATrailingCommaIsRead(string $needs): void
+    {
+        $yaml = self::GATE_JOB . self::GATE_STEP . '  fix:' . "\n    needs: " . $needs . "\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame([], $this->detector->check($yaml));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function flowNeedsListsWithATrailingComma(): Iterator
+    {
+        yield 'the gate last'          => ['[other, base-gate,]'];
+        yield 'the gate first'         => ['[base-gate, other,]'];
+        yield 'the gate alone'         => ['[base-gate,]'];
+        yield 'a space before the end' => ['[base-gate, ]'];
+    }
+
+    /** A trailing comma is valid YAML in a flow trigger and adds no event, nor makes the trigger unreadable. */
+    #[Test]
+    #[DataProvider('flowTriggersWithATrailingComma')]
+    public function aFlowTriggerWithATrailingCommaIsReadAndAskedForTheGate(string $trigger): void
+    {
+        self::assertSame([self::PULL_REQUEST_NO_GATE], $this->detector->check($trigger . self::JOBS_HEAD . self::EXPENSIVE_STEPS));
+    }
+
+    /** @return Iterator<string, array{string}> */
+    public static function flowTriggersWithATrailingComma(): Iterator
+    {
+        yield 'a list' => ["on: [push, pull_request,]\n"];
+
+        yield 'a list with a space before the end' => ["on: [pull_request, ]\n"];
+
+        yield 'a mapping' => ["on: {push: {}, pull_request: {},}\n"];
+    }
+
+    /** A file written with a lone carriage return between lines is read as the same file. */
+    #[Test]
+    public function aWorkflowWithLoneCarriageReturnLineEndingsIsReadLikeOneWithNewlines(): void
+    {
+        $workflow = self::GATE_JOB . self::GATE_STEP . "  fix:\n    needs:\n      - base-gate\n    steps:\n" . self::EXPENSIVE_STEPS;
+
+        self::assertSame($this->detector->check($workflow), $this->detector->check(str_replace("\n", "\r", $workflow)));
+        self::assertSame([], $this->detector->check(str_replace("\n", "\r", $workflow)));
     }
 
     #[Test]

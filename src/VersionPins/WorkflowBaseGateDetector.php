@@ -69,18 +69,6 @@ final readonly class WorkflowBaseGateDetector
     ) {
     }
 
-    /** Whether the workflow runs on pull_request at all. */
-    public function runsOnPullRequest(string $workflowYaml): bool
-    {
-        return \in_array(self::EVENT_PULL_REQUEST, $this->events($workflowYaml) ?? [], true);
-    }
-
-    /** Whether the workflow runs on pull_request_target at all. */
-    public function runsOnPullRequestTarget(string $workflowYaml): bool
-    {
-        return \in_array(self::EVENT_PULL_REQUEST_TARGET, $this->events($workflowYaml) ?? [], true);
-    }
-
     /**
      * @param string $workflowYaml a workflow file's contents
      *
@@ -143,12 +131,6 @@ final readonly class WorkflowBaseGateDetector
         }
 
         return $problems;
-    }
-
-    /** @return list<string>|null */
-    private function events(string $workflowYaml): ?array
-    {
-        return $this->triggers->events($this->text->withoutComments($workflowYaml));
     }
 
     /**
