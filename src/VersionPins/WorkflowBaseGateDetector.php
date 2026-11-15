@@ -27,7 +27,9 @@ namespace LTS\PHPQA\VersionPins;
  * is read for the shape of its jobs, not evaluated. It is read after its
  * comments are removed (a comment is not the thing it names), and its trigger
  * is read in every valid shape by {@see WorkflowTriggerReader}. A trigger that
- * cannot be reduced to event names is reported, never passed.
+ * cannot be reduced to event names is reported, never passed, and so is a
+ * workflow on either event whose jobs cannot be found: a `jobs` key that is
+ * missing, empty, a flow mapping, an alias or anchored.
  *
  * @internal
  */
@@ -47,7 +49,9 @@ final readonly class WorkflowBaseGateDetector
 
     private const string UNREADABLE_TRIGGER = 'its `on` trigger is written in a shape this check cannot read, so whether it runs on pull_request or pull_request_target is unknown: write it as a scalar (`on: pull_request`), a list (`on: [push, pull_request]` or a block list) or a mapping (`on:` then `  pull_request:`), without an anchor, an alias or a merge key';
 
-    private const string JOBS_KEY = '/^(?:jobs|"jobs"|\'jobs\'):$/';
+    private const string UNREADABLE_JOBS = 'its `jobs` key is missing, empty or written in a shape this check cannot read, so whether its jobs are gated is unknown: write `jobs:` on a line of its own, then each job id as an indented key, without a flow mapping, an anchor or an alias';
+
+    private const string JOBS_KEY ='/^(?:jobs|"jobs"|\'jobs\'):$/';
 
     private const string JOB_HEADER = '/^(?:"[A-Za-z0-9_-]+"|\'[A-Za-z0-9_-]+\'|[A-Za-z0-9_-]+):$/';
 
@@ -74,7 +78,8 @@ final readonly class WorkflowBaseGateDetector
      *
      * @return list<string> one message per defect; empty when the workflow runs
      *                      on neither pull_request nor pull_request_target, or
-     *                      gates every expensive job
+     *                      gates every expensive job. A trigger or a `jobs` key
+     *                      this check cannot read is a defect, not a pass.
      */
     public function check(string $workflowYaml): array
     {
@@ -92,7 +97,7 @@ final readonly class WorkflowBaseGateDetector
 
         $jobs = $this->jobs($text);
         if ([] === $jobs) {
-            return [];
+            return [self::UNREADABLE_JOBS];
         }
 
         $gates   = array_values(array_filter($jobs, $this->hasGate(...)));

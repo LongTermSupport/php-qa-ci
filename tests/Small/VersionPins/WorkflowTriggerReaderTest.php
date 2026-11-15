@@ -95,6 +95,22 @@ final class WorkflowTriggerReaderTest extends TestCase
 
         yield 'a scalar with a space in it' => ["on: push pull_request\n", null];
 
+        yield 'a null written as a tilde' => ["on: ~\n", null];
+
+        yield 'a null written out' => ["on: null\n", null];
+
+        yield 'a null written capitalised' => ["on: Null\n", null];
+
+        yield 'a null written in capitals' => ["on: NULL\n", null];
+
+        yield 'a block list item written as a mapping' => ["on:\n  - pull_request:\n", null];
+
+        yield 'a flow list item written as a mapping' => ["on: [push, pull_request:]\n", null];
+
+        yield 'a quoted name that ends in a colon is one name' => ["on: ['pull_request:']\n", ['pull_request:']];
+
+        yield 'a block list item with a quoted colon is one name' => ["on:\n  - 'a: b'\n", ['a: b']];
+
         yield 'a longer key that starts with on' => ["online: yes\n", null];
     }
 }

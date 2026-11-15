@@ -11,8 +11,9 @@ namespace LTS\PHPQA\VersionPins;
  * the key itself quoted.
  *
  * Only the first level under `on` names events: a branch called `pull_request` under `push` is not
- * one. A trigger the reader cannot reduce to names (an alias, an anchor, a tag, a merge key, no `on`
- * key, nothing under it) is not guessed at: the result is null, and the caller reports it.
+ * one. A trigger the reader cannot reduce to names (an alias, an anchor, a tag, a merge key, a null,
+ * a list item written as a mapping, no `on` key, nothing under it) is not guessed at: the result is
+ * null, and the caller reports it.
  *
  * Takes text that {@see WorkflowYamlText::withoutComments()} has already cleaned.
  *
@@ -28,6 +29,9 @@ final readonly class WorkflowTriggerReader
 
     /** The YAML merge key: it pulls in names from elsewhere that this reader cannot see. */
     private const string MERGE_KEY = '<<';
+
+    /** The spellings of a YAML null: an `on` that is one names no event. */
+    private const array NULLS = ['~', 'null', 'Null', 'NULL'];
 
     public function __construct(private WorkflowYamlText $text = new WorkflowYamlText())
     {
@@ -64,7 +68,7 @@ final readonly class WorkflowTriggerReader
             return $this->flowEvents($rest . "\n" . implode("\n", $following));
         }
 
-        if (str_contains(self::NOT_A_NAME, $rest[0]) || 1 === \Safe\preg_match('/\s/', $this->text->unquote($rest))) {
+        if (\in_array($rest, self::NULLS, true) || str_contains(self::NOT_A_NAME, $rest[0]) || 1 === \Safe\preg_match('/\s/', $this->text->unquote($rest))) {
             return null;
         }
 
@@ -81,7 +85,7 @@ final readonly class WorkflowTriggerReader
 
         $names = [];
         foreach ($this->text->flowItems($balanced) as $item) {
-            $name = '[' === $balanced[0] ? $item : $this->keyOf($item);
+            $name = '[' === $balanced[0] ? $this->plainItem($item) : $this->keyOf($item);
             if (null === $name || !$this->isAName($this->text->unquote($name))) {
                 return null;
             }
@@ -140,14 +144,20 @@ final readonly class WorkflowTriggerReader
         return $names;
     }
 
-    /** What follows the dash of a block list item, or null when the line is not one. */
+    /** What follows the dash of a block list item, or null when the line is not one or the item is a mapping. */
     private function listItem(string $line): ?string
     {
         if (!str_starts_with($line, '-')) {
             return null;
         }
 
-        return trim(substr($line, 1));
+        return $this->plainItem(trim(substr($line, 1)));
+    }
+
+    /** A list item as written, or null when it is a `key: value` entry, which names no event. */
+    private function plainItem(string $item): ?string
+    {
+        return null === $this->keyOf($item) ? $item : null;
     }
 
     /** The key of a `key: value` entry, quoted or not, or null when the text has no key. */

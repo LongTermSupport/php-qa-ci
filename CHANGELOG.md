@@ -79,6 +79,17 @@ the release and its tag. The full rules are in
   first run after the update; a `pull_request_target` workflow that installs and runs nothing is not
   affected. The page gives the gate that fits the event: it fetches the pull request head and does
   not check it out. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
+- `versionPins` now reports a workflow on `pull_request` or `pull_request_target` whose `jobs` it
+  cannot read, and a trigger written as a null or as a list item that is a mapping (issue #477). A
+  `jobs` key that is missing, empty, a flow mapping (`jobs: {qa: {...}}`), an alias or an anchored
+  mapping yielded no jobs, so the check returned no finding and the workflow passed with no
+  up-to-date-with-base gate, the same way an unreadable trigger used to. A trigger written
+  `on: ~`, `on: null` or `- pull_request:` was read as naming no event and passed likewise; GitHub
+  rejects those, so nothing ran unguarded, but the check no longer passes what it cannot read. A
+  workflow in one of these shapes, including one with no `jobs:` at all, now fails `bin/qa` on its
+  first run after the update: write `jobs:` on a line of its own with each job id as an indented
+  key, and the trigger as a scalar, a list or a mapping. See
+  [docs/tools/versionPins.md](docs/tools/versionPins.md).
 
 ### Added
 
