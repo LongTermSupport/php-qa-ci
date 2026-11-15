@@ -594,6 +594,16 @@ final class CooldownPolicyCheckerTest extends TestCase
         self::assertCount(4, $report->problems);
     }
 
+    /** The installed Composer is the first thing the report says: nothing in the file matters if the cooldown cannot apply. */
+    #[Test]
+    public function theComposerVersionFindingComesBeforeTheFindingsOfThePolicy(): void
+    {
+        $report = $this->inspect(self::withCooldown(['block' => false]), 'Composer version 2.10.0 2026-01-01');
+
+        self::assertStringContainsString('Composer 2.10.0 is older than 2.11', $report->problems[0]);
+        self::assertStringNotContainsString('Composer 2.10.0 is older than 2.11', $report->problems[1]);
+    }
+
     /**
      * @return array<string, mixed>
      */

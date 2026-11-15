@@ -75,6 +75,19 @@ final class GitProjectFilesTest extends TestCase
         self::assertSame(['a.php', 'tools/a/composer.json'], $files);
     }
 
+    /** The result is a list: a file dropped from the middle leaves no gap in the keys. */
+    #[Test]
+    public function aFileDroppedFromTheMiddleLeavesAListWithNoGapInItsKeys(): void
+    {
+        $this->factory->project->write('a.php', '');
+        $this->factory->project->write('tools/a/composer.json', '{}');
+        $this->factory->processes->willSucceed("a.php\0gone.php\0tools/a/composer.json\0");
+
+        $files = new GitProjectFiles()->files($this->factory->context());
+
+        self::assertSame(['a.php', 'tools/a/composer.json'], $files);
+    }
+
     #[Test]
     public function aDirectoryGitNamesIsNotAFile(): void
     {
