@@ -85,7 +85,7 @@ final readonly class WorkflowTriggerReader
 
         $names = [];
         foreach ($this->text->flowItems($balanced) as $item) {
-            $name = '[' === $balanced[0] ? $this->plainItem($item) : $this->keyOf($item);
+            $name = '[' === $balanced[0] ? $this->plainItem($item) : ($this->keyOf($item) ?? $item);
             if (null === $name || !$this->isAName($this->text->unquote($name))) {
                 return null;
             }
