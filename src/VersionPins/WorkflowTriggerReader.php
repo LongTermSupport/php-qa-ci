@@ -37,6 +37,12 @@ final readonly class WorkflowTriggerReader
     {
     }
 
+    /** How many times the `on` key is written at the start of a line. */
+    public function occurrences(string $workflow): int
+    {
+        return \count(array_filter(explode("\n", $workflow), static fn (string $line): bool => 1 === \Safe\preg_match(self::ON_KEY, $line)));
+    }
+
     /**
      * @return list<string>|null the event names, in order; null when the trigger cannot be read
      */

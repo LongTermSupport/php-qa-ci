@@ -57,7 +57,12 @@ is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEA
   job the check cannot read would be passed without being judged, so the workflow is reported
   rather than passed; write `jobs:` on a line of its own, then each job id alone on a line as an
   indented key. Spaces or a tab before a key's colon (`jobs :`, `qa :`, `on :`, `needs :`, `uses :`) are
-  the same key and are read.
+  the same key and are read;
+- a workflow that writes the `on` key twice, a `pull_request` or `pull_request_target` workflow that
+  writes the `jobs` key twice (the second with a value on its line or not), or one in which two jobs
+  share an id. GitHub rejects the file, and
+  YAML parsers disagree on which copy applies, so judging the first would pass the second unread;
+  the finding names the key or the id. Keep one.
 
 Fix it by adding the gate step right after the checkout (which needs `fetch-depth: 0`), or a
 `base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and
