@@ -196,8 +196,8 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
     {
         try {
             ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n", 'docs/some-page.md');
-        } catch (ParseException $e) {
-            self::assertStringContainsString('docs/some-page.md', $e->getMessage());
+        } catch (ParseException $parseException) {
+            self::assertStringContainsString('docs/some-page.md', $parseException->getMessage());
 
             return;
         }
