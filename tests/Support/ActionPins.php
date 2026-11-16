@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Support;
 
+use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -15,8 +16,14 @@ use Symfony\Component\Yaml\Yaml;
  */
 final readonly class ActionPins
 {
-    /** `uses: <reference>`, the reference being everything up to a comment or the end of the line. */
-    private const string USES = '/^\s*-?\s*uses:\s*([^\s#]+)/';
+    /** `uses: <reference>`, the key plain or quoted, the reference being everything up to a comment, a quote or the end of the line. */
+    private const string USES = '/^\s*-?\s*["\']?uses["\']?\s*:\s*["\']?([^\s#"\']+)/';
+
+    /** A `uses` entry of a flow mapping (`{... uses: owner/repo@ref ...}`), the key and the value plain or quoted. */
+    private const string FLOW_USES = '/[{,]\s*["\']?uses["\']?\s*:\s*["\']?([A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[^\s,"\'}\]]+)/';
+
+    /** What a line of a blockquote starts with: up to three spaces, then one marker per level of quoting. */
+    private const string QUOTE_PREFIX = '/^(\s{0,3}(?:>[ ]?)+)/';
 
     /** `owner/repo[/path]@<40 hex digits>` followed by the release it is, as `# v1.2.3`. */
     private const string PINNED = '/^\s*-?\s*uses:\s*[A-Za-z0-9_.-]+\/[A-Za-z0-9_.\/-]+@[0-9a-f]{40}\s+#\s+v\d+(\.\d+)*\s*$/';
@@ -39,30 +46,40 @@ final readonly class ActionPins
      * its release beside it. Prose outside a fence is never read.
      *
      * A fence tagged `yaml` or `yml` is read as YAML, so a step written as a flow mapping or with
-     * quoted keys is found, and one that is not valid YAML throws `ParseException`: an example a
-     * reader copies should parse. Any other fence (a shell example, a markdown example holding a
-     * fence) is read line by line.
+     * quoted keys is found, and one that is not valid YAML throws `ParseException` naming `$source`:
+     * an example a reader copies should parse. Any other fence (a shell example, a markdown example
+     * holding a fence) is read line by line, which finds a step on a line of its own and a flow
+     * mapping that names a remote action.
+     *
+     * @param string $source what the failure for a fence that does not parse calls the page
      *
      * @return list<string> one message per reference
      */
-    public static function unpinnedInMarkdown(string $markdown): array
+    public static function unpinnedInMarkdown(string $markdown, string $source = 'the page'): array
     {
         $problems = [];
         foreach (self::fencedBlocks($markdown) as $block) {
-            array_push(
-                $problems,
-                ...(\in_array($block['info'], self::YAML_INFO, true)
-                    ? self::unpinnedInWorkflow($block['text'])
-                    : self::unpinnedLines($block['text'])),
-            );
+            if (!\in_array($block['info'], self::YAML_INFO, true)) {
+                array_push($problems, ...self::unpinnedLines($block['text']));
+
+                continue;
+            }
+
+            try {
+                array_push($problems, ...self::unpinnedInWorkflow($block['text']));
+            } catch (ParseException $e) {
+                throw new ParseException($source . ': a fence tagged yaml does not parse: ' . $e->getMessage(), previous: $e);
+            }
         }
 
         return $problems;
     }
 
     /**
-     * The remote references on lines that start with `uses:`, each that is not a commit SHA with its
-     * release beside it.
+     * The remote references in the text, each that is not a commit SHA with its release beside it:
+     * those on lines that start with `uses:` (the key plain or quoted), and every `uses` entry of a
+     * flow mapping that names a remote action, which is reported whatever it names, since the
+     * pinned shape is a block line with the release beside it.
      *
      * @return list<string> one message per reference
      */
@@ -70,16 +87,12 @@ final readonly class ActionPins
     {
         $problems = [];
         foreach (explode("\n", $text) as $line) {
-            if (1 !== \Safe\preg_match(self::USES, $line, $match) || !isset($match[1])) {
-                continue;
-            }
-
-            if (str_starts_with($match[1], './')) {
-                continue;
-            }
-
-            if (1 !== \Safe\preg_match(self::PINNED, $line)) {
+            if (1 === \Safe\preg_match(self::USES, $line, $match) && isset($match[1]) && !str_starts_with($match[1], './') && 1 !== \Safe\preg_match(self::PINNED, $line)) {
                 $problems[] = self::message($match[1]);
+            }
+
+            foreach (self::flowReferences($line) as $reference) {
+                $problems[] = self::message($reference);
             }
         }
 
@@ -123,7 +136,9 @@ final readonly class ActionPins
      * Each fenced code block, with the first word of its info string and its text, and nothing
      * else. A fence closes on a line of the same character at least as long as the one that opened
      * it, so a fence of four backticks holds one of three; a fence never closed runs to the end of
-     * the page. The indent a fence opens at is taken off the lines inside it.
+     * the page. The indent a fence opens at is taken off the lines inside it. A fence opened inside
+     * a blockquote has the quote markers taken off its lines and ends at the first line that is
+     * not quoted.
      *
      * @return list<array{info: string, text: string}>
      */
@@ -131,15 +146,22 @@ final readonly class ActionPins
     {
         $blocks = [];
         $open   = null;
-        foreach (explode("\n", $markdown) as $line) {
+        foreach (explode("\n", $markdown) as $raw) {
+            [$line, $quoted] = self::withoutQuote($raw);
+            if (null !== $open && $open['quoted'] && !$quoted) {
+                $blocks[] = ['info' => $open['info'], 'text' => implode("\n", $open['lines'])];
+                $open     = null;
+            }
+
             if (null === $open) {
                 if (1 === \Safe\preg_match(self::FENCE_OPEN, $line, $match) && isset($match[1], $match[2], $match[3])) {
-                    $open = ['char' => $match[2][0], 'length' => \strlen($match[2]), 'indent' => $match[1], 'info' => strtolower($match[3]), 'lines' => []];
+                    $open = ['char' => $match[2][0], 'length' => \strlen($match[2]), 'indent' => $match[1], 'info' => strtolower($match[3]), 'quoted' => $quoted, 'lines' => []];
                 }
 
                 continue;
             }
 
+            $line    = $open['quoted'] ? $line : $raw;
             $trimmed = trim($line);
             if (\strlen($trimmed) >= $open['length'] && '' === trim($trimmed, $open['char'])) {
                 $blocks[] = ['info' => $open['info'], 'text' => implode("\n", $open['lines'])];
@@ -156,6 +178,39 @@ final readonly class ActionPins
         }
 
         return $blocks;
+    }
+
+    /** @return list<string> the remote reference of each `uses` entry of a flow mapping on the line */
+    private static function flowReferences(string $line): array
+    {
+        $references = [];
+        $matches    = [];
+        \Safe\preg_match_all(self::FLOW_USES, $line, $matches);
+        if (!\is_array($matches) || !isset($matches[1]) || !\is_array($matches[1])) {
+            return $references;
+        }
+
+        foreach ($matches[1] as $reference) {
+            if (\is_string($reference)) {
+                $references[] = $reference;
+            }
+        }
+
+        return $references;
+    }
+
+    /**
+     * The line with its blockquote markers taken off, and whether it had any.
+     *
+     * @return array{string, bool}
+     */
+    private static function withoutQuote(string $line): array
+    {
+        if (1 === \Safe\preg_match(self::QUOTE_PREFIX, $line, $match) && isset($match[1])) {
+            return [substr($line, \strlen($match[1])), true];
+        }
+
+        return [$line, false];
     }
 
     /**
