@@ -61,12 +61,6 @@ final readonly class GitSandbox
         $this->git(self::COMMIT, '--cleanup=verbatim', '-m', $message);
     }
 
-    private function stage(string $path, string $contents): void
-    {
-        $this->root->write(self::WORK . $path, $contents);
-        $this->git('add', '-A');
-    }
-
     public function git(string ...$args): string
     {
         return $this->run($this->work, ...$args);
@@ -102,6 +96,12 @@ final readonly class GitSandbox
             'GIT_COMMITTER_NAME'  => 'Sandbox',
             'GIT_COMMITTER_EMAIL' => 'sandbox@example.invalid',
         ];
+    }
+
+    private function stage(string $path, string $contents): void
+    {
+        $this->root->write(self::WORK . $path, $contents);
+        $this->git('add', '-A');
     }
 
     private function run(string $cwd, string ...$args): string

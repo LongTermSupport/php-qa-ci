@@ -25,7 +25,6 @@ final readonly class ChangelogGit
     /** The git subcommand that reads commits and their messages. */
     private const string LOG = 'log';
 
-
     public function __construct(private ProcessRunnerInterface $processes, private string $projectRoot)
     {
     }
