@@ -205,6 +205,14 @@ final class ChangelogGitTest extends TestCase
     }
 
     #[Test]
+    public function aMessageWithNoNewlineIsAllSubjectAndHasNoBody(): void
+    {
+        $this->processes->willSucceed("sha1\0Changelog: none — x y\0\0");
+
+        self::assertSame('', $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
     public function theBodyKeepsTheRestOfTheSubjectParagraphAndDropsOnlyTheSubjectLine(): void
     {
         $this->processes->willSucceed("sha1\0Changelog: tidy the entry\nChangelog: none — x y\n\0\0");
