@@ -218,6 +218,22 @@ final class ChangelogGitTest extends TestCase
     }
 
     #[Test]
+    public function aCarriageReturnLineIsBlankAndAOneCharacterSubjectIsStillTheSubject(): void
+    {
+        $this->processes->willSucceed("sha1\0\r\n\nx\nChangelog: none — x y\n\0\0");
+
+        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    public function aLineOfOnlyAVerticalTabIsTheSubjectBecauseGitDoesNotSkipIt(): void
+    {
+        $this->processes->willSucceed("sha1\0\x0B\nChangelog: none — x y\n\0\0");
+
+        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
     public function aMessageOfNothingButBlankLinesHasNoBody(): void
     {
         $this->processes->willSucceed("sha1\0\n\n \n\0\0");

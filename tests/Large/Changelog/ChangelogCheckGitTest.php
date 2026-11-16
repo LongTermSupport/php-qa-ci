@@ -161,6 +161,20 @@ final class ChangelogCheckGitTest extends TestCase
         yield 'two blank lines' => ["\n\n"];
 
         yield 'a line of spaces and a line of a tab' => ["  \n\t\n"];
+
+        yield 'a carriage-return line' => ["\r\n"];
+    }
+
+    #[Test]
+    public function aLineOfOnlyAVerticalTabIsGitsSubjectSoTheChangelogLineUnderItIsStillReported(): void
+    {
+        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// vertical tab subject\n", "\x0B\nChangelog: file the entry for the fix\n\nBody text\n");
+        $commit = $this->head();
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: file the entry for the fix', $problem);
     }
 
     #[Test]
