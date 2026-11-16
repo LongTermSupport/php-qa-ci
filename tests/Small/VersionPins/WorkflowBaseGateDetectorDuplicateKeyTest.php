@@ -29,6 +29,10 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
 {
     private const string TWICE = 'more than once';
 
+    private const string PULL_REQUEST = 'pull_request';
+
+    private const string JOBS_LINE = "jobs:\n";
+
     private const string GATE_STEP = "      - env:\n          BASE_REF: \${{ github.event.pull_request.base.ref }}\n        run: git merge-base --is-ancestor \"origin/\${BASE_REF}\" \"\${HEAD_SHA}\"\n";
 
     private const string EXPENSIVE_STEP = "      - run: composer install\n";
@@ -45,8 +49,8 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[DataProvider('pullRequestEvents')]
     public function aSecondJobsKeyIsReportedWhateverOrderTheJobsComeIn(string $event): void
     {
-        $gatedFirst   = $this->head($event) . 'jobs:' . "\n" . self::GATE_JOB . self::GATED_JOB . "jobs:\n" . self::GATELESS_JOB;
-        $gatelessFirst = $this->head($event) . "jobs:\n" . self::GATELESS_JOB . "jobs:\n" . self::GATE_JOB . self::GATED_JOB;
+        $gatedFirst   = $this->head($event) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . self::JOBS_LINE . self::GATELESS_JOB;
+        $gatelessFirst = $this->head($event) . self::JOBS_LINE . self::GATELESS_JOB . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB;
 
         foreach ([$gatedFirst, $gatelessFirst] as $yaml) {
             $findings = $this->check($yaml);
@@ -60,7 +64,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function aSecondQuotedJobsKeyIsReportedToo(): void
     {
-        $yaml = $this->head('pull_request') . "jobs:\n" . self::GATE_JOB . self::GATED_JOB . "\"jobs\" :\n" . self::GATELESS_JOB;
+        $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . "\"jobs\" :\n" . self::GATELESS_JOB;
 
         $findings = $this->check($yaml);
 
@@ -71,7 +75,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     /** @return iterable<string, array{string}> */
     public static function pullRequestEvents(): iterable
     {
-        yield 'pull_request' => ['pull_request'];
+        yield self::PULL_REQUEST => [self::PULL_REQUEST];
 
         yield 'pull_request_target' => ['pull_request_target'];
     }
@@ -80,7 +84,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[DataProvider('twoOnKeys')]
     public function aSecondOnKeyIsReportedWhicheverTriggerComesFirst(string $on): void
     {
-        $findings = $this->check($on . "jobs:\n" . self::GATE_JOB . self::GATED_JOB);
+        $findings = $this->check($on . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB);
 
         self::assertCount(1, $findings);
         self::assertStringContainsString(self::TWICE, $findings[0]);
@@ -100,7 +104,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function aSecondGateJobWithTheSameIdIsReported(): void
     {
-        $yaml = $this->head('pull_request') . "jobs:\n" . self::GATE_JOB . "  base-gate:\n    steps:\n      - run: echo again\n" . self::GATED_JOB;
+        $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . self::GATE_JOB . "  base-gate:\n    steps:\n      - run: echo again\n" . self::GATED_JOB;
 
         $findings = $this->check($yaml);
 
@@ -112,7 +116,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function aGatelessJobWrittenTwiceIsReportedByItsId(): void
     {
-        $yaml = $this->head('pull_request') . "jobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEP . "  qa:\n    steps:\n" . self::EXPENSIVE_STEP;
+        $yaml = $this->head(self::PULL_REQUEST) . "jobs:\n  qa:\n    steps:\n" . self::EXPENSIVE_STEP . "  qa:\n    steps:\n" . self::EXPENSIVE_STEP;
 
         $findings = $this->check($yaml);
 
@@ -124,7 +128,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function aJobsKeyThatIsOnlyTextInsideARunBlockIsNotASecondKey(): void
     {
-        $yaml = $this->head('pull_request') . "jobs:\n" . self::GATE_JOB . self::GATED_JOB . "      - run: |\n          jobs:\n          on:\n";
+        $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . "      - run: |\n          jobs:\n          on:\n";
 
         self::assertSame([], $this->check($yaml));
     }
@@ -132,7 +136,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function aJobsKeyThatIsOnlyACommentIsNotASecondKey(): void
     {
-        $yaml = $this->head('pull_request') . "# jobs:\njobs:\n" . self::GATE_JOB . self::GATED_JOB;
+        $yaml = $this->head(self::PULL_REQUEST) . "# jobs:\njobs:\n" . self::GATE_JOB . self::GATED_JOB;
 
         self::assertSame([], $this->check($yaml));
     }
@@ -140,7 +144,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function aSecondJobsKeyInAWorkflowThatIsNotOnAPullRequestIsNotReported(): void
     {
-        $yaml = "on:\n  push:\njobs:\n" . self::GATELESS_JOB . "jobs:\n" . self::GATELESS_JOB;
+        $yaml = "on:\n  push:\njobs:\n" . self::GATELESS_JOB . self::JOBS_LINE . self::GATELESS_JOB;
 
         self::assertSame([], $this->check($yaml));
     }
@@ -148,7 +152,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[Test]
     public function twoDifferentJobIdsAreNotADuplicate(): void
     {
-        $yaml = $this->head('pull_request') . "jobs:\n" . self::GATE_JOB . self::GATED_JOB;
+        $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB;
 
         self::assertSame([], $this->check($yaml));
     }

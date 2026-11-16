@@ -30,7 +30,9 @@ namespace LTS\PHPQA\VersionPins;
  * cannot be reduced to event names is reported, never passed, and so is a
  * workflow on either event whose jobs cannot be found: a `jobs` key that is
  * missing, empty, a flow mapping, an alias or anchored. A key written with spaces or a tab before
- * its colon (`jobs :`, `qa :`, `needs :`) is the same key and is read.
+ * its colon (`jobs :`, `qa :`, `needs :`) is the same key and is read. An `on` key, a `jobs` key or a
+ * job id written twice is reported by name: GitHub rejects it and YAML parsers disagree on which
+ * copy applies, so judging the first would pass the second unread.
  *
  * @internal
  */
@@ -51,6 +53,14 @@ final readonly class WorkflowBaseGateDetector
     private const string UNREADABLE_TRIGGER = 'its `on` trigger is written in a shape this check cannot read, so whether it runs on pull_request or pull_request_target is unknown: write it as a scalar (`on: pull_request`), a list (`on: [push, pull_request]` or a block list) or a mapping (`on:` then `  pull_request:`), without an anchor, an alias or a merge key';
 
     private const string UNREADABLE_JOBS = 'its `jobs` key is missing, empty or written in a shape this check cannot read, so whether its jobs are gated is unknown: write `jobs:` on a line of its own, then each job id as an indented key, without a flow mapping, an anchor or an alias';
+
+    private const string DUPLICATE_KEY = 'its `%s` key is written more than once, which GitHub rejects and YAML parsers read differently, so which copy applies is unknown: keep one';
+
+    private const string DUPLICATE_JOB = 'the job id "%s" is written more than once under `jobs`, which GitHub rejects and YAML parsers read differently, so which copy applies is unknown: give each job its own id';
+
+    private const string KEY_ON = 'on';
+
+    private const string KEY_JOBS = 'jobs';
 
     private const string JOBS_KEY = '/^(?:jobs|"jobs"|\'jobs\')[ \t]*:$/';
 
@@ -84,7 +94,11 @@ final readonly class WorkflowBaseGateDetector
      */
     public function check(string $workflowYaml): array
     {
-        $text   = $this->text->withoutComments($workflowYaml);
+        $text = $this->text->withoutComments($workflowYaml);
+        if ($this->triggers->occurrences($text) > 1) {
+            return [\sprintf(self::DUPLICATE_KEY, self::KEY_ON)];
+        }
+
         $events = $this->triggers->events($text);
         if (null === $events) {
             return [self::UNREADABLE_TRIGGER];
@@ -96,9 +110,18 @@ final readonly class WorkflowBaseGateDetector
             return [];
         }
 
+        if ($this->jobsKeyCount($text) > 1) {
+            return [\sprintf(self::DUPLICATE_KEY, self::KEY_JOBS)];
+        }
+
         $jobs = $this->jobs($text);
         if ([] === $jobs) {
             return [self::UNREADABLE_JOBS];
+        }
+
+        $repeated = $this->firstRepeatedId(...$jobs);
+        if (null !== $repeated) {
+            return [\sprintf(self::DUPLICATE_JOB, $repeated)];
         }
 
         $gates   = array_values(array_filter($jobs, $this->hasGate(...)));
@@ -137,6 +160,31 @@ final readonly class WorkflowBaseGateDetector
         }
 
         return $problems;
+    }
+
+    /** How many times the `jobs` key is written at the start of a line. */
+    private function jobsKeyCount(string $text): int
+    {
+        return \count(array_filter(explode("\n", $text), static fn (string $line): bool => 1 === \Safe\preg_match(self::JOBS_KEY, $line)));
+    }
+
+    /**
+     * The first job id that two jobs share.
+     *
+     * @param array{id: string, body: string, indent: int} ...$jobs
+     */
+    private function firstRepeatedId(array ...$jobs): ?string
+    {
+        $seen = [];
+        foreach ($jobs as $job) {
+            if (\in_array($job['id'], $seen, true)) {
+                return $job['id'];
+            }
+
+            $seen[] = $job['id'];
+        }
+
+        return null;
     }
 
     /**

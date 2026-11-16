@@ -27,6 +27,13 @@ the release and its tag. The full rules are in
 
 ### Changed — breaking
 
+- The base-gate check now reports a workflow that writes the `on` key twice, a `pull_request` or
+  `pull_request_target` workflow that writes the `jobs` key twice, or one in which two jobs share
+  an id (issue #499). GitHub rejects such a file and YAML parsers disagree on which copy applies,
+  so the check judged the first copy and passed the second unread: a gateless job under a second
+  `jobs:` key, or under the second of two jobs with the gate job's id, was never reported. The
+  finding names the key or the id, and a workflow that has one fails `bin/qa` on its first run
+  after the update; keep one copy. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
 - The base-gate check now reads a job's `uses :` key written with spaces or a tab before the colon
   (issue #499). It was read as no `uses`, so a job that calls a reusable workflow was taken for a
   cheap job and passed without being judged; it is now judged like any other call, so a `pull_request`
