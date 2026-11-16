@@ -70,6 +70,51 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     }
 
     #[Test]
+    #[DataProvider('secondJobsKeysWithAValue')]
+    public function aSecondJobsKeyThatHasAValueOnItsOwnLineIsReportedToo(string $second): void
+    {
+        $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . $second;
+
+        $findings = $this->check($yaml);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::TWICE, $findings[0]);
+        self::assertStringContainsString('`jobs`', $findings[0]);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function secondJobsKeysWithAValue(): iterable
+    {
+        yield 'a flow mapping' => ["jobs: {deploy: {steps: [{run: composer install}]}}\n"];
+
+        yield 'an empty flow mapping' => ["jobs: {}\n"];
+
+        yield 'an anchored block' => ["jobs: &second\n  deploy:\n    steps:\n" . self::EXPENSIVE_STEP];
+
+        yield 'an alias' => ["jobs: *second\n"];
+
+        yield 'a spaced key with a flow mapping' => ["jobs : {deploy: {}}\n"];
+    }
+
+    #[Test]
+    public function aSecondOnKeyIsReportedEvenWhenTheFirstTriggerCannotBeRead(): void
+    {
+        $findings = $this->check("on: *trigger\non:\n  pull_request:\njobs:\n" . self::GATE_JOB . self::GATED_JOB);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::TWICE, $findings[0]);
+        self::assertStringContainsString('`on`', $findings[0]);
+    }
+
+    #[Test]
+    public function jobIdsThatOnlyLookEqualAsNumbersAreNotADuplicate(): void
+    {
+        $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . "  1:\n    steps:\n" . self::GATE_STEP . "  01:\n    needs: [1]\n    steps:\n" . self::EXPENSIVE_STEP;
+
+        self::assertSame([], $this->check($yaml));
+    }
+
+    #[Test]
     public function aSecondQuotedJobsKeyIsReportedToo(): void
     {
         $yaml = $this->head(self::PULL_REQUEST) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . "\"jobs\" :\n" . self::GATELESS_JOB;
