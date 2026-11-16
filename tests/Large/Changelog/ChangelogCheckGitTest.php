@@ -52,6 +52,8 @@ final class ChangelogCheckGitTest extends TestCase
 
     private const string TIDY_TESTS = 'Tidy the tests';
 
+    private const string ONE_MISPLACED = '1 "Changelog:" line in the range is not a commit trailer';
+
     private const string CO_AUTHOR ='Co-Authored-By: Sandbox <sandbox@example.invalid>';
 
     private GitSandbox $sandbox;
@@ -139,7 +141,7 @@ final class ChangelogCheckGitTest extends TestCase
 
         $problem = $this->onlyProblem();
 
-        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString(self::ONE_MISPLACED, $problem);
         self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, in the subject paragraph', $problem);
         self::assertStringNotContainsString('file the entry', $problem);
     }
@@ -173,7 +175,7 @@ final class ChangelogCheckGitTest extends TestCase
 
         $problem = $this->onlyProblem();
 
-        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString(self::ONE_MISPLACED, $problem);
         self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: file the entry for the fix', $problem);
     }
 
@@ -185,7 +187,7 @@ final class ChangelogCheckGitTest extends TestCase
 
         $problem = $this->onlyProblem();
 
-        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString(self::ONE_MISPLACED, $problem);
         self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, under the real subject', $problem);
         self::assertStringNotContainsString('Tidy the tests', $problem);
     }

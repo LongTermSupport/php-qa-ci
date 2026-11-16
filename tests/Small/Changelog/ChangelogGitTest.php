@@ -34,6 +34,8 @@ final class ChangelogGitTest extends TestCase
 
     private const string CHANGELOG_FILE = 'CHANGELOG.md';
 
+    private const string NONE_LINE = "Changelog: none — x y\n";
+
     private FakeProcessRunner $processes;
 
     private ChangelogGit $git;
@@ -192,7 +194,7 @@ final class ChangelogGitTest extends TestCase
 
         self::assertSame(
             [
-                ['commit' => 'sha1', 'body' => "\nBody one\n", 'trailers' => "Changelog: none — x y\n"],
+                ['commit' => 'sha1', 'body' => "\nBody one\n", 'trailers' => self::NONE_LINE],
                 ['commit' => 'sha2', 'body' => '', 'trailers' => ''],
                 ['commit' => 'sha3', 'body' => '', 'trailers' => ''],
             ],
@@ -206,7 +208,7 @@ final class ChangelogGitTest extends TestCase
     {
         $this->processes->willSucceed("sha1\0Changelog: tidy the entry\nChangelog: none — x y\n\0\0");
 
-        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
     }
 
     #[Test]
@@ -222,7 +224,7 @@ final class ChangelogGitTest extends TestCase
     {
         $this->processes->willSucceed("sha1\0\r\n\nx\nChangelog: none — x y\n\0\0");
 
-        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
     }
 
     #[Test]
@@ -230,7 +232,7 @@ final class ChangelogGitTest extends TestCase
     {
         $this->processes->willSucceed("sha1\0\x0B\nChangelog: none — x y\n\0\0");
 
-        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
     }
 
     #[Test]
