@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Tests\Support\FakeProcessRunner;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -228,11 +229,28 @@ final class ChangelogGitTest extends TestCase
     }
 
     #[Test]
-    public function aLineOfOnlyAVerticalTabIsTheSubjectBecauseGitDoesNotSkipIt(): void
+    public function aOneCharacterSubjectAfterASingleBlankLineIsNotEatenBySkippingTheBlankLine(): void
     {
-        $this->processes->willSucceed("sha1\0\x0B\nChangelog: none — x y\n\0\0");
+        $this->processes->willSucceed("sha1\0\nx\nChangelog: none — x y\n\0\0");
 
         self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    #[DataProvider('linesGitDoesNotSkip')]
+    public function aLineOfOnlyOtherWhitespaceIsTheSubjectBecauseGitDoesNotSkipIt(string $line): void
+    {
+        $this->processes->willSucceed("sha1\0" . $line . "\nChangelog: none — x y\n\0\0");
+
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function linesGitDoesNotSkip(): iterable
+    {
+        yield 'a vertical tab' => ["\x0B"];
+
+        yield 'a form feed' => ["\f"];
     }
 
     #[Test]

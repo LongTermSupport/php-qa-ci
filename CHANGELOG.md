@@ -156,8 +156,9 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
-- The misplaced-`Changelog:` check no longer reports a commit whose message begins with blank lines
-  (issue #254). Such a message, built by hand (`git commit-tree`, `--cleanup=verbatim`), has its
+- The misplaced-`Changelog:` check no longer reports the subject of a commit whose message begins
+  with blank lines as a misplaced trailer (issue #254). Such a message, built by hand
+  (`git commit-tree`, `--cleanup=verbatim`), has its
   subject on its first line with text, where git reads it; the check took the empty first line for
   the subject and judged the real subject as a misplaced trailer, so a subject such as
   `Changelog: file the entry` failed the lane. A `Changelog:` line directly under that subject is

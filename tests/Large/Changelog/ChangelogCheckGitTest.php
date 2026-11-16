@@ -168,15 +168,24 @@ final class ChangelogCheckGitTest extends TestCase
     }
 
     #[Test]
-    public function aLineOfOnlyAVerticalTabIsGitsSubjectSoTheChangelogLineUnderItIsStillReported(): void
+    #[DataProvider('linesGitDoesNotSkip')]
+    public function aLineOfOnlyOtherWhitespaceIsGitsSubjectSoTheChangelogLineUnderItIsStillReported(string $line): void
     {
-        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// vertical tab subject\n", "\x0B\nChangelog: file the entry for the fix\n\nBody text\n");
+        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// other whitespace subject\n", $line . "\nChangelog: file the entry for the fix\n\nBody text\n");
         $commit = $this->head();
 
         $problem = $this->onlyProblem();
 
         self::assertStringContainsString(self::ONE_MISPLACED, $problem);
         self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: file the entry for the fix', $problem);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function linesGitDoesNotSkip(): iterable
+    {
+        yield 'a vertical tab' => ["\x0B"];
+
+        yield 'a form feed' => ["\f"];
     }
 
     #[Test]
