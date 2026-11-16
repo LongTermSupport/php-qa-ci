@@ -205,6 +205,6 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     /** @return list<string> */
     private function check(string $yaml): array
     {
-        return (new WorkflowBaseGateDetector())->check($yaml);
+        return new WorkflowBaseGateDetector()->check($yaml);
     }
 }
