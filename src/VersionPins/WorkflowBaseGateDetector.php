@@ -64,6 +64,8 @@ final readonly class WorkflowBaseGateDetector
 
     private const string JOBS_KEY = '/^(?:jobs|"jobs"|\'jobs\')[ \t]*:$/';
 
+    private const string JOBS_KEY_WITH_VALUE = '/^(?:jobs|"jobs"|\'jobs\')[ \t]*:(?:[ \t].*)?$/';
+
     private const string JOB_HEADER = '/^(?:"[A-Za-z0-9_-]+"|\'[A-Za-z0-9_-]+\'|[A-Za-z0-9_-]+)[ \t]*:$/';
 
     private const string NEEDS_LINE = '/^needs[ \t]*:(.*)$/';
@@ -162,10 +164,10 @@ final readonly class WorkflowBaseGateDetector
         return $problems;
     }
 
-    /** How many times the `jobs` key is written at the start of a line. */
+    /** How many times the `jobs` key is written at the start of a line, with or without a value after the colon. */
     private function jobsKeyCount(string $text): int
     {
-        return \count(array_filter(explode("\n", $text), static fn (string $line): bool => 1 === \Safe\preg_match(self::JOBS_KEY, $line)));
+        return \count(array_filter(explode("\n", $text), static fn (string $line): bool => 1 === \Safe\preg_match(self::JOBS_KEY_WITH_VALUE, $line)));
     }
 
     /**

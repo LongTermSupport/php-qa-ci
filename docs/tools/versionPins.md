@@ -59,7 +59,8 @@ is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEA
   indented key. Spaces or a tab before a key's colon (`jobs :`, `qa :`, `on :`, `needs :`, `uses :`) are
   the same key and are read;
 - a workflow that writes the `on` key twice, a `pull_request` or `pull_request_target` workflow that
-  writes the `jobs` key twice, or one in which two jobs share an id. GitHub rejects the file, and
+  writes the `jobs` key twice (the second with a value on its line or not), or one in which two jobs
+  share an id. GitHub rejects the file, and
   YAML parsers disagree on which copy applies, so judging the first would pass the second unread;
   the finding names the key or the id. Keep one.
 
