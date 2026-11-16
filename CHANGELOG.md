@@ -142,15 +142,14 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
-- The base-gate check now reads a key written with spaces before its colon (issue #499). `jobs :`,
+- The base-gate check now reads a key written with spaces or a tab before its colon (issue #499). `jobs :`,
   a job id written `qa :`, `on :`, and a job's `needs :` and `uses :` are the same keys as without
   the space, and valid YAML that GitHub accepts. `jobs :` and `qa :` were reported as an
   unreadable `jobs` key and `on :` as an unreadable trigger, which asked for a change the file did
   not need; `needs :` was read as no needs and `uses :` as no reusable-workflow call, so a job
   could be reported as not depending on the gate, or a reusable call pass unjudged. A workflow
   written that way is now judged by the real rule: one with a gateless job moves from the
-  unreadable finding to the no-gate finding, and a gated one stops being reported. A tab before
-  the colon is not valid YAML and stays unreadable. See
+  unreadable finding to the no-gate finding, and a gated one stops being reported. See
   [docs/tools/versionPins.md](docs/tools/versionPins.md).
 - `bin/changelog-release add-entry` and `add-tool-updates` no longer break a tight list of entries
   (issue #490). They put a blank line before the entry they added, so a heading whose entries were

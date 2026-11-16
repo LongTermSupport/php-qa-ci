@@ -193,6 +193,25 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     }
 
     #[Test]
+    public function aKeyThatMerelyEndsInNeedsIsNotTheNeedsKey(): void
+    {
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  qa:\n    env-needs : [base-gate]\n" . self::STEPS_OF_QA;
+
+        $findings = $this->check($yaml);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::NOT_DEPENDING, $findings[0]);
+    }
+
+    #[Test]
+    public function aKeyThatMerelyEndsInUsesIsNotAReusableWorkflowCall(): void
+    {
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  tidy:\n    reuses : ./not-a-call\n";
+
+        self::assertSame([], $this->check($yaml));
+    }
+
+    #[Test]
     public function aUsesKeyInsideARunBlockIsNotAReusableWorkflowCall(): void
     {
         $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  tidy:\n    steps:\n      - run: |\n          uses : ./not-a-call\n";
