@@ -33,6 +33,10 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
 
     private const string A_TAB = 'a tab';
 
+    private const string UNREADABLE_JOBS = 'its `jobs` key';
+
+    private const string GATE_HEAD_WITHOUT_JOBS = "on:\n  pull_request:\n";
+
     private const string PLAIN_ON = 'on:';
 
     private const string PLAIN_JOBS = 'jobs:';
@@ -190,6 +194,46 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
         $yaml = "on:\n  pull_request:\njobs:\n  base-gate :\n    if : github.event_name == 'pull_request'\n    steps :\n" . self::GATE_STEP . "  qa :\n    needs : [base-gate]\n    steps :\n" . self::EXPENSIVE_STEP;
 
         self::assertSame([], $this->check($yaml));
+    }
+
+    #[Test]
+    public function aKeyThatMerelyEndsInJobsIsNotTheJobsKey(): void
+    {
+        $yaml = "on:\n  pull_request:\nenv:\n  x-jobs :\n    a: b\njobs:\n  qa:\n" . self::STEPS_OF_QA;
+
+        $findings = $this->check($yaml);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::NO_GATE, $findings[0]);
+    }
+
+    #[Test]
+    public function aKeyThatMerelyEndsInOnIsNotTheOnKey(): void
+    {
+        $yaml = "fallon : y\non:\n  pull_request:\njobs:\n  qa:\n" . self::STEPS_OF_QA;
+
+        $findings = $this->check($yaml);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::NO_GATE, $findings[0]);
+    }
+
+    #[Test]
+    #[DataProvider('idsThatAreNotJobIds')]
+    public function aKeyThatIsNotAJobIdStaysUnreadable(string $header): void
+    {
+        $findings = $this->check(self::GATE_HEAD_WITHOUT_JOBS . "jobs:\n" . $header . self::STEPS_OF_QA);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::UNREADABLE_JOBS, $findings[0]);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function idsThatAreNotJobIds(): iterable
+    {
+        yield 'a key with spaces in it' => ["  my job :\n"];
+
+        yield 'a dotted id' => ["  qa.x :\n"];
     }
 
     #[Test]
