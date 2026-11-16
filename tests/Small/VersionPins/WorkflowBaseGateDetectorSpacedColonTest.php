@@ -31,7 +31,7 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
 
     private const string NOT_DEPENDING = 'without depending on the up-to-date-with-base gate';
 
-    private const string UNREADABLE_JOBS = 'its `jobs` key';
+    private const string A_TAB = 'a tab';
 
     private const string PLAIN_ON = 'on:';
 
@@ -88,6 +88,8 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
         yield 'every key quoted and spaced' => ['"on" :', '"jobs" :', '"qa" :'];
 
         yield 'every key single-quoted and spaced' => ["'on' :", "'jobs' :", "'qa' :"];
+
+        yield self::A_TAB => ["on\t:", "jobs\t:", "qa\t:"];
     }
 
     #[Test]
@@ -114,6 +116,8 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
         yield 'a mapping' => ["on :\n  pull_request:\n"];
 
         yield 'a mapping whose event key is spaced too' => ["on :\n  pull_request :\n"];
+
+        yield self::A_TAB => ["on\t: pull_request\n"];
     }
 
     #[Test]
@@ -135,6 +139,8 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
         yield 'a block list' => ["    needs :\n      - base-gate\n"];
 
         yield self::SEVERAL_SPACES => ["    needs   : base-gate\n"];
+
+        yield self::A_TAB => ["    needs\t: base-gate\n"];
     }
 
     #[Test]
@@ -166,6 +172,8 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
         yield 'a space' => ["    uses : ./.github/workflows/qa.yml\n"];
 
         yield self::SEVERAL_SPACES => ["    uses   : ./.github/workflows/qa.yml\n"];
+
+        yield self::A_TAB => ["    uses\t: ./.github/workflows/qa.yml\n"];
     }
 
     #[Test]
@@ -185,21 +193,22 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     }
 
     #[Test]
-    #[DataProvider('tabBeforeTheColon')]
-    public function aTabBeforeAColonIsNotValidYamlAndStaysUnreadable(string $jobs): void
+    public function aUsesKeyInsideARunBlockIsNotAReusableWorkflowCall(): void
     {
-        $findings = $this->check("on:\n  pull_request:\n" . $jobs . self::STEPS_OF_QA);
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  tidy:\n    steps:\n      - run: |\n          uses : ./not-a-call\n";
 
-        self::assertCount(1, $findings);
-        self::assertStringContainsString(self::UNREADABLE_JOBS, $findings[0]);
+        self::assertSame([], $this->check($yaml));
     }
 
-    /** @return iterable<string, array{string}> */
-    public static function tabBeforeTheColon(): iterable
+    #[Test]
+    public function aNeedsKeyNestedBelowTheJobsOwnKeysIsNotTheJobsNeeds(): void
     {
-        yield 'the jobs key' => ["jobs\t:\n  qa:\n"];
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  qa:\n    steps:\n      - name: x\n        with:\n          needs : [base-gate]\n" . self::EXPENSIVE_STEP;
 
-        yield 'the job id' => ["jobs:\n  qa\t:\n"];
+        $findings = $this->check($yaml);
+
+        self::assertCount(1, $findings);
+        self::assertStringContainsString(self::NOT_DEPENDING, $findings[0]);
     }
 
     /** @return list<string> */
