@@ -51,6 +51,14 @@ final readonly class GitSandbox
         $this->git('commit', '-m', $message, ...array_merge(...array_map(static fn (string $paragraph): array => ['-m', $paragraph], array_values($paragraphs))));
     }
 
+    /** Write a file in the work clone and commit it with $message exactly as given, so it can start with blank lines, which `commit -m` strips. */
+    public function commitVerbatim(string $path, string $contents, string $message): void
+    {
+        $this->root->write('work/' . $path, $contents);
+        $this->git('add', '-A');
+        $this->git('commit', '--cleanup=verbatim', '-m', $message);
+    }
+
     public function git(string ...$args): string
     {
         return $this->run($this->work, ...$args);
