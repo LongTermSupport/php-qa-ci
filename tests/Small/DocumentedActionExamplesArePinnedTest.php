@@ -114,6 +114,66 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
         yield 'a fence with no info string, read by line' => ["```\n- uses: o/r@v1\n  bad: [\n```\n"];
 
         yield 'a fence of another language, read by line' => ["```text\n- uses: o/r@v1\n  bad: [\n```\n"];
+
+        yield 'a flow mapping in a fence with no info string' => ["```\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'a flow mapping in a text fence' => ["```text\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'a flow mapping in a yaml fence nested in a markdown fence' => ["````markdown\n```yaml\n- {uses: o/r@v1}\n```\n````\n"];
+
+        yield 'a flow mapping in a fence whose info string is {.yaml}' => ["```{.yaml}\n- {uses: o/r@v1}\n```\n"];
+
+        yield 'a flow mapping with other keys and a nested mapping' => ["```\n- {name: x, uses: o/r@v1, with: {a: b}}\n```\n"];
+
+        yield 'a flow mapping with a quoted key and value' => ["```\n- {\"uses\": \"o/r@v1\"}\n```\n"];
+
+        yield 'a flow mapping with a spaced key' => ["```\n- {uses : o/r@v1}\n```\n"];
+
+        yield 'a quoted block key in a fence with no info string' => ["```\n- \"uses\": o/r@v1\n```\n"];
+
+        yield 'a quoted block key in a text fence' => ["```text\n- 'uses': o/r@v1\n```\n"];
+
+        yield 'a yaml fence inside a blockquote' => ["> ```yaml\n> - uses: o/r@v1\n> ```\n"];
+
+        yield 'a fence inside a nested blockquote' => ["> > ```text\n> > - {uses: o/r@v1}\n> > ```\n"];
+
+        yield 'a blockquoted fence with no space after the marker' => [">```yaml\n>- uses: o/r@v1\n>```\n"];
+    }
+
+    /** A flow-form step is reported whether or not it is a commit: the pinned shape is a block line with the release beside it. */
+    public function testAFlowMappingStepNamingACommitIsReportedToo(): void
+    {
+        $sha = str_repeat('a', 40);
+
+        self::assertSame(
+            [\sprintf(self::NOT_PINNED, 'o/r@' . $sha)],
+            ActionPins::unpinnedInMarkdown(\sprintf("```\n- {uses: o/r@%s}\n```\n", $sha)),
+        );
+    }
+
+    /** What reads like a flow mapping or a `uses` key but names no remote action is not a finding. */
+    #[DataProvider('textThatIsNotAnAction')]
+    public function testTheGuardPassesShellTextAndLocalActionsInAFence(string $page): void
+    {
+        self::assertSame([], ActionPins::unpinnedInMarkdown($page));
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function textThatIsNotAnAction(): iterable
+    {
+        yield 'a grep for the key' => ["```bash\ngrep 'uses:' workflow.yml\n```\n"];
+
+        yield 'an echo of a flow mapping with no reference' => ["```\necho \"{uses: nothing}\"\n```\n"];
+
+        yield 'a local action in a flow mapping' => ["```\n- {uses: ./local}\n```\n"];
+
+        yield 'a flow mapping holding a command that mentions a reference' => ["```\n- {run: echo uses o/r@v1}\n```\n"];
+
+        yield 'a reference with no uses key in a flow mapping' => ["```\n- {name: o/r@v1}\n```\n"];
+
+        yield 'a blockquoted shell fence' => ["> ```bash\n> grep 'uses:' workflow.yml\n> ```\n"];
+
+        yield 'a redirect inside a fence that is not quoted' => ["```bash\n> out.txt\n```\n\nuses: o/r@v1\n"];
     }
 
     /** An example tagged yaml that is not YAML is a defect in the page: a reader cannot copy it. */
@@ -122,6 +182,15 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
         $this->expectException(ParseException::class);
 
         ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n");
+    }
+
+    /** The failure names the page, so a reader of the failing run knows which file to open. */
+    public function testTheFailureForAnUnparsableExampleNamesThePage(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('docs/some-page.md');
+
+        ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n", 'docs/some-page.md');
     }
 
     /** A pinned example, a shell example that merely mentions `uses:` and prose outside a fence are not findings. */
