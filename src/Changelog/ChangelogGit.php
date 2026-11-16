@@ -25,6 +25,7 @@ final readonly class ChangelogGit
     /** The git subcommand that reads commits and their messages. */
     private const string LOG = 'log';
 
+
     public function __construct(private ProcessRunnerInterface $processes, private string $projectRoot)
     {
     }
@@ -108,8 +109,9 @@ final readonly class ChangelogGit
     /**
      * Every commit in $base..HEAD: its sha, its body and the `Changelog`
      * trailers git reads from it, unfolded, one per line. The body is the
-     * whole message less its first line, the subject: the rest of the first
-     * paragraph is kept, since a line there is no trailer either.
+     * whole message less its subject, which is its first line with text (git
+     * skips the blank lines a hand-built commit can begin with): the rest of the
+     * first paragraph is kept, since a line there is no trailer either.
      *
      * @return list<array{commit: string, body: string, trailers: string}>
      */
@@ -127,12 +129,23 @@ final readonly class ChangelogGit
 
         $messages = [];
         foreach (array_chunk($fields, 3) as [$commit, $message, $trailers]) {
+            $message    = $this->withoutLeadingBlankLines($message);
             $subjectEnd = strpos($message, "\n");
             $body       = false === $subjectEnd ? '' : substr($message, $subjectEnd + 1);
             $messages[] = ['commit' => $commit, 'body' => $body, 'trailers' => $trailers];
         }
 
         return $messages;
+    }
+
+    /** The message from its first line with text: git skips the lines before a subject that are empty or only spaces and tabs. */
+    private function withoutLeadingBlankLines(string $message): string
+    {
+        while (false !== ($end = strpos($message, "\n")) && '' === trim(substr($message, 0, $end))) {
+            $message = substr($message, $end + 1);
+        }
+
+        return $message;
     }
 
     /**

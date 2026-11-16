@@ -82,7 +82,9 @@ The section ends at the next `##` heading. Released sections below it are not ch
    judged, and so is a line inside a fenced code block in the body: git reads neither as a
    trailer, so a message that quotes the trailer as an example indents it. An indented line, a
    line with the key mid-line and the subject line itself are prose and are not judged; a subject
-   such as `Changelog: file the entry` stays prose. On a branch or in a pull
+   such as `Changelog: file the entry` stays prose. The subject is the first line with text, as
+   git reports it, so a hand-built message that begins with blank lines has its subject judged
+   the same way. On a branch or in a pull
    request build each such line fails the lane; on the default branch, measured since the last
    release tag, they are listed in the report and do not fail it, because history already merged
    is not rewritten.

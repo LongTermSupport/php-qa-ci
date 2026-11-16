@@ -17,6 +17,10 @@ final readonly class GitSandbox
 {
     public const string DEFAULT_BRANCH = 'php8.5';
 
+    private const string WORK = 'work/';
+
+    private const string COMMIT = 'commit';
+
     private function __construct(public TempDir $root, public string $origin, public string $work)
     {
     }
@@ -46,17 +50,21 @@ final readonly class GitSandbox
     /** Write a file in the work clone and commit it; each of $paragraphs is a further commit-message paragraph (the last one is where git reads trailers). */
     public function commit(string $path, string $contents, string $message = 'Change', string ...$paragraphs): void
     {
-        $this->root->write('work/' . $path, $contents);
-        $this->git('add', '-A');
-        $this->git('commit', '-m', $message, ...array_merge(...array_map(static fn (string $paragraph): array => ['-m', $paragraph], array_values($paragraphs))));
+        $this->stage($path, $contents);
+        $this->git(self::COMMIT, '-m', $message, ...array_merge(...array_map(static fn (string $paragraph): array => ['-m', $paragraph], array_values($paragraphs))));
     }
 
     /** Write a file in the work clone and commit it with $message exactly as given, so it can start with blank lines, which `commit -m` strips. */
     public function commitVerbatim(string $path, string $contents, string $message): void
     {
-        $this->root->write('work/' . $path, $contents);
+        $this->stage($path, $contents);
+        $this->git(self::COMMIT, '--cleanup=verbatim', '-m', $message);
+    }
+
+    private function stage(string $path, string $contents): void
+    {
+        $this->root->write(self::WORK . $path, $contents);
         $this->git('add', '-A');
-        $this->git('commit', '--cleanup=verbatim', '-m', $message);
     }
 
     public function git(string ...$args): string
@@ -66,7 +74,7 @@ final readonly class GitSandbox
 
     public function read(string $path): string
     {
-        return $this->root->read('work/' . $path);
+        return $this->root->read(self::WORK . $path);
     }
 
     public function remove(): void
