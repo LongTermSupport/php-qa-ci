@@ -40,8 +40,9 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
     {
         $problems = [];
         foreach ($this->markdownFiles() as $file) {
-            foreach (ActionPins::unpinnedInMarkdown(\Safe\file_get_contents($file)) as $problem) {
-                $problems[] = str_replace(__DIR__ . '/../../', '', $file) . ': ' . $problem;
+            $page = str_replace(__DIR__ . '/../../', '', $file);
+            foreach (ActionPins::unpinnedInMarkdown(\Safe\file_get_contents($file), $page) as $problem) {
+                $problems[] = $page . ': ' . $problem;
             }
         }
 
@@ -174,6 +175,12 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
         yield 'a blockquoted shell fence' => ["> ```bash\n> grep 'uses:' workflow.yml\n> ```\n"];
 
         yield 'a redirect inside a fence that is not quoted' => ["```bash\n> out.txt\n```\n\nuses: o/r@v1\n"];
+
+        yield 'a quoted-looking line inside a fence that is not quoted' => ["```text\n> uses: o/r@v1\n```\n"];
+
+        yield 'prose after a blockquoted fence that was never closed' => ["> ```bash\n> echo hi\n\nuses: o/r@v1\n"];
+
+        yield 'a step in prose right after a blockquoted fence closed' => ["> ```yaml\n> - name: x\n> ```\nuses: o/r@v1\n"];
     }
 
     /** An example tagged yaml that is not YAML is a defect in the page: a reader cannot copy it. */
@@ -187,10 +194,15 @@ final class DocumentedActionExamplesArePinnedTest extends TestCase
     /** The failure names the page, so a reader of the failing run knows which file to open. */
     public function testTheFailureForAnUnparsableExampleNamesThePage(): void
     {
-        $this->expectException(ParseException::class);
-        $this->expectExceptionMessage('docs/some-page.md');
+        try {
+            ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n", 'docs/some-page.md');
+        } catch (ParseException $e) {
+            self::assertStringContainsString('docs/some-page.md', $e->getMessage());
 
-        ActionPins::unpinnedInMarkdown("```yaml\n- uses: o/r@v1\n  bad: [\n```\n", 'docs/some-page.md');
+            return;
+        }
+
+        self::fail('A yaml fence that does not parse must throw ParseException.');
     }
 
     /** A pinned example, a shell example that merely mentions `uses:` and prose outside a fence are not findings. */
