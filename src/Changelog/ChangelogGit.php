@@ -25,6 +25,9 @@ final readonly class ChangelogGit
     /** The git subcommand that reads commits and their messages. */
     private const string LOG = 'log';
 
+    /** The characters a line may hold and still be blank to git when it looks for a message's subject. */
+    private const string BLANK = " \t\r";
+
     public function __construct(private ProcessRunnerInterface $processes, private string $projectRoot)
     {
     }
@@ -137,10 +140,10 @@ final readonly class ChangelogGit
         return $messages;
     }
 
-    /** The message from its first line with text: git skips the lines before a subject that are empty or only spaces and tabs. */
+    /** The message from its first line with text: git skips the lines before a subject that are empty or only spaces, tabs and carriage returns (not the vertical tab or NUL that trim() strips by default). */
     private function withoutLeadingBlankLines(string $message): string
     {
-        while (false !== ($end = strpos($message, "\n")) && '' === trim(substr($message, 0, $end))) {
+        while (false !== ($end = strpos($message, "\n")) && '' === trim(substr($message, 0, $end), self::BLANK)) {
             $message = substr($message, $end + 1);
         }
 
