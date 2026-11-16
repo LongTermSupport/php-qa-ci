@@ -10,6 +10,7 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Tests\Support\FakeProcessRunner;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -33,6 +34,8 @@ final class ChangelogGitTest extends TestCase
     private const string REMOTE_BRANCH = 'origin/php8.5';
 
     private const string CHANGELOG_FILE = 'CHANGELOG.md';
+
+    private const string NONE_LINE = "Changelog: none — x y\n";
 
     private FakeProcessRunner $processes;
 
@@ -192,7 +195,7 @@ final class ChangelogGitTest extends TestCase
 
         self::assertSame(
             [
-                ['commit' => 'sha1', 'body' => "\nBody one\n", 'trailers' => "Changelog: none — x y\n"],
+                ['commit' => 'sha1', 'body' => "\nBody one\n", 'trailers' => self::NONE_LINE],
                 ['commit' => 'sha2', 'body' => '', 'trailers' => ''],
                 ['commit' => 'sha3', 'body' => '', 'trailers' => ''],
             ],
@@ -206,7 +209,56 @@ final class ChangelogGitTest extends TestCase
     {
         $this->processes->willSucceed("sha1\0Changelog: tidy the entry\nChangelog: none — x y\n\0\0");
 
-        self::assertSame("Changelog: none — x y\n", $this->git->messages(self::BASE)[0]['body']);
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    public function leadingBlankLinesAreNotTheSubjectGitSkipsThemToTheFirstLineWithText(): void
+    {
+        $this->processes->willSucceed("sha1\0\n \t\nChangelog: tidy the entry\nChangelog: none — x y\n\nBody\n\0\0");
+
+        self::assertSame("Changelog: none — x y\n\nBody\n", $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    public function aCarriageReturnLineIsBlankAndAOneCharacterSubjectIsStillTheSubject(): void
+    {
+        $this->processes->willSucceed("sha1\0\r\n\nx\nChangelog: none — x y\n\0\0");
+
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    public function aOneCharacterSubjectAfterASingleBlankLineIsNotEatenBySkippingTheBlankLine(): void
+    {
+        $this->processes->willSucceed("sha1\0\nx\nChangelog: none — x y\n\0\0");
+
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    #[Test]
+    #[DataProvider('linesGitDoesNotSkip')]
+    public function aLineOfOnlyOtherWhitespaceIsTheSubjectBecauseGitDoesNotSkipIt(string $line): void
+    {
+        $this->processes->willSucceed("sha1\0" . $line . "\nChangelog: none — x y\n\0\0");
+
+        self::assertSame(self::NONE_LINE, $this->git->messages(self::BASE)[0]['body']);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function linesGitDoesNotSkip(): iterable
+    {
+        yield 'a vertical tab' => ["\x0B"];
+
+        yield 'a form feed' => ["\f"];
+    }
+
+    #[Test]
+    public function aMessageOfNothingButBlankLinesHasNoBody(): void
+    {
+        $this->processes->willSucceed("sha1\0\n\n \n\0\0");
+
+        self::assertSame('', $this->git->messages(self::BASE)[0]['body']);
     }
 
     #[Test]

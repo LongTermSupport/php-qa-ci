@@ -14,6 +14,7 @@ use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Tests\Support\GitSandbox;
 use PHPUnit\Framework\Attributes\CoversNothing;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Large;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -50,6 +51,8 @@ final class ChangelogCheckGitTest extends TestCase
     private const string TEST_FILE = 'tests/ATest.php';
 
     private const string TIDY_TESTS = 'Tidy the tests';
+
+    private const string ONE_MISPLACED = '1 "Changelog:" line in the range is not a commit trailer';
 
     private const string CO_AUTHOR ='Co-Authored-By: Sandbox <sandbox@example.invalid>';
 
@@ -138,9 +141,72 @@ final class ChangelogCheckGitTest extends TestCase
 
         $problem = $this->onlyProblem();
 
-        self::assertStringContainsString('1 "Changelog:" line in the range is not a commit trailer', $problem);
+        self::assertStringContainsString(self::ONE_MISPLACED, $problem);
         self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, in the subject paragraph', $problem);
         self::assertStringNotContainsString('file the entry', $problem);
+    }
+
+    #[Test]
+    #[DataProvider('leadingBlankLines')]
+    public function aMessageThatBeginsWithBlankLinesHasTheSubjectGitReports(string $leading): void
+    {
+        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// leading blank\n", $leading . "Changelog: file the entry for the fix\n\nBody text\n");
+
+        self::assertSame([], $this->check()->problems);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function leadingBlankLines(): iterable
+    {
+        yield 'one blank line' => ["\n"];
+
+        yield 'two blank lines' => ["\n\n"];
+
+        yield 'a line of spaces and a line of a tab' => ["  \n\t\n"];
+
+        yield 'a carriage-return line' => ["\r\n"];
+    }
+
+    #[Test]
+    #[DataProvider('linesGitDoesNotSkip')]
+    public function aLineOfOnlyOtherWhitespaceIsGitsSubjectSoTheChangelogLineUnderItIsStillReported(string $line): void
+    {
+        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// other whitespace subject\n", $line . "\nChangelog: file the entry for the fix\n\nBody text\n");
+        $commit = $this->head();
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString(self::ONE_MISPLACED, $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: file the entry for the fix', $problem);
+    }
+
+    /** @return iterable<string, array{string}> */
+    public static function linesGitDoesNotSkip(): iterable
+    {
+        yield 'a vertical tab' => ["\x0B"];
+
+        yield 'a form feed' => ["\f"];
+    }
+
+    #[Test]
+    public function aChangelogLineUnderGitsRealSubjectIsStillReportedAfterLeadingBlankLines(): void
+    {
+        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// leading blank, misplaced\n", "\n\nTidy the tests\nChangelog: none — tests only, under the real subject\n\nBody text\n");
+        $commit = $this->head();
+
+        $problem = $this->onlyProblem();
+
+        self::assertStringContainsString(self::ONE_MISPLACED, $problem);
+        self::assertStringContainsString('    ' . substr($commit, 0, 12) . ' Changelog: none — tests only, under the real subject', $problem);
+        self::assertStringNotContainsString('Tidy the tests', $problem);
+    }
+
+    #[Test]
+    public function aTrailerAfterLeadingBlankLinesIsATrailer(): void
+    {
+        $this->sandbox->commitVerbatim(self::TEST_FILE, "<?php\n// leading blank, placed\n", "\nTidy the tests\n\nChangelog: none — tests only, placed\n");
+
+        self::assertSame([], $this->check()->problems);
     }
 
     #[Test]

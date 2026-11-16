@@ -156,6 +156,13 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- The misplaced-`Changelog:` check no longer reports the subject of a commit whose message begins
+  with blank lines as a misplaced trailer (issue #254). Such a message, built by hand
+  (`git commit-tree`, `--cleanup=verbatim`), has its
+  subject on its first line with text, where git reads it; the check took the empty first line for
+  the subject and judged the real subject as a misplaced trailer, so a subject such as
+  `Changelog: file the entry` failed the lane. A `Changelog:` line directly under that subject is
+  still reported. See [docs/tools/changelog.md](docs/tools/changelog.md).
 - The base-gate check now reads a key written with spaces or a tab before its colon (issue #499).
   `jobs :`, a job id written `qa :`, `on :`, and a job's `needs :` and `uses :` are the same keys
   as without the space, and valid YAML. `jobs :` and `qa :` were reported as an unreadable `jobs`
