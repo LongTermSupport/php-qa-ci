@@ -49,7 +49,7 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
     #[DataProvider('pullRequestEvents')]
     public function aSecondJobsKeyIsReportedWhateverOrderTheJobsComeIn(string $event): void
     {
-        $gatedFirst   = $this->head($event) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . self::JOBS_LINE . self::GATELESS_JOB;
+        $gatedFirst    = $this->head($event) . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB . self::JOBS_LINE . self::GATELESS_JOB;
         $gatelessFirst = $this->head($event) . self::JOBS_LINE . self::GATELESS_JOB . self::JOBS_LINE . self::GATE_JOB . self::GATED_JOB;
 
         foreach ([$gatedFirst, $gatelessFirst] as $yaml) {
@@ -61,6 +61,14 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
         }
     }
 
+    /** @return iterable<string, array{string}> */
+    public static function pullRequestEvents(): iterable
+    {
+        yield self::PULL_REQUEST => [self::PULL_REQUEST];
+
+        yield 'pull_request_target' => ['pull_request_target'];
+    }
+
     #[Test]
     public function aSecondQuotedJobsKeyIsReportedToo(): void
     {
@@ -70,14 +78,6 @@ final class WorkflowBaseGateDetectorDuplicateKeyTest extends TestCase
 
         self::assertCount(1, $findings);
         self::assertStringContainsString(self::TWICE, $findings[0]);
-    }
-
-    /** @return iterable<string, array{string}> */
-    public static function pullRequestEvents(): iterable
-    {
-        yield self::PULL_REQUEST => [self::PULL_REQUEST];
-
-        yield 'pull_request_target' => ['pull_request_target'];
     }
 
     #[Test]
