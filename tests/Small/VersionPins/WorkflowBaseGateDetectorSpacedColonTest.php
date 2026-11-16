@@ -27,14 +27,21 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
 {
-    /** Part of the finding for a gateless job. */
     private const string NO_GATE = 'has no up-to-date-with-base gate';
 
-    /** Part of the finding for a job that does not depend on the gate. */
     private const string NOT_DEPENDING = 'without depending on the up-to-date-with-base gate';
 
-    /** Part of the finding for a `jobs` key that cannot be read. */
     private const string UNREADABLE_JOBS = 'its `jobs` key';
+
+    private const string PLAIN_ON = 'on:';
+
+    private const string PLAIN_JOBS = 'jobs:';
+
+    private const string PLAIN_JOB_ID = 'qa:';
+
+    private const string SEVERAL_SPACES = 'several spaces';
+
+    private const string GATE_HEAD = "on:\n  pull_request:\njobs:\n  base-gate:\n";
 
     private const string GATE_STEP = "      - env:\n          BASE_REF: \${{ github.event.pull_request.base.ref }}\n        run: git merge-base --is-ancestor \"origin/\${BASE_REF}\" \"\${HEAD_SHA}\"\n";
 
@@ -68,15 +75,15 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     /** @return iterable<string, array{string, string, string}> */
     public static function spacedKeys(): iterable
     {
-        yield 'no space anywhere' => ['on:', 'jobs:', 'qa:'];
+        yield 'no space anywhere' => [self::PLAIN_ON, self::PLAIN_JOBS, self::PLAIN_JOB_ID];
 
-        yield 'the on key' => ['on :', 'jobs:', 'qa:'];
+        yield 'the on key' => ['on :', self::PLAIN_JOBS, self::PLAIN_JOB_ID];
 
-        yield 'the jobs key' => ['on:', 'jobs :', 'qa:'];
+        yield 'the jobs key' => [self::PLAIN_ON, 'jobs :', self::PLAIN_JOB_ID];
 
-        yield 'the job id' => ['on:', 'jobs:', 'qa :'];
+        yield 'the job id' => [self::PLAIN_ON, self::PLAIN_JOBS, 'qa :'];
 
-        yield 'several spaces' => ['on  :', 'jobs   :', 'qa  :'];
+        yield self::SEVERAL_SPACES => ['on  :', 'jobs   :', 'qa  :'];
 
         yield 'every key quoted and spaced' => ['"on" :', '"jobs" :', '"qa" :'];
 
@@ -113,7 +120,7 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     #[DataProvider('spacedNeeds')]
     public function aJobThatListsTheGateUnderASpacedNeedsKeyDependsOnIt(string $needs): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n" . self::GATE_JOB_BODY . "  qa:\n" . $needs . self::STEPS_OF_QA;
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  qa:\n" . $needs . self::STEPS_OF_QA;
 
         self::assertSame([], $this->check($yaml));
     }
@@ -127,13 +134,13 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
 
         yield 'a block list' => ["    needs :\n      - base-gate\n"];
 
-        yield 'several spaces' => ["    needs   : base-gate\n"];
+        yield self::SEVERAL_SPACES => ["    needs   : base-gate\n"];
     }
 
     #[Test]
     public function aJobThatDoesNotListTheGateIsStillReportedWithASpacedNeedsKey(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n" . self::GATE_JOB_BODY . "  qa:\n    needs : [other]\n" . self::STEPS_OF_QA;
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  qa:\n    needs : [other]\n" . self::STEPS_OF_QA;
 
         $findings = $this->check($yaml);
 
@@ -145,7 +152,7 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     #[DataProvider('spacedUses')]
     public function aReusableWorkflowCallWithASpacedUsesKeyIsAnExpensiveJob(string $uses): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n" . self::GATE_JOB_BODY . "  call:\n" . $uses;
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  call:\n" . $uses;
 
         $findings = $this->check($yaml);
 
@@ -158,13 +165,13 @@ final class WorkflowBaseGateDetectorSpacedColonTest extends TestCase
     {
         yield 'a space' => ["    uses : ./.github/workflows/qa.yml\n"];
 
-        yield 'several spaces' => ["    uses   : ./.github/workflows/qa.yml\n"];
+        yield self::SEVERAL_SPACES => ["    uses   : ./.github/workflows/qa.yml\n"];
     }
 
     #[Test]
     public function aReusableWorkflowCallThatNeedsTheGateThroughASpacedKeysPasses(): void
     {
-        $yaml = "on:\n  pull_request:\njobs:\n  base-gate:\n" . self::GATE_JOB_BODY . "  call:\n    needs : [base-gate]\n    uses : ./.github/workflows/qa.yml\n";
+        $yaml = self::GATE_HEAD . self::GATE_JOB_BODY . "  call:\n    needs : [base-gate]\n    uses : ./.github/workflows/qa.yml\n";
 
         self::assertSame([], $this->check($yaml));
     }
