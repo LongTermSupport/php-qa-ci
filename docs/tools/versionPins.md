@@ -56,7 +56,8 @@ is false, with `BASE_REF` set from `github.event.pull_request.base.ref` and `HEA
   anything but its id alone on a line (`deploy: {steps: [...]}`, `deploy: *job`, `deploy: &job`). A
   job the check cannot read would be passed without being judged, so the workflow is reported
   rather than passed; write `jobs:` on a line of its own, then each job id alone on a line as an
-  indented key.
+  indented key. Spaces or a tab before a key's colon (`jobs :`, `qa :`, `on :`, `needs :`, `uses :`) are
+  the same key and are read.
 
 Fix it by adding the gate step right after the checkout (which needs `fetch-depth: 0`), or a
 `base-gate` job that the expensive jobs list under `needs:`; the shipped `php-qa-ci.yml` and

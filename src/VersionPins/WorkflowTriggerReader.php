@@ -21,8 +21,8 @@ namespace LTS\PHPQA\VersionPins;
  */
 final readonly class WorkflowTriggerReader
 {
-    /** The `on` key at the start of a line, plain or quoted, with what follows its colon. */
-    private const string ON_KEY = '/^(?:on|"on"|\'on\'):(.*)$/';
+    /** The `on` key at the start of a line, plain or quoted, spaces or tabs allowed before its colon, with what follows the colon. */
+    private const string ON_KEY = '/^(?:on|"on"|\'on\')[ \t]*:(.*)$/';
 
     /** What a name cannot start with: an alias, an anchor, a tag, a block scalar, a complex key, a nested collection. */
     private const string NOT_A_NAME = '*&!|>?[{';

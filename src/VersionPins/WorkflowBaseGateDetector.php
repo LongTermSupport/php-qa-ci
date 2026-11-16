@@ -29,7 +29,8 @@ namespace LTS\PHPQA\VersionPins;
  * is read in every valid shape by {@see WorkflowTriggerReader}. A trigger that
  * cannot be reduced to event names is reported, never passed, and so is a
  * workflow on either event whose jobs cannot be found: a `jobs` key that is
- * missing, empty, a flow mapping, an alias or anchored.
+ * missing, empty, a flow mapping, an alias or anchored. A key written with spaces or a tab before
+ * its colon (`jobs :`, `qa :`, `needs :`) is the same key and is read.
  *
  * @internal
  */
@@ -51,13 +52,13 @@ final readonly class WorkflowBaseGateDetector
 
     private const string UNREADABLE_JOBS = 'its `jobs` key is missing, empty or written in a shape this check cannot read, so whether its jobs are gated is unknown: write `jobs:` on a line of its own, then each job id as an indented key, without a flow mapping, an anchor or an alias';
 
-    private const string JOBS_KEY ='/^(?:jobs|"jobs"|\'jobs\'):$/';
+    private const string JOBS_KEY = '/^(?:jobs|"jobs"|\'jobs\')[ \t]*:$/';
 
-    private const string JOB_HEADER = '/^(?:"[A-Za-z0-9_-]+"|\'[A-Za-z0-9_-]+\'|[A-Za-z0-9_-]+):$/';
+    private const string JOB_HEADER = '/^(?:"[A-Za-z0-9_-]+"|\'[A-Za-z0-9_-]+\'|[A-Za-z0-9_-]+)[ \t]*:$/';
 
-    private const string NEEDS_KEY = 'needs:';
+    private const string NEEDS_LINE = '/^needs[ \t]*:(.*)$/';
 
-    private const string USES_KEY = 'uses:';
+    private const string USES_LINE = '/^uses[ \t]*:/';
 
     private const string QA_AT_END_OF_LINE = '/qa';
 
@@ -254,7 +255,7 @@ final readonly class WorkflowBaseGateDetector
 
         $offset = 0;
         foreach (explode("\n", $job['body']) as $line) {
-            if ($this->text->indentOf($line) === $job['indent'] && str_starts_with(ltrim($line), self::USES_KEY)) {
+            if ($this->text->indentOf($line) === $job['indent'] && 1 === \Safe\preg_match(self::USES_LINE, ltrim($line))) {
                 $first = min($first, $offset);
             }
 
@@ -302,11 +303,11 @@ final readonly class WorkflowBaseGateDetector
     {
         $lines = explode("\n", $job['body']);
         foreach ($lines as $index => $line) {
-            if ($this->text->indentOf($line) !== $job['indent'] || !str_starts_with(ltrim($line), self::NEEDS_KEY)) {
+            if ($this->text->indentOf($line) !== $job['indent'] || 1 !== \Safe\preg_match(self::NEEDS_LINE, ltrim($line), $match) || !isset($match[1])) {
                 continue;
             }
 
-            $rest      = trim(substr(ltrim($line), \strlen(self::NEEDS_KEY)));
+            $rest      = trim($match[1]);
             $following = \array_slice($lines, $index + 1);
             if ('' === $rest) {
                 return $this->blockNames($job['indent'], ...$following);

@@ -27,6 +27,12 @@ the release and its tag. The full rules are in
 
 ### Changed — breaking
 
+- The base-gate check now reads a job's `uses :` key written with spaces or a tab before the colon
+  (issue #499). It was read as no `uses`, so a job that calls a reusable workflow was taken for a
+  cheap job and passed without being judged; it is now judged like any other call, so a `pull_request`
+  workflow with such a job that does not list the up-to-date-with-base gate under `needs:` fails
+  `bin/qa` on its first run after the update. Add the gate job to the call's `needs:`. See
+  [docs/tools/versionPins.md](docs/tools/versionPins.md).
 - The shipped PHPUnit Rector configuration (`rector-phpunit.php`) no longer skips
   `AddDoesNotPerformAssertionToNonAssertingTestRector` (issue #482). The bundled Rector 2.8.5 follows
   `parent::` calls, so a test that only delegates to an asserting parent test is no longer given
@@ -142,6 +148,14 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- The base-gate check now reads a key written with spaces or a tab before its colon (issue #499).
+  `jobs :`, a job id written `qa :`, `on :`, and a job's `needs :` and `uses :` are the same keys
+  as without the space, and valid YAML. `jobs :` and `qa :` were reported as an unreadable `jobs`
+  key and `on :` as an unreadable trigger, which asked for a change the file did not need;
+  `needs :` was read as no needs, so a job could be reported as not depending on the gate. A
+  workflow written that way is now judged by the real rule: one with a gateless job moves from the
+  unreadable finding to the no-gate finding, and a gated one stops being reported. See
+  [docs/tools/versionPins.md](docs/tools/versionPins.md).
 - `bin/changelog-release add-entry` and `add-tool-updates` no longer break a tight list of entries
   (issue #490). They put a blank line before the entry they added, so a heading whose entries were
   written without blank lines became a mixed list, which the markdown formatter rewrites and
