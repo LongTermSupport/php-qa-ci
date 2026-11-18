@@ -18,6 +18,10 @@ final class ScriptedTrackedTree implements TrackedTreeInterface
     /** @var array<array-key, string> */
     private array $dirty = [];
 
+    private ?int $touchAtCall = null;
+
+    private ?string $touchPath = null;
+
     public function __construct(private readonly bool $answers = true)
     {
     }
@@ -25,6 +29,13 @@ final class ScriptedTrackedTree implements TrackedTreeInterface
     public function touch(string $path, string $content = 'changed'): void
     {
         $this->dirty[$path] = $content;
+    }
+
+    /** Dirties $path as the tree is asked for the $call-th time, as another run would while this one waits for the lock. */
+    public function touchWhenAsked(int $call, string $path): void
+    {
+        $this->touchAtCall = $call;
+        $this->touchPath   = $path;
     }
 
     public function clean(string $path): void
@@ -35,6 +46,9 @@ final class ScriptedTrackedTree implements TrackedTreeInterface
     public function dirtyFiles(ToolContext $context): ?array
     {
         ++$this->asked;
+        if ($this->asked === $this->touchAtCall && null !== $this->touchPath) {
+            $this->touch($this->touchPath);
+        }
 
         return $this->answers ? $this->dirty : null;
     }

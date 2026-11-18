@@ -730,6 +730,23 @@ final class PipelineTest extends TestCase
         self::assertStringContainsString('Changed while the phpcpd lane ran:', $this->factory->output->fetch());
     }
 
+    /**
+     * The run may wait for another run's lock, and that run can write tracked files meanwhile. The
+     * tree is read as the baseline (1st), after the pre hook (2nd), and again once the lock is held
+     * (3rd), so a change that appears by the 3rd reading arrived while this run waited.
+     */
+    #[Test]
+    public function aChangeMadeWhileTheRunWaitedForTheLockIsNotBlamedOnTheFirstLane(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $tree->touchWhenAsked(3, self::REFERENCE_FILE);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(0, $this->pipeline(tree: $tree)->run($context));
+
+        self::assertStringNotContainsString('trackedFilesUnchanged', $this->factory->output->fetch());
+    }
+
     #[Test]
     public function aSingleLaneRunIsWatchedToo(): void
     {
