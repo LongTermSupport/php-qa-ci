@@ -500,7 +500,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function aSegfaultInTheCopyPasteReportFailsTheRun(): void
     {
-        $this->tools->register(new SignalledChildTool(self::PHPCPD,$this->signalled, \SIGSEGV));
+        $this->tools->register(new SignalledChildTool(self::PHPCPD, $this->signalled, \SIGSEGV));
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
         self::assertSame(1, $this->pipeline()->run($context));
@@ -720,7 +720,7 @@ final class PipelineTest extends TestCase
     public function theCopyPasteLaneThatLeavesATrackedFileChangedFailsTheRun(): void
     {
         $tree = new ScriptedTrackedTree();
-        $this->tools->register(new TreeTouchingTool(self::PHPCPD,$tree, self::REFERENCE_FILE));
+        $this->tools->register(new TreeTouchingTool(self::PHPCPD, $tree, self::REFERENCE_FILE));
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
 
         self::assertSame(1, $this->pipeline(tree: $tree)->run($context));
