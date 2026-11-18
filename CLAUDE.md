@@ -148,6 +148,7 @@ dir) prints its page offline.
 - `phpqaci.phpunit` — phpunit (`docs/tools/phpunit.md`)
 - `phpqaci.infection` — infection (`docs/tools/infection.md`; opt-in: `useInfection`)
 - `phpqaci.phpcpd` — copy/paste detection, informational (`docs/tools/phpcpd.md`)
+- `phpqaci.trackedFilesUnchanged` — a read-only run leaves the git-tracked files as it found them; a check of the run, not a lane (`docs/tools/trackedFilesUnchanged.md`)
 
 <!-- phpqaci-active-defences:end -->
 

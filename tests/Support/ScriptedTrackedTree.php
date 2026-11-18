@@ -27,6 +27,11 @@ final class ScriptedTrackedTree implements TrackedTreeInterface
         $this->dirty[$path] = $content;
     }
 
+    public function clean(string $path): void
+    {
+        unset($this->dirty[$path]);
+    }
+
     public function dirtyFiles(ToolContext $context): ?array
     {
         ++$this->asked;

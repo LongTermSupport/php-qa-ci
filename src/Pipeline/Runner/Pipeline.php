@@ -45,6 +45,8 @@ final readonly class Pipeline
     /** The lane a full run starts with, before any phase. */
     private const string DEPENDENCY_FRESHNESS = 'dependencyFreshness';
 
+    private TrackedTreeWatch $watch;
+
     public function __construct(
         private ToolRegistry $registry,
         private ToolExecutor $executor,
@@ -57,8 +59,9 @@ final readonly class Pipeline
         private string $hostname,
         private int $pid,
         private SignalledChildren $signalled = new SignalledChildren(),
-        private ?TrackedTreeInterface $trackedTree = null,
+        ?TrackedTreeInterface $trackedTree = null,
     ) {
+        $this->watch = new TrackedTreeWatch($trackedTree, $output);
     }
 
     public function run(ToolContext $context): int
@@ -70,8 +73,13 @@ final readonly class Pipeline
         $config = $context->config;
         $this->directories->prepare($config->paths);
         $this->phars->verify($config->paths->libraryRoot);
+        $this->watch->begin($context);
         $this->hooks->runPre($context);
         if ($this->haltsOnSignalledChild('by the pre hook')) {
+            return 1;
+        }
+
+        if ([] !== $this->reportTreeChange('the pre hook')) {
             return 1;
         }
 
@@ -138,14 +146,65 @@ final readonly class Pipeline
             return 1;
         }
 
+        if ($this->treeChangedBy('the phpcpd lane', $failed)) {
+            return 1;
+        }
+
         $this->hooks->runPost($context);
         if ($this->haltsOnSignalledChild('by the post hook')) {
+            return 1;
+        }
+
+        if ($this->treeChangedBy('the post hook', $failed)) {
             return 1;
         }
 
         $this->retryWarning($retried);
 
         return 0;
+    }
+
+    /**
+     * Says which tracked files the step that just ended changed, if any, and records the run as failed
+     * under one identifier however many steps did it.
+     *
+     * @param list<string> $failed
+     *
+     * @return bool whether the step changed a tracked file
+     */
+    private function treeChangedBy(string $step, array &$failed): bool
+    {
+        if ([] === $this->reportTreeChange($step)) {
+            return false;
+        }
+
+        if (!\in_array(TrackedTreeWatch::IDENTIFIER, $failed, true)) {
+            $failed[] = TrackedTreeWatch::IDENTIFIER;
+        }
+
+        return true;
+    }
+
+    /**
+     * @return list<string> the tracked files the step changed
+     */
+    private function reportTreeChange(string $step): array
+    {
+        $changed = $this->watch->changedBy();
+        if ([] === $changed) {
+            return [];
+        }
+
+        $this->output->writeln('');
+        $this->output->writeln(\sprintf('>>> %s FAILED — a read-only run left tracked files changed. Changed while %s ran:', TrackedTreeWatch::IDENTIFIER, $step));
+        foreach ($changed as $file) {
+            $this->output->writeln('      ' . $file);
+        }
+
+        $this->output->writeln(\sprintf('    A read-only run must leave the tracked files as it found them. `rule-doc %s` says how to find the writer.', TrackedTreeWatch::IDENTIFIER));
+        $this->output->writeln('');
+
+        return $changed;
     }
 
     /**
@@ -162,10 +221,11 @@ final readonly class Pipeline
             return true;
         }
 
-        $execution = $this->executor->execute(self::DEPENDENCY_FRESHNESS, $context);
-        $retried   = $retried || $execution->retried;
+        $execution   = $this->executor->execute(self::DEPENDENCY_FRESHNESS, $context);
+        $retried     = $retried || $execution->retried;
+        $treeChanged = $this->treeChangedBy(\sprintf('the %s lane', self::DEPENDENCY_FRESHNESS), $failed);
         if ($execution->result->isSuccess()) {
-            return true;
+            return !$treeChanged || $context->config->aggregate;
         }
 
         $failed[] = self::DEPENDENCY_FRESHNESS;
@@ -326,9 +386,14 @@ final readonly class Pipeline
                 $this->banner($tool->banner, '-');
             }
 
-            $execution = $this->executor->execute($tool->name, $context);
-            $retried   = $retried || $execution->retried;
+            $execution   = $this->executor->execute($tool->name, $context);
+            $retried     = $retried || $execution->retried;
+            $treeChanged = $this->treeChangedBy(\sprintf('the %s lane', $tool->name), $failed);
             if ($execution->result->isSuccess()) {
+                if ($treeChanged && !$config->aggregate) {
+                    return false;
+                }
+
                 continue;
             }
 

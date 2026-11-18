@@ -123,6 +123,15 @@ the release and its tag. The full rules are in
 
 ### Added
 
+- A read-only run (`QA_READONLY=1`, which CI sets) now fails when a step leaves a git-tracked file
+  changed, naming each file and the lane or hook that was running when it changed, under the new
+  identifier `phpqaci.trackedFilesUnchanged`. Before this, a full gate could exit 0 and leave a
+  tracked file modified without a word (issue #412). A tree already dirty before the run is the
+  baseline and is blamed only if the run changes it again, a writable run is not watched, and a
+  tree git cannot read is reported once and does not fail the run. A project whose read-only run
+  passed because a lane quietly rewrote a tracked file will fail it on the first run after the
+  update, which is the point: find the lane named and stop it writing. See
+  [docs/tools/trackedFilesUnchanged.md](docs/tools/trackedFilesUnchanged.md).
 - `versionPins` fails a shipped workflow template that selects phase groups (`qa -t allCS`,
   `qa -t allStatic`) and leaves one of the pipeline's phases out, so a green check cannot silently
   skip a whole phase. A template that leaves a phase out on purpose says so on a comment line,

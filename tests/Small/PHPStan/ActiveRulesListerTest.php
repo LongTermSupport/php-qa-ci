@@ -172,6 +172,29 @@ final class ActiveRulesListerTest extends TestCase
     }
 
     /**
+     * A check the run itself performs has no lane to be listed under, and is still a defence a reader
+     * must be able to find, and from the name to its page.
+     */
+    public function testACheckOfTheRunItselfIsListedWithItsIdentifierAndPage(): void
+    {
+        $lister  = new ActiveRulesLister(self::QA_CI_ROOT, new NullOutput());
+        $listing = $lister->list(self::FIXTURE_PROJECT);
+
+        $found = array_values(array_filter(
+            $listing->pipelineLanes,
+            static fn (\LTS\PHPQA\PHPStan\Dto\PipelineLaneDto $lane): bool => \LTS\PHPQA\Pipeline\Runner\TrackedTreeWatch::IDENTIFIER === $lane->identifier,
+        ));
+
+        self::assertCount(1, $found);
+        self::assertSame('trackedFilesUnchanged', $found[0]->name);
+        self::assertNull($found[0]->phase);
+        self::assertSame(
+            \Safe\realpath(self::QA_CI_ROOT . '/docs/tools/trackedFilesUnchanged.md'),
+            $found[0]->docPath,
+        );
+    }
+
+    /**
      * Toolchain specification 5.1: being able to name a defence is only half of it —
      * a reader who finds a lane in the listing must be able to get from there to the
      * page that states the correct construction. The listing carried name, identifier,

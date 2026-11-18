@@ -22,6 +22,7 @@ use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
 use LTS\PHPQA\Pipeline\Runner\Pipeline;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
 use LTS\PHPQA\Pipeline\Runner\TrackedTreeInterface;
+use LTS\PHPQA\Pipeline\Runner\TrackedTreeWatch;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -79,6 +80,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\PhpstanDocs\PhpstanDocsCatalogue::class)]
 #[UsesClass(\LTS\PHPQA\Turbo\TurboManifest::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Runner\RepeatUntilSettled::class)]
+#[UsesClass(TrackedTreeWatch::class)]
 #[UsesClass(SignalledChildren::class)]
 #[UsesClass(SignalledChildDto::class)]
 #[UsesClass(ChildExit::class)]
