@@ -122,6 +122,34 @@ final class TrackedTreeWatchTest extends TestCase
     }
 
     #[Test]
+    public function aRebaseTakesWhatChangedSinceAsTheNewBaseline(): void
+    {
+        $tree  = new ScriptedTrackedTree();
+        $watch = new TrackedTreeWatch($tree, $this->factory->output);
+        $watch->begin($this->readOnlyContext());
+
+        $tree->touch(self::FILE, 'written by the run this one waited for');
+        $watch->rebase();
+
+        self::assertSame([], $watch->changedBy(), 'not this run\'s change');
+
+        $tree->touch(self::FILE, 'written by a step of this run');
+        self::assertSame([self::FILE], $watch->changedBy());
+    }
+
+    #[Test]
+    public function aRebaseOfAnIdleWatchReadsNothing(): void
+    {
+        $tree  = new ScriptedTrackedTree();
+        $watch = new TrackedTreeWatch($tree, $this->factory->output);
+        $watch->begin($this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build()));
+
+        $watch->rebase();
+
+        self::assertSame(0, $tree->asked);
+    }
+
+    #[Test]
     public function anAgentModeRunIsNeverWatched(): void
     {
         $tree  = new ScriptedTrackedTree();

@@ -55,6 +55,19 @@ final class TrackedTreeWatch
     }
 
     /**
+     * Takes the baseline again, silently, once the run holds the lock: another run it waited for may
+     * have written tracked files meanwhile, and those are not this run's changes.
+     */
+    public function rebase(): void
+    {
+        if (null === $this->last || !$this->context instanceof ToolContext || !$this->tree instanceof TrackedTreeInterface) {
+            return;
+        }
+
+        $this->last = $this->tree->dirtyFiles($this->context) ?? $this->last;
+    }
+
+    /**
      * @return list<string> the tracked files that changed since the previous call, sorted; empty when
      *                      nothing moved or the watch is idle
      */

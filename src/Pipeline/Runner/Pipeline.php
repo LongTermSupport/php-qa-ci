@@ -89,6 +89,8 @@ final readonly class Pipeline
             return $config->agentMode ? $this->reportLockHeld($context, $lockTool) : self::EXIT_LOCK_CONTENDED;
         }
 
+        $this->watch->rebase();
+
         // A lane that throws must not leave a holder record behind for the next
         // run to report. A signal never reaches this finally; RunInterruptHandler
         // releases the lock on that path.

@@ -18,6 +18,8 @@ promise instead of trusting each one to keep it.
 
 - Before the first step, it records which tracked files differ from what git last recorded, with a
   hash of each one's content.
+- Once the run holds the lock it records the state again, because another run it waited for may
+  have written tracked files meanwhile, and those are not this run's changes.
 - After every lane, and after the pre and post hooks, it reads that state again.
 - A file whose content moved since the step before is named, with the step, as the project knows
   it: relative to the project root, and only the project's own files. When the project is a
