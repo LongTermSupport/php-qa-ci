@@ -79,6 +79,7 @@ final class GitTrackedTreeTest extends TestCase
     {
         $this->factory->project->write(self::REFERENCE_FILE, 'one');
         $this->factory->project->write('src/Other.php', 'other');
+
         $porcelain = ' M ' . self::REFERENCE_FILE . "\0M  src/Other.php\0";
         $this->factory->processes->willSucceed($porcelain)->willSucceed($porcelain);
 

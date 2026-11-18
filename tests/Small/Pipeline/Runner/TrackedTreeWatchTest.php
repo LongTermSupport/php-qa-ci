@@ -71,6 +71,7 @@ final class TrackedTreeWatchTest extends TestCase
     {
         $tree = new ScriptedTrackedTree();
         $tree->touch(self::FILE, 'already dirty');
+
         $watch = new TrackedTreeWatch($tree, $this->factory->output);
         $watch->begin($this->readOnlyContext());
 
@@ -85,6 +86,7 @@ final class TrackedTreeWatchTest extends TestCase
     {
         $tree = new ScriptedTrackedTree();
         $tree->touch(self::FILE, 'already dirty');
+
         $watch = new TrackedTreeWatch($tree, $this->factory->output);
         $watch->begin($this->readOnlyContext());
 

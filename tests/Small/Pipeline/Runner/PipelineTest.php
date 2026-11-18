@@ -697,7 +697,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function aReadOnlyRunOnATreeNothingChangedStaysGreen(): void
     {
-        $tree = new ScriptedTrackedTree();
+        $tree    = new ScriptedTrackedTree();
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
 
         $exit = $this->pipeline(tree: $tree)->run($context);
@@ -710,7 +710,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function aTreeGitCannotReadIsSaidOnceAndDoesNotFailTheRun(): void
     {
-        $tree = new ScriptedTrackedTree(answers: false);
+        $tree    = new ScriptedTrackedTree(answers: false);
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
 
         $exit = $this->pipeline(tree: $tree)->run($context);
