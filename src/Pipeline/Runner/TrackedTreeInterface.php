@@ -16,9 +16,10 @@ use LTS\PHPQA\Pipeline\Tool\ToolContext;
 interface TrackedTreeInterface
 {
     /**
-     * @return array<string, string>|null project-relative path => content hash, for each tracked file
-     *                                    that differs from git's record of it; null when there is no
-     *                                    answer (not a git work tree, or git failed)
+     * @return array<array-key, string>|null project-relative path => content hash, for each tracked
+     *                                       file that differs from git's record of it (a path that is
+     *                                       all digits is an int key); null when there is no answer
+     *                                       (not a git work tree, or git failed)
      */
     public function dirtyFiles(ToolContext $context): ?array;
 }

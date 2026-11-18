@@ -23,7 +23,7 @@ final class TrackedTreeWatch
     /** What a run that left a tracked file changed is reported as; the page is docs/tools/trackedFilesUnchanged.md. */
     public const string IDENTIFIER = RuleIdentifierInterface::PREFIX . '.trackedFilesUnchanged';
 
-    /** @var array<string, string>|null null while the watch is idle */
+    /** @var array<array-key, string>|null null while the watch is idle */
     private ?array $last = null;
 
     private ?ToolContext $context = null;

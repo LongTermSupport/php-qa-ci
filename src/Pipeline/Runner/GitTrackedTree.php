@@ -19,6 +19,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolContext;
  */
 final readonly class GitTrackedTree implements TrackedTreeInterface
 {
+    /** Joins the project root to a project-relative path. */
     private const string SEPARATOR = '/';
 
     /** The status letters take three characters of a record: two letters and a space. */
@@ -38,6 +39,7 @@ final readonly class GitTrackedTree implements TrackedTreeInterface
             return null;
         }
 
+        /** @var array<array-key, string> $dirty a path that is all digits is an int key */
         $dirty = [];
         foreach (explode("\0", $result->output) as $record) {
             if (\strlen($record) <= self::PATH_OFFSET) {

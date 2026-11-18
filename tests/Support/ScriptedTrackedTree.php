@@ -15,7 +15,7 @@ final class ScriptedTrackedTree implements TrackedTreeInterface
 {
     public int $asked = 0;
 
-    /** @var array<string, string> */
+    /** @var array<array-key, string> */
     private array $dirty = [];
 
     public function __construct(private readonly bool $answers = true)

@@ -111,6 +111,8 @@ final class PipelineTest extends TestCase
 
     private const string RECTOR_RAN = '[rector ran]';
 
+    private const string REFERENCE_FILE = 'config/reference.php';
+
     private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.';
 
     private ContextFactory $factory;
@@ -646,7 +648,7 @@ final class PipelineTest extends TestCase
     public function aReadOnlyRunThatLeavesATrackedFileChangedFailsNamingTheFileAndTheLane(): void
     {
         $tree = new ScriptedTrackedTree();
-        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, 'config/reference.php'));
+        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, self::REFERENCE_FILE));
         $later = new StubTool(self::PHP_LINT, ToolResultDto::passed());
         $this->tools->register($later);
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
@@ -656,7 +658,7 @@ final class PipelineTest extends TestCase
         self::assertSame(1, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString('phpqaci.trackedFilesUnchanged', $printed);
-        self::assertStringContainsString('config/reference.php', $printed);
+        self::assertStringContainsString(self::REFERENCE_FILE, $printed);
         self::assertMatchesRegularExpression('/rector.*config\/reference\.php|config\/reference\.php.*rector/s', $printed);
         self::assertStringContainsString('[phpLint ran]', $printed, 'an aggregate run goes on, so later lanes are still watched');
         self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
@@ -667,7 +669,7 @@ final class PipelineTest extends TestCase
     public function aWritableRunIsNotWatchedForTrackedFileChanges(): void
     {
         $tree = new ScriptedTrackedTree();
-        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, 'config/reference.php'));
+        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, self::REFERENCE_FILE));
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
         $exit = $this->pipeline(tree: $tree)->run($context);
@@ -681,7 +683,7 @@ final class PipelineTest extends TestCase
     public function aFailFastReadOnlyRunStopsAtTheLaneThatChangedATrackedFile(): void
     {
         $tree = new ScriptedTrackedTree();
-        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, 'config/reference.php'));
+        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, self::REFERENCE_FILE));
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: false)->build());
 
         $exit = $this->pipeline(tree: $tree)->run($context);

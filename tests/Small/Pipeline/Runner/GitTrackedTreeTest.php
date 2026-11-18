@@ -37,6 +37,8 @@ use PHPUnit\Framework\TestCase;
 #[Small]
 final class GitTrackedTreeTest extends TestCase
 {
+    private const string REFERENCE_FILE = 'config/reference.php';
+
     private ContextFactory $factory;
 
     protected function setUp(): void
@@ -75,19 +77,19 @@ final class GitTrackedTreeTest extends TestCase
     #[Test]
     public function eachDirtyFileIsKeyedByItsPathAndStateAndTracksItsContent(): void
     {
-        $this->factory->project->write('config/reference.php', 'one');
+        $this->factory->project->write(self::REFERENCE_FILE, 'one');
         $this->factory->project->write('src/Other.php', 'other');
-        $porcelain = " M config/reference.php\0M  src/Other.php\0";
+        $porcelain = ' M ' . self::REFERENCE_FILE . "\0M  src/Other.php\0";
         $this->factory->processes->willSucceed($porcelain)->willSucceed($porcelain);
 
         $first = new GitTrackedTree()->dirtyFiles($this->factory->context());
-        $this->factory->project->write('config/reference.php', 'two');
+        $this->factory->project->write(self::REFERENCE_FILE, 'two');
         $second = new GitTrackedTree()->dirtyFiles($this->factory->context());
 
         self::assertIsArray($first);
         self::assertIsArray($second);
-        self::assertSame(['config/reference.php', 'src/Other.php'], array_keys($first));
-        self::assertNotSame($first['config/reference.php'], $second['config/reference.php'], 'rewritten content is a different state');
+        self::assertSame([self::REFERENCE_FILE, 'src/Other.php'], array_keys($first));
+        self::assertNotSame($first[self::REFERENCE_FILE], $second[self::REFERENCE_FILE], 'rewritten content is a different state');
         self::assertSame($first['src/Other.php'], $second['src/Other.php'], 'untouched content is the same state');
     }
 
