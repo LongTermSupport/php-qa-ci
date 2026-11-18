@@ -11,6 +11,7 @@ use LTS\PHPQA\PHPStan\Dto\PipelineLaneDto;
 use LTS\PHPQA\PHPStan\Dto\ProjectRecordEntryDto;
 use LTS\PHPQA\PHPStan\ProjectRecord\NeonIncludeChain;
 use LTS\PHPQA\PHPStan\Rules\RuleIdentifierInterface;
+use LTS\PHPQA\Pipeline\Runner\TrackedTreeWatch;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolDefinitionDto;
 use LTS\PHPQA\Pipeline\Tool\ShippedTools;
 use LTS\PHPQA\Pipeline\Tool\ToolGateEnum;
@@ -259,6 +260,15 @@ final readonly class ActiveRulesLister
                 $this->laneDocPath($identifier),
             );
         }
+
+        $lanes[] = new PipelineLaneDto(
+            'trackedFilesUnchanged',
+            TrackedTreeWatch::IDENTIFIER,
+            'a read-only run leaves the git-tracked files as it found them; a check of the run, not a lane',
+            null,
+            null,
+            $this->laneDocPath(TrackedTreeWatch::IDENTIFIER),
+        );
 
         return $lanes;
     }

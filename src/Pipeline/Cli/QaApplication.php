@@ -26,6 +26,7 @@ use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
 use LTS\PHPQA\Pipeline\Runner\AggregateReport;
 use LTS\PHPQA\Pipeline\Runner\ConsoleRetryPrompt;
 use LTS\PHPQA\Pipeline\Runner\DirectoryPreparer;
+use LTS\PHPQA\Pipeline\Runner\GitTrackedTree;
 use LTS\PHPQA\Pipeline\Runner\HookRunner;
 use LTS\PHPQA\Pipeline\Runner\NonInteractiveRetryPrompt;
 use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
@@ -267,6 +268,7 @@ final readonly class QaApplication
                 hostname: \Safe\gethostname(),
                 pid: $this->pid(),
                 signalled: $signalled,
+                trackedTree: new GitTrackedTree(),
             );
 
             $exit = $pipeline->run($context);
