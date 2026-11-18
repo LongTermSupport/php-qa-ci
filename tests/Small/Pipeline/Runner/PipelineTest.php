@@ -665,6 +665,79 @@ final class PipelineTest extends TestCase
         self::assertNull($this->lockRecord(), 'the lock is released');
     }
 
+    /** Every place the run can write a tracked file is watched, not only the lanes of the phases. */
+    #[Test]
+    #[TestWith(['hookPre', 'the pre hook', 0])]
+    #[TestWith(['hookPost', 'the post hook', 1])]
+    public function aHookThatLeavesATrackedFileChangedFailsTheRunNamingTheHook(string $hook, string $step, int $rectorRuns): void
+    {
+        $this->factory->project->write('qaConfig/' . $hook . '.php', <<<'PHP_WRAP'
+            <?php
+
+            declare(strict_types=1);
+
+            use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
+            use LTS\PHPQA\Pipeline\Tool\ToolContext;
+
+            return static function (ToolContext $context): void {
+                $context->processes->run(new ProcessSpecDto(['hook-child'], '/'));
+            };
+            PHP_WRAP);
+        $tree = new ScriptedTrackedTree();
+        $this->factory->processes->willRun(static function () use ($tree): ProcessResultDto {
+            $tree->touch(self::REFERENCE_FILE);
+
+            return new ProcessResultDto(0, '', '');
+        });
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline(tree: $tree)->run($context));
+
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('Changed while ' . $step . ' ran:', $printed);
+        self::assertStringContainsString(self::REFERENCE_FILE, $printed);
+        self::assertSame($rectorRuns, $this->tools->stub(self::RECTOR)->runs);
+        self::assertNull($this->lockRecord());
+    }
+
+    #[Test]
+    public function theDependencyFreshnessLaneThatLeavesATrackedFileChangedEndsAFailFastRun(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $this->tools->register(new TreeTouchingTool(self::DEPENDENCY_FRESHNESS, $tree, self::REFERENCE_FILE));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: false)->build());
+
+        self::assertSame(1, $this->pipeline(tree: $tree)->run($context));
+
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('Changed while the dependencyFreshness lane ran:', $printed);
+        self::assertStringNotContainsString('[rector ran]', $printed);
+    }
+
+    #[Test]
+    public function theCopyPasteLaneThatLeavesATrackedFileChangedFailsTheRun(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $this->tools->register(new TreeTouchingTool('phpcpd', $tree, self::REFERENCE_FILE));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        self::assertSame(1, $this->pipeline(tree: $tree)->run($context));
+
+        self::assertStringContainsString('Changed while the phpcpd lane ran:', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aSingleLaneRunIsWatchedToo(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $this->tools->register(new TreeTouchingTool(self::PHP_LINT, $tree, self::REFERENCE_FILE));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true, singleTool: self::PHP_LINT)->build());
+
+        self::assertSame(1, $this->pipeline(tree: $tree)->run($context));
+
+        self::assertStringContainsString('Changed while the phpLint lane ran:', $this->factory->output->fetch());
+    }
+
     #[Test]
     public function aWritableRunIsNotWatchedForTrackedFileChanges(): void
     {

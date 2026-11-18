@@ -60,9 +60,9 @@ final class GitTrackedTreeTest extends TestCase
 
         $spec = $this->factory->processes->specs[0] ?? null;
         self::assertNotNull($spec);
-        self::assertSame(['git', 'status', '--porcelain=v1', '-z', '--untracked-files=no', '--no-renames'], $spec->command);
-        self::assertSame($this->factory->project->path, $spec->cwd);
-        self::assertSame('0', $spec->env['GIT_OPTIONAL_LOCKS'] ?? null, 'a status that refreshed the index would itself write a tracked-tree file');
+        self::assertSame(['git', 'diff', '--relative', '--name-only', '-z', '--no-renames', 'HEAD'], $spec->command);
+        self::assertSame($this->factory->project->path, $spec->cwd, 'git names files from here and leaves out what is outside it');
+        self::assertSame('0', $spec->env['GIT_OPTIONAL_LOCKS'] ?? null, 'a comparison that refreshed the index would itself write a tracked-tree file');
         self::assertFalse($spec->streamOutput);
     }
 
@@ -75,13 +75,13 @@ final class GitTrackedTreeTest extends TestCase
     }
 
     #[Test]
-    public function eachDirtyFileIsKeyedByItsPathAndStateAndTracksItsContent(): void
+    public function eachDirtyFileIsKeyedByItsPathAndTracksItsContent(): void
     {
         $this->factory->project->write(self::REFERENCE_FILE, 'one');
         $this->factory->project->write('src/Other.php', 'other');
 
-        $porcelain = ' M ' . self::REFERENCE_FILE . "\0M  src/Other.php\0";
-        $this->factory->processes->willSucceed($porcelain)->willSucceed($porcelain);
+        $names = self::REFERENCE_FILE . "\0src/Other.php\0";
+        $this->factory->processes->willSucceed($names)->willSucceed($names);
 
         $first = new GitTrackedTree()->dirtyFiles($this->factory->context());
         $this->factory->project->write(self::REFERENCE_FILE, 'two');
@@ -97,7 +97,7 @@ final class GitTrackedTreeTest extends TestCase
     #[Test]
     public function aDeletedTrackedFileIsDirtyAndHasNoContentToHash(): void
     {
-        $this->factory->processes->willSucceed(" D gone.php\0");
+        $this->factory->processes->willSucceed("gone.php\0");
 
         $state = new GitTrackedTree()->dirtyFiles($this->factory->context());
 
@@ -109,7 +109,7 @@ final class GitTrackedTreeTest extends TestCase
     public function aNameWithSpacesSurvives(): void
     {
         $this->factory->project->write('docs/a file.md', 'x');
-        $this->factory->processes->willSucceed(" M docs/a file.md\0");
+        $this->factory->processes->willSucceed("docs/a file.md\0");
 
         $state = new GitTrackedTree()->dirtyFiles($this->factory->context());
 

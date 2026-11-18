@@ -8,12 +8,14 @@ use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 
 /**
- * The tracked files git reports as differing from its record, from `git status`, each with a hash of
- * what is on disk now. git does the comparing from its own stat cache, so a check after every lane
- * costs one status rather than a read of the whole tree, and only the few files that differ are read.
+ * The tracked files git reports as differing from the last commit, each with a hash of what is on
+ * disk now. `git diff HEAD` compares the work tree and the index with HEAD from git's own stat cache,
+ * so a check after every lane costs one comparison rather than a read of the whole tree, and only the
+ * few files that differ are read.
  *
- * Each value also carries the two status letters, so a file that is staged, then rewritten, is a
- * different state from one that was only staged.
+ * `--relative` names each file from the project root and leaves out anything outside it, so a project
+ * that is a subdirectory of a larger repository is judged on its own files and a sibling project's
+ * changes are not blamed on this run.
  *
  * @internal
  */
@@ -22,14 +24,11 @@ final readonly class GitTrackedTree implements TrackedTreeInterface
     /** Joins the project root to a project-relative path. */
     private const string SEPARATOR = '/';
 
-    /** The status letters take three characters of a record: two letters and a space. */
-    private const int PATH_OFFSET = 3;
-
     public function dirtyFiles(ToolContext $context): ?array
     {
         $root   = $context->config->paths->projectRoot;
         $result = $context->processes->run(new ProcessSpecDto(
-            ['git', 'status', '--porcelain=v1', '-z', '--untracked-files=no', '--no-renames'],
+            ['git', 'diff', '--relative', '--name-only', '-z', '--no-renames', 'HEAD'],
             $root,
             ['GIT_OPTIONAL_LOCKS' => '0'],
             streamOutput: false,
@@ -41,13 +40,12 @@ final readonly class GitTrackedTree implements TrackedTreeInterface
 
         /** @var array<array-key, string> $dirty a path that is all digits is an int key */
         $dirty = [];
-        foreach (explode("\0", $result->output) as $record) {
-            if (\strlen($record) <= self::PATH_OFFSET) {
+        foreach (explode("\0", $result->output) as $path) {
+            if ('' === $path) {
                 continue;
             }
 
-            $path         = substr($record, self::PATH_OFFSET);
-            $dirty[$path] = substr($record, 0, 2) . ':' . $this->contentHash($root . self::SEPARATOR . $path);
+            $dirty[$path] = $this->contentHash($root . self::SEPARATOR . $path);
         }
 
         return $dirty;

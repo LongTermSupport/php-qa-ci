@@ -19,7 +19,9 @@ promise instead of trusting each one to keep it.
 - Before the first step, it records which tracked files differ from what git last recorded, with a
   hash of each one's content.
 - After every lane, and after the pre and post hooks, it reads that state again.
-- A file whose content or status moved since the step before is named, with the step.
+- A file whose content moved since the step before is named, with the step, as the project knows
+  it: relative to the project root, and only the project's own files. When the project is a
+  subdirectory of a larger repository, a sibling project's changes are not blamed on this run.
 - The run fails with exit 1 under `phpqaci.trackedFilesUnchanged`. In an aggregate run it carries on
   so that later steps are still attributed, and the identifier appears in the summary; with
   `QA_FAIL_FAST=1` it stops at the step that changed the file.
@@ -56,6 +58,7 @@ git status --short
 - [`TrackedTreeWatch`](../../src/Pipeline/Runner/TrackedTreeWatch.php) holds the before and after
   states and names what moved.
 - [`GitTrackedTree`](../../src/Pipeline/Runner/GitTrackedTree.php) reads the state from
-  `git status --porcelain=v1 -z --untracked-files=no --no-renames` with `GIT_OPTIONAL_LOCKS=0`, so
-  the check does not itself write `.git/index`, and hashes only the files git reports.
+  `git diff --relative --name-only -z --no-renames HEAD` with `GIT_OPTIONAL_LOCKS=0`, so the check
+  does not itself write `.git/index`, and hashes only the files git reports. A repository with no
+  commit yet has no `HEAD` to compare with, which is the "git cannot read it" case above.
 - [`Pipeline`](../../src/Pipeline/Runner/Pipeline.php) calls the watch around each step.
