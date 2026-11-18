@@ -3,8 +3,8 @@
 **Identifier**: `phpqaci.trackedFilesUnchanged`
 
 A check of the run itself, not a lane: nobody selects it with `-t`. In a **read-only** run
-(`QA_READONLY=1`, which CI sets) every lane may inspect the project and none may write to a
-git-tracked file. This check fails the run when one does, naming each file and the step that was
+(`QA_READONLY=1`, which is also what a GitHub Actions run defaults to) every lane may inspect the
+project and none may write to a git-tracked file. This check fails the run when one does, naming each file and the step that was
 running when it changed.
 
 ## Why it matters
@@ -22,9 +22,11 @@ promise instead of trusting each one to keep it.
 - A file whose content moved since the step before is named, with the step, as the project knows
   it: relative to the project root, and only the project's own files. When the project is a
   subdirectory of a larger repository, a sibling project's changes are not blamed on this run.
-- The run fails with exit 1 under `phpqaci.trackedFilesUnchanged`. In an aggregate run it carries on
-  so that later steps are still attributed, and the identifier appears in the summary; with
-  `QA_FAIL_FAST=1` it stops at the step that changed the file.
+- The run fails with exit 1 under `phpqaci.trackedFilesUnchanged`, printed where the change was
+  found. In an aggregate run a lane's change lets the run carry on so that later steps are still
+  attributed, and the identifier appears in the summary; with `QA_FAIL_FAST=1` the run stops at the
+  step that changed the file. A change made by a hook, or by the closing copy-paste lane, ends the
+  run there.
 
 ## What it ignores
 
@@ -33,8 +35,8 @@ promise instead of trusting each one to keep it.
 - **A tree already dirty before the run.** That is the baseline. A file in it is named only if the
   run changes its content again.
 - **Untracked files.** Only files git tracks are watched.
-- **A tree git cannot read.** Outside a git work tree, or when `git status` fails, the run says so
-  once and carries on unchecked; it does not fail.
+- **A tree git cannot read.** Outside a git work tree, in a repository with no commit yet, or when
+  `git diff` fails, the run says so once and carries on unchecked; it does not fail.
 - **Agent mode** (`bin/qa --agent -t <lane>`), which has its own exit-code contract.
 
 ## How to fix a failure

@@ -14,7 +14,8 @@ use Symfony\Component\Console\Output\OutputInterface;
  * to the step that was running. A tree already dirty at the start is the baseline: a file in it is
  * blamed only when its content moves again.
  *
- * Idle in a writable run, where the fixers change files by design, and idle when git cannot say.
+ * Idle in a writable run, where the fixers change files by design, in agent mode, which has its own
+ * exit-code contract, and when git cannot say.
  *
  * @internal
  */
@@ -38,7 +39,7 @@ final class TrackedTreeWatch
     {
         $this->last    = null;
         $this->context = null;
-        if (!$this->tree instanceof TrackedTreeInterface || !$context->config->readOnly) {
+        if (!$this->tree instanceof TrackedTreeInterface || !$context->config->readOnly || $context->config->agentMode) {
             return;
         }
 

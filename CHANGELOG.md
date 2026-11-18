@@ -123,7 +123,7 @@ the release and its tag. The full rules are in
 
 ### Added
 
-- A read-only run (`QA_READONLY=1`, which CI sets) now fails when a step leaves a git-tracked file
+- A read-only run (`QA_READONLY=1`, which GitHub Actions defaults to) now fails when a step leaves a git-tracked file
   changed, naming each file and the lane or hook that was running when it changed, under the new
   identifier `phpqaci.trackedFilesUnchanged`. Before this, a full gate could exit 0 and leave a
   tracked file modified without a word (issue #412). A tree already dirty before the run is the
