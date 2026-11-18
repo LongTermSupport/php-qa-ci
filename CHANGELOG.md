@@ -25,6 +25,8 @@ the release and its tag. The full rules are in
 
 ## Unreleased
 
+## 85.19.0 — 2026-11-18
+
 ### Changed — breaking
 
 - The base-gate check now reports a workflow that writes the `on` key twice, a `pull_request` or
