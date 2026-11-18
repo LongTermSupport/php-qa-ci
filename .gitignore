@@ -27,6 +27,8 @@
 /.phive-home/
 /build/rector-phar/vendor/
 /build/rector-phar/rector.phar
+# PHPStan Turbo binaries: created by the php8.5 line's installer, which a checkout that was on that line keeps
+/vendor-phar/turbo-ext
 
 # BEGIN php-qa-ci managed QA runtime excludes — do not edit
 # These patterns ensure QA tool runtime caches are never committed,
