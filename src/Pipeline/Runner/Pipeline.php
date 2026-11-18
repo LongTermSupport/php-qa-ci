@@ -57,6 +57,7 @@ final readonly class Pipeline
         private string $hostname,
         private int $pid,
         private SignalledChildren $signalled = new SignalledChildren(),
+        private ?TrackedTreeInterface $trackedTree = null,
     ) {
     }
 

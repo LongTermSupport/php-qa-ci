@@ -21,6 +21,7 @@ use LTS\PHPQA\Pipeline\Runner\NonInteractiveRetryPrompt;
 use LTS\PHPQA\Pipeline\Runner\PharToolsVerifier;
 use LTS\PHPQA\Pipeline\Runner\Pipeline;
 use LTS\PHPQA\Pipeline\Runner\ToolExecutor;
+use LTS\PHPQA\Pipeline\Runner\TrackedTreeInterface;
 use LTS\PHPQA\Pipeline\Tool\Dto\ToolResultDto;
 use LTS\PHPQA\Pipeline\Tool\ToolContext;
 use LTS\PHPQA\Pipeline\Tool\ToolInterface;
@@ -29,8 +30,10 @@ use LTS\PHPQA\Tests\Support\AlwaysRetry;
 use LTS\PHPQA\Tests\Support\ContextFactory;
 use LTS\PHPQA\Tests\Support\FakeToolLocator;
 use LTS\PHPQA\Tests\Support\RewritingTool;
+use LTS\PHPQA\Tests\Support\ScriptedTrackedTree;
 use LTS\PHPQA\Tests\Support\SignalledChildTool;
 use LTS\PHPQA\Tests\Support\StubTool;
+use LTS\PHPQA\Tests\Support\TreeTouchingTool;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
@@ -637,6 +640,82 @@ final class PipelineTest extends TestCase
         self::assertNull($this->lockRecord());
     }
 
+    #[Test]
+    public function aReadOnlyRunThatLeavesATrackedFileChangedFailsNamingTheFileAndTheLane(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, 'config/reference.php'));
+        $later = new StubTool(self::PHP_LINT, ToolResultDto::passed());
+        $this->tools->register($later);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        $exit = $this->pipeline(tree: $tree)->run($context);
+
+        self::assertSame(1, $exit);
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('phpqaci.trackedFilesUnchanged', $printed);
+        self::assertStringContainsString('config/reference.php', $printed);
+        self::assertMatchesRegularExpression('/rector.*config\/reference\.php|config\/reference\.php.*rector/s', $printed);
+        self::assertStringContainsString('[phpLint ran]', $printed, 'an aggregate run goes on, so later lanes are still watched');
+        self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
+        self::assertNull($this->lockRecord(), 'the lock is released');
+    }
+
+    #[Test]
+    public function aWritableRunIsNotWatchedForTrackedFileChanges(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, 'config/reference.php'));
+        $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
+
+        $exit = $this->pipeline(tree: $tree)->run($context);
+
+        self::assertSame(0, $exit);
+        self::assertSame(0, $tree->asked, 'a writable run changes files by design, so the tree is never read');
+        self::assertStringNotContainsString('trackedFilesUnchanged', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aFailFastReadOnlyRunStopsAtTheLaneThatChangedATrackedFile(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $this->tools->register(new TreeTouchingTool(self::RECTOR, $tree, 'config/reference.php'));
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: false)->build());
+
+        $exit = $this->pipeline(tree: $tree)->run($context);
+
+        self::assertSame(1, $exit);
+        $printed = $this->factory->output->fetch();
+        self::assertStringContainsString('phpqaci.trackedFilesUnchanged', $printed);
+        self::assertStringNotContainsString('[phpCsFixer ran]', $printed);
+    }
+
+    #[Test]
+    public function aReadOnlyRunOnATreeNothingChangedStaysGreen(): void
+    {
+        $tree = new ScriptedTrackedTree();
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        $exit = $this->pipeline(tree: $tree)->run($context);
+
+        self::assertSame(0, $exit);
+        self::assertGreaterThan(0, $tree->asked);
+        self::assertStringNotContainsString('trackedFilesUnchanged', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aTreeGitCannotReadIsSaidOnceAndDoesNotFailTheRun(): void
+    {
+        $tree = new ScriptedTrackedTree(answers: false);
+        $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
+
+        $exit = $this->pipeline(tree: $tree)->run($context);
+
+        self::assertSame(0, $exit);
+        $printed = $this->factory->output->fetch();
+        self::assertSame(1, substr_count($printed, 'could not read the tracked files'), 'said once, by name');
+    }
+
     /**
      * The holder record, which only release() clears. Whether the flock is
      * free proves nothing here: the pipeline's RunLock is garbage once run()
@@ -647,7 +726,7 @@ final class PipelineTest extends TestCase
         return RunLock::forProject($this->factory->project->path, $this->factory->output)->current();
     }
 
-    private function pipeline(bool $retry = false): Pipeline
+    private function pipeline(bool $retry = false, ?TrackedTreeInterface $tree = null): Pipeline
     {
         $prompt = $retry ? new AlwaysRetry() : new NonInteractiveRetryPrompt();
 
@@ -663,6 +742,7 @@ final class PipelineTest extends TestCase
             hostname: 'test-host',
             pid: 4242,
             signalled: $this->signalled,
+            trackedTree: $tree,
         );
     }
 }
