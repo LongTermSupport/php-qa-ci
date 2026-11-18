@@ -740,6 +740,7 @@ final class PipelineTest extends TestCase
     {
         $tree = new ScriptedTrackedTree();
         $tree->touchWhenAsked(3, self::REFERENCE_FILE);
+
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
 
         self::assertSame(0, $this->pipeline(tree: $tree)->run($context));

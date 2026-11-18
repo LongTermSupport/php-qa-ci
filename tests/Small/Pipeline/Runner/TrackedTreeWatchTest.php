@@ -131,7 +131,7 @@ final class TrackedTreeWatchTest extends TestCase
         $tree->touch(self::FILE, 'written by the run this one waited for');
         $watch->rebase();
 
-        self::assertSame([], $watch->changedBy(), 'not this run\'s change');
+        self::assertSame([], $watch->changedBy(), "not this run's change");
 
         $tree->touch(self::FILE, 'written by a step of this run');
         self::assertSame([self::FILE], $watch->changedBy());
