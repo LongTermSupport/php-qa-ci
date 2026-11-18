@@ -29,6 +29,8 @@ final class GitTrackedTreeRealGitTest extends TestCase
 
     private const string SIBLING = 'sibling/B.php';
 
+    private const string SOURCE_IN_WORK_TREE = 'work/project/src/A.php';
+
     private const string PHP = "<?php\n";
 
     private GitSandbox $sandbox;
@@ -57,10 +59,10 @@ final class GitTrackedTreeRealGitTest extends TestCase
     #[Test]
     public function aFileRewrittenTwiceIsADifferentStateEachTimeWhenTheProjectIsASubdirectoryOfTheRepository(): void
     {
-        $this->sandbox->root->write('work/project/src/A.php', "<?php\n// one\n");
+        $this->sandbox->root->write(self::SOURCE_IN_WORK_TREE, "<?php\n// one\n");
         $first = $this->dirty($this->project());
 
-        $this->sandbox->root->write('work/project/src/A.php', "<?php\n// two\n");
+        $this->sandbox->root->write(self::SOURCE_IN_WORK_TREE, "<?php\n// two\n");
         $second = $this->dirty($this->project());
 
         self::assertSame([self::SOURCE], array_keys($first), 'named as the project knows it, not from the repository root');
@@ -79,7 +81,7 @@ final class GitTrackedTreeRealGitTest extends TestCase
     #[Test]
     public function aProjectAtTheRootOfTheRepositoryNamesItsFilesFromThere(): void
     {
-        $this->sandbox->root->write('work/project/src/A.php', "<?php\n// one\n");
+        $this->sandbox->root->write(self::SOURCE_IN_WORK_TREE, "<?php\n// one\n");
 
         self::assertSame(['project/src/A.php'], array_keys($this->dirty($this->sandbox->work)));
     }
@@ -103,7 +105,7 @@ final class GitTrackedTreeRealGitTest extends TestCase
     #[Test]
     public function aStagedChangeIsDirtyToo(): void
     {
-        $this->sandbox->root->write('work/project/src/A.php', "<?php\n// staged\n");
+        $this->sandbox->root->write(self::SOURCE_IN_WORK_TREE, "<?php\n// staged\n");
         $this->sandbox->git('add', 'project/src/A.php');
 
         self::assertSame([self::SOURCE], array_keys($this->dirty($this->project())));

@@ -113,6 +113,8 @@ final class PipelineTest extends TestCase
 
     private const string REFERENCE_FILE = 'config/reference.php';
 
+    private const string PHPCPD = 'phpcpd';
+
     private const string SEGFAULT_LINE = 'A segmentation fault is never retried past or accepted in a passing run: debug it and report it where the crashing code lives, as %s describes.';
 
     private ContextFactory $factory;
@@ -143,7 +145,7 @@ final class PipelineTest extends TestCase
         self::assertSame(0, $exit);
         $printed = $this->factory->output->fetch();
         self::assertStringContainsString(self::ALL_TESTS_PASSING, $printed);
-        $expectedOrder = [self::DEPENDENCY_FRESHNESS, 'rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'documentedQaCommands', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', 'phpcpd'];
+        $expectedOrder = [self::DEPENDENCY_FRESHNESS, 'rector', 'phpCsFixer', 'twigCsFixer', 'markdownFormat', 'psr4Validate', 'composerChecks', 'packageType', 'configTemplateIgnoreList', 'infectionConfigSourceDirs', 'analysedPaths', 'versionPins', 'changelog', 'phpStrictTypes', self::PHP_LINT, 'opcache', 'composerRequireChecker', 'composerDependencyAnalyser', 'markdownLinks', 'docsProse', 'documentedQaCommands', 'yamlLint', 'shellCheck', 'branchNamePolicy', 'phpstanIgnoreJustification', self::PHPSTAN, 'deadCode', 'phpArkitect', 'sensitiveParameterUsage', 'phpunit', 'infection', self::PHPCPD];
         \Safe\preg_match_all('/\[(\w+) ran\]/', $printed, $ran);
         self::assertSame($expectedOrder, $ran[1] ?? []);
         self::assertNull($this->lockRecord(), 'the lock is released');
@@ -498,7 +500,7 @@ final class PipelineTest extends TestCase
     #[Test]
     public function aSegfaultInTheCopyPasteReportFailsTheRun(): void
     {
-        $this->tools->register(new SignalledChildTool('phpcpd', $this->signalled, \SIGSEGV));
+        $this->tools->register(new SignalledChildTool(self::PHPCPD,$this->signalled, \SIGSEGV));
         $context = $this->factory->context($this->factory->builder(readOnly: false, aggregate: false)->build());
 
         self::assertSame(1, $this->pipeline()->run($context));
@@ -718,7 +720,7 @@ final class PipelineTest extends TestCase
     public function theCopyPasteLaneThatLeavesATrackedFileChangedFailsTheRun(): void
     {
         $tree = new ScriptedTrackedTree();
-        $this->tools->register(new TreeTouchingTool('phpcpd', $tree, self::REFERENCE_FILE));
+        $this->tools->register(new TreeTouchingTool(self::PHPCPD,$tree, self::REFERENCE_FILE));
         $context = $this->factory->context($this->factory->builder(readOnly: true, aggregate: true)->build());
 
         self::assertSame(1, $this->pipeline(tree: $tree)->run($context));
