@@ -663,6 +663,8 @@ final class PipelineTest extends TestCase
         self::assertStringContainsString(self::REFERENCE_FILE, $printed);
         self::assertMatchesRegularExpression('/rector.*config\/reference\.php|config\/reference\.php.*rector/s', $printed);
         self::assertStringContainsString('[phpLint ran]', $printed, 'an aggregate run goes on, so later lanes are still watched');
+        self::assertStringContainsString('Aggregate (read-only) run: 1 tool(s) FAILED', $printed);
+        self::assertStringContainsString('          - phpqaci.trackedFilesUnchanged', $printed, 'the summary names it');
         self::assertStringNotContainsString(self::ALL_TESTS_PASSING, $printed);
         self::assertNull($this->lockRecord(), 'the lock is released');
     }

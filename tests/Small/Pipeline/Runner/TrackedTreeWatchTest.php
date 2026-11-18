@@ -122,6 +122,19 @@ final class TrackedTreeWatchTest extends TestCase
     }
 
     #[Test]
+    public function anAgentModeRunIsNeverWatched(): void
+    {
+        $tree  = new ScriptedTrackedTree();
+        $watch = new TrackedTreeWatch($tree, $this->factory->output);
+        $watch->begin($this->factory->context($this->factory->builder(readOnly: true, aggregate: true, agentMode: true)->build()));
+
+        $tree->touch(self::FILE);
+
+        self::assertSame([], $watch->changedBy());
+        self::assertSame(0, $tree->asked, 'agent mode has its own exit-code contract, so the tree is never read');
+    }
+
+    #[Test]
     public function aTreeGitCannotReadIsSaidOnceAndThenIgnored(): void
     {
         $tree  = new ScriptedTrackedTree(answers: false);
