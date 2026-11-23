@@ -64,7 +64,7 @@ final class PushTriggersSkipDocsOnlyPushesTest extends TestCase
             $patterns = $this->pushPaths($workflow);
 
             foreach (self::DOCS_ONLY as $file) {
-                self::assertFalse($this->startsRun($patterns, $file), $workflow . ' runs for a push that changes only ' . $file);
+                self::assertFalse($this->startsRun($file, ...$patterns), $workflow . ' runs for a push that changes only ' . $file);
             }
         }
     }
@@ -76,7 +76,7 @@ final class PushTriggersSkipDocsOnlyPushesTest extends TestCase
             $patterns = $this->pushPaths($workflow);
 
             foreach (self::MUST_RUN as $file) {
-                self::assertTrue($this->startsRun($patterns, $file), $workflow . ' skips a push that changes ' . $file);
+                self::assertTrue($this->startsRun($file, ...$patterns), $workflow . ' skips a push that changes ' . $file);
             }
         }
     }
@@ -86,12 +86,12 @@ final class PushTriggersSkipDocsOnlyPushesTest extends TestCase
     {
         $patterns = ['**', '!**.md', '**/CLAUDE.md'];
 
-        self::assertTrue($this->startsRun($patterns, 'src/Foo.php'));
-        self::assertFalse($this->startsRun($patterns, 'README.md'));
-        self::assertTrue($this->startsRun($patterns, 'CLAUDE.md'), 'A pattern starting **/ also matches the root.');
-        self::assertTrue($this->startsRun($patterns, 'deep/er/CLAUDE.md'));
-        self::assertFalse($this->startsRun(['**', '**/CLAUDE.md', '!**.md'], 'CLAUDE.md'), 'A later negation takes back an earlier match.');
-        self::assertFalse($this->startsRun([], 'src/Foo.php'));
+        self::assertTrue($this->startsRun('src/Foo.php', ...$patterns));
+        self::assertFalse($this->startsRun('README.md', ...$patterns));
+        self::assertTrue($this->startsRun('CLAUDE.md', ...$patterns), 'A pattern starting **/ also matches the root.');
+        self::assertTrue($this->startsRun('deep/er/CLAUDE.md', ...$patterns));
+        self::assertFalse($this->startsRun('CLAUDE.md', '**', '**/CLAUDE.md', '!**.md'), 'A later negation takes back an earlier match.');
+        self::assertFalse($this->startsRun('src/Foo.php'));
     }
 
     /** @return list<string> */
@@ -104,8 +104,7 @@ final class PushTriggersSkipDocsOnlyPushesTest extends TestCase
         return $push->child(self::PATHS)->strings();
     }
 
-    /** @param list<string> $patterns */
-    private function startsRun(array $patterns, string $file): bool
+    private function startsRun(string $file, string ...$patterns): bool
     {
         $included = false;
         foreach ($patterns as $pattern) {
