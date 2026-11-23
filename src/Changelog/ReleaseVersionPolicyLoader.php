@@ -30,6 +30,6 @@ final readonly class ReleaseVersionPolicyLoader
             throw new ChangelogReleaseException(\sprintf('cannot read the release policy from %s/%s: %s', self::CONFIG_DIR, ProjectConfigLoader::FILE, $exception->getMessage()), 0, $exception);
         }
 
-        return null === $config ? new ReleaseVersionPolicy() : $config->releaseVersionPolicy;
+        return $config instanceof \LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto ? $config->releaseVersionPolicy : new ReleaseVersionPolicy();
     }
 }

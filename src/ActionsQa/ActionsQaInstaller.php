@@ -136,7 +136,7 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
             offlineBuild: static function () use ($projectRoot, $libraryRoot): bool {
                 $config = new ProjectQaConfigReader()->read($projectRoot, $libraryRoot);
 
-                return null !== $config && $config->offlineBuild;
+                return $config instanceof \LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto && $config->offlineBuild;
             },
         )->run($libraryRoot, ...$arguments);
     }

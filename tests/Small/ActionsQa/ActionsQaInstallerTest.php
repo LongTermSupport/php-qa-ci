@@ -109,7 +109,7 @@ final class ActionsQaInstallerTest extends TestCase
         self::assertStringStartsWith($this->library->path . '/vendor-bin/.phpqa-actions-qa-ci', $install->command[3]);
         self::assertSame($install->cwd, $install->env['TMPDIR'] ?? null);
 
-        self::assertSame(self::versionProbe(ActionsQaBinary::path($this->library->path) . '.staged'), $this->stagedProbe());
+        self::assertSame($this->versionProbe(ActionsQaBinary::path($this->library->path) . '.staged'), $this->stagedProbe());
         self::assertSame(\sprintf("Installed actions-qa-ci %s in %s\n", ActionsQaBinary::VERSION, ActionsQaBinary::installDir($this->library->path)), $this->output->fetch());
         self::assertSame([], $this->stagingLeftovers());
     }
@@ -135,7 +135,7 @@ final class ActionsQaInstallerTest extends TestCase
 
         self::assertSame(0, $exit);
         self::assertSame([], $this->requests);
-        self::assertSame([self::versionProbe(ActionsQaBinary::path($this->library->path))], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
+        self::assertSame([$this->versionProbe(ActionsQaBinary::path($this->library->path))], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
         self::assertSame(\sprintf("actions-qa-ci %s is already installed in %s\n", ActionsQaBinary::VERSION, ActionsQaBinary::installDir($this->library->path)), $this->output->fetch());
     }
 
@@ -428,7 +428,7 @@ final class ActionsQaInstallerTest extends TestCase
 
         self::assertSame(0, $exit);
         self::assertSame([], $this->requests);
-        self::assertSame([self::versionProbe(ActionsQaBinary::path($this->library->path))], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
+        self::assertSame([$this->versionProbe(ActionsQaBinary::path($this->library->path))], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
         self::assertSame(\sprintf("actions-qa-ci %s, the pinned release, is installed in %s.\n", ActionsQaBinary::VERSION, ActionsQaBinary::installDir($this->library->path)), $this->output->fetch());
     }
 
@@ -523,7 +523,7 @@ final class ActionsQaInstallerTest extends TestCase
      *
      * @return list<string>
      */
-    private static function versionProbe(string $program): array
+    private function versionProbe(string $program): array
     {
         return [$program, 'version', '--json'];
     }
