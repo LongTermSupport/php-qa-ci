@@ -110,6 +110,18 @@ name: QA
 
 on:
   push:
+    # A push that changes only documentation starts no run. Markdown that changes how agents and
+    # tools behave, the workflows, and CHANGELOG.md stay in: the release workflow runs after a
+    # green push run, and merging a release pull request changes CHANGELOG.md and nothing else.
+    paths:
+      - "**"
+      - "!**.md"
+      - "!docs/**"
+      - "CHANGELOG.md"
+      - "**/CLAUDE.md"
+      - "**/AGENTS.md"
+      - ".claude/**"
+      - ".github/**"
   pull_request:
   workflow_dispatch:
 
