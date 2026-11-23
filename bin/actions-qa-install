@@ -28,5 +28,5 @@ die(\LTS\PHPQA\ActionsQa\ActionsQaInstaller::main(
     \dirname(__DIR__),
     \dirname($phpQaCiBootstrapAutoloadPath, 2),
     new \Symfony\Component\Console\Output\ConsoleOutput(),
-    ...array_slice($argv, 1),
+    ...array_slice($argv ?? [], 1),
 ));
