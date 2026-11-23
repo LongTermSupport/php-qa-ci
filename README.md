@@ -472,13 +472,16 @@ discover the flag.
 
 ### Composer Plugins
 
-PHP-QA-CI registers three Composer plugins (`composer.json` `extra.class`):
+PHP-QA-CI registers five Composer plugins (`composer.json` `extra.class`):
 
 - **SkillsDeployPlugin** -- Deploys Claude Code skills and hooks
 - **PhpStanGuardPlugin** -- Prevents `phpstan/phpstan` from being installed alongside the PHAR
 - **ManagedSourceDeployPlugin** -- Regenerates the managed `<RootNs>\PhpQaCi\` source tree on
   install/update (gated by the same `PHP_QA_CI_DISABLE_CONFIG_PUSH` flag as `SkillsDeployPlugin`);
   see [CLAUDE/managed-source.md](CLAUDE/managed-source.md)
+- **TurboInstallPlugin** -- Installs the pinned PHPStan Turbo binary on install/update
+- **ActionsQaInstallPlugin** -- Installs the pinned actions-qa-ci bundle the `actionsQa` lane runs
+  on install/update; see [docs/tools/actionsQa.md](docs/tools/actionsQa.md)
 
 ## Docs
 

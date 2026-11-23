@@ -167,7 +167,8 @@
       "LTS\\PHPQA\\ComposerPlugin\\SkillsDeployPlugin",
       "LTS\\PHPQA\\ComposerPlugin\\PhpStanGuardPlugin",
       "LTS\\PHPQA\\ComposerPlugin\\ManagedSourceDeployPlugin",
-      "LTS\\PHPQA\\ComposerPlugin\\TurboInstallPlugin"
+      "LTS\\PHPQA\\ComposerPlugin\\TurboInstallPlugin",
+      "LTS\\PHPQA\\ComposerPlugin\\ActionsQaInstallPlugin"
     ],
     "defence-before-fix": {
       "known-gaps": [],
