@@ -166,6 +166,12 @@ the release and its tag. The full rules are in
 
 ### Fixed
 
+- The shipped workflow templates `php-qa-ci.yml` and `qa-autofix.yml` no longer start a run for a
+  push that changes only documentation. Their `push` trigger now carries a `paths` filter that
+  leaves out Markdown and `docs/`, and keeps in `CHANGELOG.md`, `CLAUDE.md` and `AGENTS.md` files,
+  `.claude/` and `.github/`: the release workflow runs after a green push run, and merging a
+  release pull request changes `CHANGELOG.md` alone. A project that copied a template earlier keeps
+  its own trigger until it copies the new one. See [docs/github-actions.md](docs/github-actions.md).
 - The misplaced-`Changelog:` check no longer reports the subject of a commit whose message begins
   with blank lines as a misplaced trailer (issue #254). Such a message, built by hand
   (`git commit-tree`, `--cleanup=verbatim`), has its

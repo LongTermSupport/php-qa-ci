@@ -38,6 +38,16 @@ the default branch, where the result gates a release. A newer push to a pull req
 run it supersedes; a run on the default branch is never cancelled. Do not list a work branch, or a
 long-lived branch with an open pull request, under `push:`: each push to it would run twice.
 
+### Documentation-Only Pushes
+
+The `push` trigger carries a `paths` filter, so a push that changes only Markdown or `docs/` starts
+no run. The filter keeps in `CHANGELOG.md`, `CLAUDE.md` and `AGENTS.md` files, `.claude/` and
+`.github/`, which change how agents and tools behave. `CHANGELOG.md` has to stay: the release
+workflow runs after a green push run, and merging a release pull request changes that file and
+nothing else, so a filter that dropped it would leave the release unpublished. A project whose
+documentation is part of its build adds those paths back, after the `!` lines. Pull requests are
+not filtered: a required check on a pull request that never starts would leave it waiting.
+
 ### Read-Only Token
 
 The workflow sets `permissions: contents: read`. The pipeline runs third-party code (every Composer
