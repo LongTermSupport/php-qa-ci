@@ -273,6 +273,56 @@ final class ActionsQaToolTest extends TestCase
         self::assertStringContainsString(\sprintf('(Darwin %s)', php_uname('m')), $this->factory->output->fetch());
     }
 
+    /**
+     * An offline project cannot download the bundle, so its absence is not a broken install: the
+     * lane skips with a named line saying the workflows were not checked, and how to provision it.
+     */
+    #[Test]
+    public function anOfflineBuildWithoutTheBundleSkipsByNameAndSaysTheWorkflowsWereNotChecked(): void
+    {
+        $this->factory->processes->willSucceed(self::WORKFLOWS);
+
+        $result = $this->tool()->run($this->context(offline: true));
+
+        self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame(\sprintf('this project builds offline and actions-qa-ci %s is not installed, so the workflows were not checked', ActionsQaBinary::VERSION), $result->summary);
+        self::assertSame(
+            \sprintf(
+                "SKIPPED actionsQa (phpqaci.actionsQa): this project builds offline (withOfflineBuild(true) in qaConfig/qa.php) and actions-qa-ci %s is not installed, so the workflows were NOT checked. Provision it from the release assets with: %s --from <directory>\n",
+                ActionsQaBinary::VERSION,
+                ActionsQaBinary::installCommand($this->libraryRoot),
+            ),
+            $this->factory->output->fetch(),
+        );
+        self::assertCount(1, $this->factory->processes->specs);
+    }
+
+    /** A pre-seeded air-gapped host has the pinned bundle, and the lane checks with it as usual. */
+    #[Test]
+    public function anOfflineBuildWithThePinnedBundleChecksAsUsual(): void
+    {
+        $this->install();
+        $this->factory->processes->willSucceed(self::WORKFLOWS)->willSucceed(self::CURRENT_REPORT)->willFail(1, self::FINDING);
+
+        $result = $this->tool()->run($this->context(offline: true));
+
+        self::assertSame(ToolOutcomeEnum::Failed, $result->outcome);
+        self::assertCount(3, $this->factory->processes->specs);
+    }
+
+    /** Another release on an offline host is still a broken install, and the command it names installs offline. */
+    #[Test]
+    public function anOfflineBuildWithAnotherReleaseCrashesNamingTheOfflineInstallCommand(): void
+    {
+        $this->install();
+        $this->factory->processes->willSucceed(self::WORKFLOWS)->willSucceed('{"toolchain": "0.1.0"}');
+
+        $result = $this->tool()->run($this->context(offline: true));
+
+        self::assertSame(ToolOutcomeEnum::Crashed, $result->outcome);
+        self::assertStringContainsString(self::INSTALL_WITH . '  ' . ActionsQaBinary::installCommand($this->libraryRoot) . " --from <directory>\n", $this->factory->output->fetch());
+    }
+
     #[Test]
     public function nameAndIdentifierAreStable(): void
     {
@@ -295,7 +345,7 @@ final class ActionsQaToolTest extends TestCase
     }
 
     /** The fixture's config with the library root moved, so its install directory is the test's. */
-    private function context(): \LTS\PHPQA\Pipeline\Tool\ToolContext
+    private function context(bool $offline = false): \LTS\PHPQA\Pipeline\Tool\ToolContext
     {
         $paths = $this->factory->paths();
 
@@ -310,6 +360,6 @@ final class ActionsQaToolTest extends TestCase
             cacheDir: $paths->cacheDir,
             pharDir: $paths->pharDir,
             configDefaultsDir: $paths->configDefaultsDir,
-        ))->build());
+        ))->withOfflineBuild($offline)->build());
     }
 }

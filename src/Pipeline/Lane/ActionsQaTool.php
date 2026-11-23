@@ -19,7 +19,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  * and safe", which the shellCheck lane, asking "is this shell script correct", does not.
  *
  * The bundle is fetched, not committed, and pinned: a release other than the pinned one, or none,
- * is a crash naming the one command that installs it. The lane checks the whole project whatever
+ * is a crash naming the one command that installs it; in a project that declares
+ * withOfflineBuild(true), a missing bundle is a named SKIPPED line instead. The lane checks the whole project whatever
  * `-p` names, because its rules are cross-file: a record entry is judged against every workflow.
  *
  * @internal
@@ -87,6 +88,10 @@ final readonly class ActionsQaTool implements ToolInterface
         $libraryRoot = $context->config->paths->libraryRoot;
         $program     = ActionsQaBinary::path($libraryRoot);
         if (!is_executable($program)) {
+            if ($context->config->offlineBuild) {
+                return $this->skipOffline($context, $libraryRoot);
+            }
+
             $context->writeln(\sprintf('actions-qa-ci %s is not installed: %s is missing or not executable.', ActionsQaBinary::VERSION, $program));
 
             return $this->reportInstallCommand($context, $libraryRoot);
@@ -141,10 +146,33 @@ final readonly class ActionsQaTool implements ToolInterface
         ));
     }
 
+    /**
+     * An offline project cannot download the bundle, so its absence is not a broken install; but
+     * nothing was checked, and the line says so by name rather than passing in silence.
+     */
+    private function skipOffline(ToolContext $context, string $libraryRoot): ToolResultDto
+    {
+        $context->writeln(\sprintf(
+            'SKIPPED %s (%s): this project builds offline (withOfflineBuild(true) in qaConfig/qa.php) and actions-qa-ci %s is not installed, so the workflows were NOT checked. Provision it from the release assets with: %s',
+            $this->name(),
+            self::IDENTIFIER,
+            ActionsQaBinary::VERSION,
+            $this->installCommand($context, $libraryRoot),
+        ));
+
+        return ToolResultDto::skipped(\sprintf('this project builds offline and actions-qa-ci %s is not installed, so the workflows were not checked', ActionsQaBinary::VERSION));
+    }
+
+    /** The command that installs the bundle; an offline project installs from release assets on disk. */
+    private function installCommand(ToolContext $context, string $libraryRoot): string
+    {
+        return ActionsQaBinary::installCommand($libraryRoot) . ($context->config->offlineBuild ? ' --from <directory>' : '');
+    }
+
     private function reportInstallCommand(ToolContext $context, string $libraryRoot): ToolResultDto
     {
         $context->writeln('Install it with:');
-        $context->writeln('  ' . ActionsQaBinary::installCommand($libraryRoot));
+        $context->writeln('  ' . $this->installCommand($context, $libraryRoot));
         $context->writeIdentifier(self::IDENTIFIER);
 
         return ToolResultDto::crashed(self::BROKEN_INSTALL);
