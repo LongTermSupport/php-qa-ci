@@ -477,7 +477,13 @@ jobs:
           CI: 'true'
         run: '"$(composer config bin-dir)/qa" -t allCS'
 
-      - name: Linting (composer, version pins, shell, markdown, YAML, PHP syntax)
+      # The actionsQa linting lane checks the workflows with the actions-qa-ci
+      # bundle, which is not committed: this fetches the release php-qa-ci pins,
+      # and runs its install script only once its SHA-256 matches the pin.
+      - name: Install actions-qa-ci
+        run: '"$(composer config bin-dir)/actions-qa-install"'
+
+      - name: Linting (composer, version pins, shell, workflows, markdown, YAML, PHP syntax)
         env:
           CI: 'true'
         run: '"$(composer config bin-dir)/qa" -t allLints'

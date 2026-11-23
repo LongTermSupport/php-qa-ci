@@ -204,6 +204,7 @@ Not PHPStan rules, but lanes of `bin/qa` that print an identifier of their own. 
 | `phpqaci.twigLint`                                  | `Pipeline/Lane/TwigLintTool`                             | Symfony linting          | [Every twig template compiles](../tools/twigLint.md)                                                                                                                        |
 | `phpqaci.yamlLint`                                  | `Pipeline/Lane/YamlLintTool`                             | `bin/qa -t yaml`         | [Every yaml config file parses](../tools/yamlLint.md)                                                                                                                       |
 | `phpqaci.shellCheck`                                | `Pipeline/Lane/ShellCheckTool`                           | `bin/qa -t sc`           | [Every git-tracked shell script passes ShellCheck](../tools/shellCheck.md)                                                                                                  |
+| `phpqaci.actionsQa`                                 | `Pipeline/Lane/ActionsQaTool`                            | `bin/qa -t aq`           | [The GitHub Actions workflows pass actions-qa-ci at the pinned release](../tools/actionsQa.md)                                                                              |
 
 ## PHPArkitect rules
 

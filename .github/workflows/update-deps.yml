@@ -136,6 +136,13 @@ jobs:
       # with it, so the patch packaged below is the change as the pull request
       # will have it. The work branch is not chore/update-deps, which the pull
       # request action creates and resets itself.
+      # The actionsQa lane checks the workflows with the actions-qa-ci bundle,
+      # which is not committed: this fetches the release php-qa-ci pins, and
+      # runs its install script only once its SHA-256 matches the pin.
+      - name: Install actions-qa-ci
+        if: steps.changes.outputs.changed == 'true'
+        run: php bin/actions-qa-install
+
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:

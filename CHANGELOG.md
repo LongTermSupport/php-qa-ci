@@ -123,6 +123,16 @@ the release and its tag. The full rules are in
 
 ### Added
 
+- A new linting lane, `actionsQa` (`bin/qa -t aq`, identifier `phpqaci.actionsQa`), checks the
+  project's GitHub Actions workflows with actions-qa-ci 0.2.0 (actionlint, ShellCheck over `run:`
+  scripts, zizmor), from the project root and over the whole project. Findings fail the lane; any
+  exit other than 0 or 1 crashes it. A project that is not a git work tree, or tracks nothing under
+  `.github/workflows`, is skipped. The bundle is not shipped: `bin/actions-qa-install` (also in
+  Composer's bin dir) downloads the pinned release's `install.sh`, runs it only when its SHA-256
+  matches the pin, and installs into `vendor-bin/actions-qa-ci`. Until that has run, a project with
+  workflows has the lane crash naming that command, so a CI workflow running the full pipeline
+  needs the install step the shipped `php-qa-ci.yml` and `qa-autofix.yml` templates now carry.
+  Linux on x86_64 and aarch64 only. See [docs/tools/actionsQa.md](docs/tools/actionsQa.md).
 - A read-only run (`QA_READONLY=1`, which GitHub Actions defaults to) now fails when a step leaves a git-tracked file
   changed, naming each file and the lane or hook that was running when it changed, under the new
   identifier `phpqaci.trackedFilesUnchanged`. Before this, a full gate could exit 0 and leave a

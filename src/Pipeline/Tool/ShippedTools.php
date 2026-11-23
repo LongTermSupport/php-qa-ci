@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Tool;
 
+use LTS\PHPQA\Pipeline\Lane\ActionsQaTool;
 use LTS\PHPQA\Pipeline\Lane\AnalysedPathsTool;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicyTool;
 use LTS\PHPQA\Pipeline\Lane\ChangelogTool;
@@ -82,6 +83,7 @@ final readonly class ShippedTools
             'twigLint'                   => new TwigLintTool(),
             'yamlLint'                   => new YamlLintTool(),
             'shellCheck'                 => new ShellCheckTool(),
+            'actionsQa'                  => new ActionsQaTool(),
             'phpstan'                    => new PhpstanTool(),
             'deadCode'                   => new DeadCodeTool(),
             'phpArkitect'                => new PhpArkitectTool(),

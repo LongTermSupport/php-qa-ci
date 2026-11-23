@@ -140,6 +140,7 @@ dir) prints its page offline.
 - `phpqaci.documentedQaCommands` — documented qa commands name tools qa accepts (`docs/tools/documentedQaCommands.md`)
 - `phpqaci.yamlLint` — YAML syntax (when symfony/yaml is installed) (`docs/tools/yamlLint.md`)
 - `phpqaci.shellCheck` — ShellCheck over every git-tracked shell script, from the pinned binary php-qa-ci ships (`docs/tools/shellCheck.md`)
+- `phpqaci.actionsQa` — actions-qa-ci (actionlint, ShellCheck and zizmor) over the GitHub Actions workflows, from the release php-qa-ci pins (`docs/tools/actionsQa.md`)
 - `phpqaci.branchNamePolicy` — Branch naming policy (PR convention) (`CLAUDE/branch-policy.md`)
 - `phpqaci.phpstanIgnoreJustification` — assert every ignoreErrors entry in qaConfig/phpstan.neon carries a usable justification (`docs/tools/phpstanIgnoreJustification.md`)
 - `phpqaci.deadCode` — dead-code detection through phpstan.phar (opt-in: withDeadCodeDetection(true) in qaConfig/qa.php) (`docs/tools/deadCode.md`)

@@ -67,6 +67,9 @@ the version to the front of the list.
   `changelog` lane needs
 - **Any bin-dir**: every step runs `"$(composer config bin-dir)/qa"`, so a project that sets
   `config.bin-dir` needs no edit
+- **actions-qa-ci**: a step after `composer install` runs `actions-qa-install`, which fetches the
+  pinned actions-qa-ci bundle the `actionsQa` lane needs; it is never committed
+  ([docs/tools/actionsQa.md](tools/actionsQa.md))
 
 ### Tool-Specific Runs
 
@@ -203,6 +206,8 @@ skipped run — cosmetic.)
   by default) and Settings → Actions → General → "Read and write permissions".
 - A custom composer `bin-dir` (e.g. `bin`) needs no edit: every step runs
   `"$(composer config bin-dir)/qa"`.
+- The gate installs the pinned actions-qa-ci bundle before `qa -t allLints`, whose `actionsQa`
+  lane needs it.
 - The gate runs `qa -t allCS`, `qa -t allLints` and `qa -t allStatic` (tests deferred — a
   PHPUnit suite usually needs a DB / services not on the runner). When your suite runs without
   external services, add a tests step plus a `gate.services` block. The `versionPins` check

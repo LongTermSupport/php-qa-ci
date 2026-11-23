@@ -261,6 +261,7 @@ final class ToolRegistryTest extends TestCase
                 'documentedQaCommands'       => 'dqc|documentedQaCommands linting - None - - - -',
                 'yamlLint'                   => 'yaml linting - None - - - -',
                 'shellCheck'                 => 'sc|shellcheck|shellCheck linting paths None - - - -',
+                'actionsQa'                  => 'aq|actionsqa|actionsQa linting - None - - - -',
                 'branchNamePolicy'           => 'bnp|branchNamePolicy staticAnalysis - None - - - -',
                 'phpstanIgnoreJustification' => 'pij|phpstanIgnoreJustification staticAnalysis - None - - - -',
                 self::PHPSTAN                => 'stan|phpstan staticAnalysis paths NotQuick - - json agent',
@@ -348,6 +349,6 @@ final class ToolRegistryTest extends TestCase
         $registry = ToolRegistry::shipped();
 
         self::assertCount(\count($registry->all()), $registry->usageLines());
-        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[36]);
+        self::assertSame(\sprintf('%-26s %s', 'uniterate', 'phpunit iterative mode - prioritise broken tests and fail on error'), $registry->usageLines()[37]);
     }
 }
