@@ -38,24 +38,59 @@ file, is itself a finding. `actions-qa rule-doc <id>` prints each rule's page.
 
 The bundle is tens of megabytes of binaries per CPU, so php-qa-ci commits none of it. It carries
 the release version and the SHA-256 of that release's `install.sh`
-(`LTS\PHPQA\Pipeline\Config\ActionsQaBinary`). Install the bundle with:
+(`LTS\PHPQA\Pipeline\Config\ActionsQaBinary`).
+
+Every `composer install` and `composer update` installs the bundle: in a consuming project
+php-qa-ci's Composer plugin `ActionsQaInstallPlugin` runs the installer, and in php-qa-ci itself
+`scripts/tool-install.bash` does. The installer can also be run by hand:
 
 ```bash
 php vendor/lts/php-qa-ci/bin/actions-qa-install
 ```
 
-(or `vendor/bin/actions-qa-install` through Composer's bin dir). It downloads `install.sh`,
-refuses it unless its SHA-256 is the pinned one, and only then runs it, with a prefix in a staging
-directory beside `vendor-bin/actions-qa-ci/`. `install.sh` checks the bundle against the digest
-written into it. The staged bundle must report the pinned release before it replaces the
-installed one, so a failure at any step leaves the previous install as it was. Nothing is piped
-into a shell. A `composer install` never runs it: the download happens only when asked for.
+(or `vendor/bin/actions-qa-install` through Composer's bin dir). With the pinned release already
+installed it downloads nothing. Otherwise it downloads `install.sh`, refuses it unless its SHA-256
+is the pinned one, and only then runs it, with a prefix in a staging directory beside
+`vendor-bin/actions-qa-ci/`. `install.sh` checks the bundle against the digest written into it.
+The staged bundle must report the pinned release before it replaces the installed one, so a
+failure at any step leaves the previous install as it was. Nothing is piped into a shell. A
+failed install is reported and does not fail `composer install`; `php
+vendor/lts/php-qa-ci/bin/actions-qa-install state` says, without changing anything, whether the
+pinned release is in place.
+
+A `composer install --no-scripts` dispatches no post-install event, so no plugin runs and the
+bundle is not installed; run the installer after it.
 
 When the bundle is missing, or reports a release other than the pinned one, the lane **crashes**
-and prints that command. One release has to run everywhere, or QA and CI are not the same check.
+and prints the install command. One release has to run everywhere, or QA and CI are not the same
+check.
 
-Linux on x86_64 (`linux_amd64`) and aarch64 (`linux_arm64`) is supported; on any other host the
-lane and the installer crash naming the host.
+Linux on x86_64 (`linux_amd64`) and aarch64 (`linux_arm64`) is supported. On any other host
+(macOS, Windows, another CPU) the installer prints one `NOTICE` line naming the host and succeeds,
+so `composer install` is not failed, and the lane crashes naming the host, as the
+[ShellCheck lane](shellCheck.md) does.
+
+## A host without network
+
+A project that builds without network access declares it once, in `qaConfig/qa.php`:
+
+```php
+return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa->withOfflineBuild(true);
+```
+
+With that setting the installer downloads nothing: `composer install` prints one
+`SKIPPED actionsQa (phpqaci.actionsQa)` line naming the command below and succeeds. Provision the
+bundle from the release assets copied to the host, `install.sh` and
+`actions-qa-ci_<version>_<platform>.tar.gz` in one directory:
+
+```bash
+php vendor/lts/php-qa-ci/bin/actions-qa-install --from <directory>
+```
+
+`install.sh` is held to the same pinned SHA-256 before it runs, and it checks the tarball against
+its own digest. In an offline build the lane skips by name, saying the workflows were not checked,
+while the bundle is absent; it checks as usual once the pinned release is installed, and crashes
+with the `--from` command when another release is.
 
 ## What gets checked
 
@@ -102,6 +137,11 @@ Only exit 1 is a verdict about the workflows. No other non-zero exit is ever a p
 
 ## In CI
 
-The shipped `php-qa-ci.yml` template runs the installer after `composer install`, so the full
-pipeline in CI has the bundle. A workflow written by hand that runs the full pipeline needs the
-same step.
+A CI job that runs a plain `composer install` has the bundle, so the shipped `php-qa-ci.yml`
+template needs no step of its own. A job whose install runs with `--no-scripts` runs no plugin and
+needs the installer as a step after it, as the shipped `qa-autofix.yml` template has:
+
+```yaml
+- name: Install actions-qa-ci
+  run: '"$(composer config bin-dir)/actions-qa-install"'
+```

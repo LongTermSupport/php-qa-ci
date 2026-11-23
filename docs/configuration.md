@@ -205,6 +205,14 @@ The settings most projects change:
 | Turn off the first-party constraint check | `withFirstPartyConstraintFreshness(false)` (`useFirstPartyConstraintFreshness=0` for one run; to narrow it name the vendors in `extra.php-qa-ci.firstPartyVendors`; see [dependencyFreshness.md](tools/dependencyFreshness.md#first-party-constraints)) |
 | Hold dependencies to Composer's cooldown  | `withComposerCooldownEnforced(true)` (the findings are report-only until then; see [composerChecks.md](tools/composerChecks.md#the-cooldown-policy))                                                                                                    |
 
+`withOfflineBuild(true)` declares that the project builds without network access. It is the one
+switch for that, a project fact rather than an environment variable. The actions-qa-ci installer
+and the `actionsQa` lane honour it: nothing is downloaded on `composer install`, the bundle is
+provisioned with `bin/actions-qa-install --from <directory>`, and the lane skips by name while
+the bundle is absent ([actionsQa.md](tools/actionsQa.md#a-host-without-network)). Other steps
+that use the network, such as the Composer audit and the dependency freshness check, do not read
+it yet.
+
 The full method list, and the mapping from the Bash-era variables, is in
 [upgrading-to-8.5.md](upgrading-to-8.5.md). A template ships at
 `templates/qaConfig-qa.php`. This repository's own [qaConfig/qa.php](./../qaConfig/qa.php) is
