@@ -288,4 +288,27 @@ if (( turbo_status > 128 )); then
         || (( $? == 3 )) \
         || echo -e "${RED}The state check failed too, so what the install left is unknown; run php bin/turbo-install state to see it.${NC}" >&2
 fi
+
+# ============================================================================
+# Phase 7: the actions-qa-ci bundle the actionsQa lane runs, pinned in
+# ActionsQaBinary and installed untracked under vendor-bin/ (bin/actions-qa-install).
+# It has one mode for install and update: it fetches only what is pinned, and
+# nothing when the pinned release is in place or qa.php declares
+# withOfflineBuild(true). A failure is reported and does not fail this script,
+# as the Composer plugin does for a consumer: the lane crashes with the install
+# command until the bundle is in place. A signal kill is followed by the state
+# check, as in Phase 6.
+# ============================================================================
+
+actions_qa_status=0
+php "$PROJECT_ROOT/bin/actions-qa-install" install || actions_qa_status=$?
+if (( actions_qa_status != 0 )); then
+    echo -e "${RED}bin/actions-qa-install failed with $(php -d display_errors=stderr "$PROJECT_ROOT/bin/describe-exit" --php-qa-ci-helper "$actions_qa_status"); the actionsQa lane crashes until php bin/actions-qa-install succeeds.${NC}" >&2
+fi
+if (( actions_qa_status > 128 )); then
+    # Exit 3 is a state check that reported the pinned release is not installed: it still said what is on disk.
+    php -d display_errors=stderr "$PROJECT_ROOT/bin/actions-qa-install" state >&2 \
+        || (( $? == 3 )) \
+        || echo -e "${RED}The state check failed too, so what the install left is unknown; run php bin/actions-qa-install state to see it.${NC}" >&2
+fi
 exit "$turbo_status"
