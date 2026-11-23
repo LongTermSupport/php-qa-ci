@@ -88,7 +88,7 @@ final class ToolRegistryCharacterisationTest extends TestCase
         'aq'                         => 'actionsQa',
         'actionsqa'                  => 'actionsQa',
         'actionsQa'                  => 'actionsQa',
-        'f'                         => 'phpCsFixer',
+        'f'                          => 'phpCsFixer',
         'fixer'                      => 'phpCsFixer',
         'csfixer'                    => 'phpCsFixer',
         'r'                          => 'rector',

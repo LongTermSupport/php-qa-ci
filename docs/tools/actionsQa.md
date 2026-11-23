@@ -68,6 +68,25 @@ the whole project.
 A project that is not a git work tree, or that tracks nothing under `.github/workflows`, is
 skipped with the reason.
 
+## How to fix a failure
+
+A **finding** prints the workflow file, the line and an `actionsqaci.*` identifier. Run
+`actions-qa rule-doc <identifier>` (from `vendor-bin/actions-qa-ci/bin/`) for the page that states
+the correct construction, then change the workflow to match it: pin the action to a full commit
+SHA, move an expression out of a `run:` script into `env:`, narrow `permissions:`, or quote the
+shell variable ShellCheck names. Re-run `bin/qa -t actionsQa` until it reports nothing.
+
+A **crash** is not a finding about the workflows, and it never counts as a pass:
+
+- *bundle not installed* or *a different release than pinned*: run
+  `php vendor/lts/php-qa-ci/bin/actions-qa-install`, which prints what it fetched and verified;
+- *host not supported*: the bundle exists for Linux on x86_64 and aarch64 only;
+- *actions-qa-ci refused to check* (exit 2): the project record `.github/actions-qa-ci.yml` is
+  invalid or names a file that does not exist; the message names the line.
+
+A file the record should leave unchecked is declared under `analyse.unanalysed` with the hazard and
+the scope, never silenced in the workflow.
+
 ## Exit codes
 
 | actions-qa exit | Lane outcome                                   |

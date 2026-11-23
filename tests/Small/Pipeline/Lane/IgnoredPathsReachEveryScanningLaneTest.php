@@ -108,6 +108,7 @@ final class IgnoredPathsReachEveryScanningLaneTest extends TestCase
         'twigLint'                   => 'scans the Twig directories, withTwigDirectories()',
         'yamlLint'                   => 'scans the YAML directories, withYamlDirectories()',
         'shellCheck'                 => 'scans git-tracked shell scripts; it honours the setting all the same (ShellCheckToolTest)',
+        'actionsQa'                  => 'reads the GitHub Actions workflows and the actions-qa-ci project record, never PHP',
         'phpunit'                    => 'executes the suite phpunit.xml defines and reports test outcomes, not files',
     ];
 
