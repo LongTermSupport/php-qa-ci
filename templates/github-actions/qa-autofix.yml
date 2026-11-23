@@ -478,8 +478,12 @@ jobs:
         run: '"$(composer config bin-dir)/qa" -t allCS'
 
       # The actionsQa linting lane checks the workflows with the actions-qa-ci
-      # bundle, which is not committed: this fetches the release php-qa-ci pins,
-      # and runs its install script only once its SHA-256 matches the pin.
+      # bundle, which is not committed. A plain composer install puts it in
+      # place through php-qa-ci's Composer plugin, but the install above runs
+      # with --no-scripts, and Composer then dispatches no post-install-cmd, so
+      # no plugin runs: this step installs it instead. It fetches the release
+      # php-qa-ci pins, and runs its install script only once its SHA-256
+      # matches the pin.
       - name: Install actions-qa-ci
         run: '"$(composer config bin-dir)/actions-qa-install"'
 
