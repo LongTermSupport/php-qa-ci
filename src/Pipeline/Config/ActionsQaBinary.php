@@ -42,6 +42,9 @@ final readonly class ActionsQaBinary
     /** Where each release publishes its install.sh; the version fills the tag. */
     private const string INSTALL_SCRIPT_URL = 'https://github.com/LongTermSupport/actions-qa-ci/releases/download/v%s/install.sh';
 
+    /** The release's tarball for one platform; the version and the platform fill it. */
+    private const string BUNDLE_ASSET = 'actions-qa-ci_%s_%s.tar.gz';
+
     /** Install-prefix-relative: the program the lane runs. */
     private const string PROGRAM = 'bin/actions-qa';
 
@@ -78,6 +81,12 @@ final readonly class ActionsQaBinary
     public static function installScriptUrl(): string
     {
         return \sprintf(self::INSTALL_SCRIPT_URL, self::VERSION);
+    }
+
+    /** The pinned release's tarball for a platform, as install.sh names it; an offline host keeps it beside install.sh. */
+    public static function bundleAsset(string $platform): string
+    {
+        return \sprintf(self::BUNDLE_ASSET, self::VERSION, $platform);
     }
 
     /** The one command that puts the pinned bundle in place, printed whenever it is missing or wrong. */

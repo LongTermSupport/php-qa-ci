@@ -10,6 +10,7 @@ use LTS\PHPQA\Filesystem\TemporaryDirectory;
 use LTS\PHPQA\Installer\InstallerOutput;
 use LTS\PHPQA\Installer\InstallerOutputsInterface;
 use LTS\PHPQA\Pipeline\Config\ActionsQaBinary;
+use LTS\PHPQA\Pipeline\Config\ProjectQaConfigReader;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
 use LTS\PHPQA\Pipeline\Process\ProcessRunnerInterface;
 use LTS\PHPQA\Pipeline\Process\SymfonyProcessRunner;
@@ -28,7 +29,10 @@ use Throwable;
  *
  * A consumer's `composer install` and `composer update` run it through ActionsQaInstallPlugin,
  * php-qa-ci's own through scripts/tool-install.bash; it can also be run by hand with the command
- * the lane prints. An install already at the pinned release downloads nothing.
+ * the lane prints. An install already at the pinned release downloads nothing. A project that
+ * declares withOfflineBuild(true) downloads nothing either: the install says so in one SKIPPED
+ * line and succeeds, and `--from <directory>` installs from release assets copied to the host,
+ * with install.sh held to the same pin.
  *
  * @api
  */
@@ -73,11 +77,20 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
     /** Install-prefix-relative: the program a finished install holds. */
     private const string PROGRAM = '/bin/actions-qa';
 
+    /** The option naming a directory of release assets to install from instead of downloading. */
+    private const string FROM_OPTION = '--from';
+
+    /** What install.sh reads to unpack a tarball on disk instead of downloading one. */
+    private const string BUNDLE_ENV = 'ACTIONS_QA_CI_BUNDLE';
+
     /**
      * @param Closure(string, string...): string $fetch          the body at a URL, given the request headers; throws when the request fails
      * @param string                             $os             PHP_OS_FAMILY of the host the bundle is for
      * @param string                             $machine        php_uname('m') of that host
      * @param string                             $expectedDigest the SHA-256 install.sh must have to be run
+     * @param (Closure(): bool)|null             $offlineBuild   whether the project declares withOfflineBuild(true), asked
+     *                                                           only before a download; throws when its config cannot be
+     *                                                           read; null for a project that cannot declare it
      */
     public function __construct(
         private OutputInterface $output,
@@ -87,6 +100,7 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
         private string $os,
         private string $machine,
         private string $expectedDigest = ActionsQaBinary::INSTALL_SCRIPT_SHA256,
+        private ?Closure $offlineBuild = null,
     ) {
     }
 
@@ -103,31 +117,66 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
         ];
     }
 
-    /** @return int the process exit code */
-    public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
+    /**
+     * @param string $projectRoot the project whose qaConfig/qa.php says whether it builds offline
+     *
+     * @return int the process exit code
+     */
+    public static function main(string $libraryRoot, string $projectRoot, ConsoleOutputInterface $output, string ...$arguments): int
     {
         return new self(
             $output,
             $output->getErrorOutput(),
             self::httpGet(...),
-            new SymfonyProcessRunner($output),
+            // The runner traces each command it runs; on stderr, so the state check's stdout is
+            // only what it says is on disk, which the Composer plugin relays.
+            new SymfonyProcessRunner($output->getErrorOutput()),
             \PHP_OS_FAMILY,
             php_uname('m'),
-        )->run($libraryRoot, $mode);
+            offlineBuild: static function () use ($projectRoot, $libraryRoot): bool {
+                $config = new ProjectQaConfigReader()->read($projectRoot, $libraryRoot);
+
+                return null !== $config && $config->offlineBuild;
+            },
+        )->run($libraryRoot, ...$arguments);
     }
 
-    public function run(string $libraryRoot, string $mode = self::MODE_INSTALL): int
+    /** @param string ...$arguments the command line: a mode, and for install an optional `--from <directory>` */
+    public function run(string $libraryRoot, string ...$arguments): int
     {
-        return match ($mode) {
-            self::MODE_INSTALL => $this->install($libraryRoot),
-            self::MODE_STATE   => $this->state($libraryRoot),
-            default            => $this->unknownMode($mode),
-        };
+        $mode      = null;
+        $from      = null;
+        $arguments = array_values($arguments);
+        while ([] !== $arguments) {
+            $argument = array_shift($arguments);
+            if (self::FROM_OPTION === $argument || str_starts_with($argument, self::FROM_OPTION . '=')) {
+                $from = self::FROM_OPTION === $argument ? array_shift($arguments) : substr($argument, \strlen(self::FROM_OPTION) + 1);
+                if (null === $from || '' === $from) {
+                    return $this->usage(self::FROM_OPTION . ' needs the directory that holds the release assets');
+                }
+
+                continue;
+            }
+
+            if (null === $mode && \in_array($argument, [self::MODE_INSTALL, self::MODE_STATE], true)) {
+                $mode = $argument;
+
+                continue;
+            }
+
+            return $this->usage(\sprintf("unknown argument '%s'", $argument));
+        }
+
+        if (self::MODE_STATE === $mode) {
+            return null === $from ? $this->state($libraryRoot) : $this->usage(self::FROM_OPTION . ' names what to install from, and the state check installs nothing');
+        }
+
+        return $this->install($libraryRoot, $from);
     }
 
-    private function unknownMode(string $mode): int
+    private function usage(string $problem): int
     {
-        $this->error(\sprintf("ERROR: unknown mode '%s'; the modes are %s (the default) and %s.", $mode, self::MODE_INSTALL, self::MODE_STATE));
+        $this->error(\sprintf('ERROR: %s. Usage: actions-qa-install [%s] [%s <directory>], or actions-qa-install %s', $problem, self::MODE_INSTALL, self::FROM_OPTION, self::MODE_STATE));
 
         return 1;
     }
@@ -179,9 +228,11 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
         );
     }
 
-    private function install(string $libraryRoot): int
+    /** @param string|null $from a directory of release assets to install from, or null to download them */
+    private function install(string $libraryRoot, ?string $from): int
     {
-        if (null === ActionsQaBinary::platformFor($this->os, $this->machine)) {
+        $platform = ActionsQaBinary::platformFor($this->os, $this->machine);
+        if (null === $platform) {
             $this->error('ERROR: ' . $this->unsupportedHost());
 
             return 1;
@@ -189,14 +240,37 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
 
         $installDir = ActionsQaBinary::installDir($libraryRoot);
         $program    = ActionsQaBinary::path($libraryRoot);
-        if (is_executable($program)) {
-            $installed = $this->reportedVersion($program, $libraryRoot);
-            if (ActionsQaBinary::VERSION === $installed) {
-                $this->write(\sprintf('actions-qa-ci %s is already installed in %s', ActionsQaBinary::VERSION, $installDir));
+        $present    = is_executable($program);
+        $installed  = $present ? $this->reportedVersion($program, $libraryRoot) : null;
+        if (ActionsQaBinary::VERSION === $installed) {
+            $this->write(\sprintf('actions-qa-ci %s is already installed in %s', ActionsQaBinary::VERSION, $installDir));
+
+            return 0;
+        }
+
+        if (null === $from) {
+            try {
+                $offline = $this->offlineBuild instanceof Closure && true === ($this->offlineBuild)();
+            } catch (Throwable $throwable) {
+                $this->error('ERROR: could not read qaConfig/qa.php, so whether this project builds offline is unknown and nothing was downloaded: ' . $throwable->getMessage());
+
+                return 1;
+            }
+
+            if ($offline) {
+                $this->write(\sprintf(
+                    'SKIPPED actionsQa (%s): this project builds offline (withOfflineBuild(true) in qaConfig/qa.php), so actions-qa-ci %s was not downloaded. Provision it from the release assets with: %s %s <directory>',
+                    ActionsQaBinary::IDENTIFIER,
+                    ActionsQaBinary::VERSION,
+                    ActionsQaBinary::installCommand($libraryRoot),
+                    self::FROM_OPTION,
+                ));
 
                 return 0;
             }
+        }
 
+        if ($present) {
             $this->write(\sprintf('Replacing actions-qa-ci %s with %s', $installed ?? '(a release it could not report)', ActionsQaBinary::VERSION));
         }
 
@@ -208,7 +282,7 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
                 $this->error(\sprintf('WARNING: could not remove %s, a staging directory a killed install left: %s', $leftover, $why));
             }
 
-            $bundle = $this->installInto($staging->path);
+            $bundle = $this->installInto($staging->path, $platform, $from);
             if (is_dir($installDir)) {
                 DirectoryTree::remove($installDir);
             }
@@ -227,14 +301,36 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
         return 0;
     }
 
-    /** Downloads, verifies and runs install.sh into the staging directory; returns the staged bundle. */
-    private function installInto(string $staging): string
+    /**
+     * Downloads install.sh, or reads it from $from, verifies it and runs it into the staging
+     * directory; returns the staged bundle. From a directory, install.sh is handed the platform's
+     * tarball beside it rather than downloading one, and checks it against its own digest.
+     */
+    private function installInto(string $staging, string $platform, ?string $from): string
     {
-        $url    = ActionsQaBinary::installScriptUrl();
-        $script = ($this->fetch)($url, self::USER_AGENT);
+        $env = ['TMPDIR' => $staging];
+        if (null === $from) {
+            $source = ActionsQaBinary::installScriptUrl();
+            $script = ($this->fetch)($source, self::USER_AGENT);
+        } else {
+            $from    = rtrim(str_starts_with($from, '/') ? $from : \Safe\getcwd() . '/' . $from, '/');
+            $source  = $from . '/' . self::SCRIPT;
+            $tarball = $from . '/' . ActionsQaBinary::bundleAsset($platform);
+            if (!is_file($source)) {
+                throw new RuntimeException(\sprintf('%s does not exist: %s holds no install.sh of the release', $source, $from));
+            }
+
+            if (!is_file($tarball)) {
+                throw new RuntimeException(\sprintf('%s holds no %s, the bundle for this host, beside install.sh', $from, ActionsQaBinary::bundleAsset($platform)));
+            }
+
+            $script                = \Safe\file_get_contents($source);
+            $env[self::BUNDLE_ENV] = $tarball;
+        }
+
         $digest = hash(self::DIGEST_ALGORITHM, $script);
         if (!hash_equals($this->expectedDigest, $digest)) {
-            throw new RuntimeException(\sprintf('%s has SHA-256 %s, not the %s php-qa-ci pins, so it was not run', $url, $digest, $this->expectedDigest));
+            throw new RuntimeException(\sprintf('%s has SHA-256 %s, not the %s php-qa-ci pins, so it was not run', $source, $digest, $this->expectedDigest));
         }
 
         $scriptPath = $staging . '/' . self::SCRIPT;
@@ -244,7 +340,7 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
         $result = $this->processes->run(new ProcessSpecDto(
             ['sh', $scriptPath, '--prefix', $bundle],
             $staging,
-            ['TMPDIR' => $staging],
+            $env,
             self::INSTALL_TIMEOUT_SECONDS,
         ));
         if (!$result->succeeded()) {

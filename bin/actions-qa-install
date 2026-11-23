@@ -3,19 +3,30 @@
 
 /*
  * Installs the pinned actions-qa-ci bundle under vendor-bin/actions-qa-ci, for the actionsQa
- * lane (install mode, the default; a second run with the pinned release in place downloads
- * nothing). State mode (`actions-qa-install state`) changes nothing and says whether the pinned
- * release is installed, for an install killed before it could say so. Called by
- * scripts/tool-install.bash on every composer install/update, in a consuming project by the
- * php-qa-ci Composer plugin, and by hand with the command the lane prints. The work itself (the
- * digest check, the staged install, the swap) lives in LTS\PHPQA\ActionsQa\ActionsQaInstaller,
- * where it is unit-tested.
+ * lane:
+ *
+ *   actions-qa-install [install] [--from <directory>]   (install mode, the default)
+ *   actions-qa-install state                             (read-only: is the pinned release installed?)
+ *
+ * A second install with the pinned release in place downloads nothing; a project that declares
+ * withOfflineBuild(true) in qaConfig/qa.php downloads nothing at all, and installs from the
+ * release assets in a directory with --from. Called by scripts/tool-install.bash on every
+ * composer install/update, in a consuming project by the php-qa-ci Composer plugin, and by hand
+ * with the command the lane prints. The logic is LTS\PHPQA\ActionsQa\ActionsQaInstaller, where it
+ * is unit-tested.
  */
 
 require __DIR__.'/bootstrap.php';
 
+// bootstrap.php found the project's autoloader; the project root is the parent of its vendor/.
+if (!isset($phpQaCiBootstrapAutoloadPath) || !\is_string($phpQaCiBootstrapAutoloadPath)) {
+    fwrite(\STDERR, "bootstrap.php did not report the autoloader path\n");
+    exit(1);
+}
+
 die(\LTS\PHPQA\ActionsQa\ActionsQaInstaller::main(
     \dirname(__DIR__),
-    $argv[1] ?? \LTS\PHPQA\ActionsQa\ActionsQaInstaller::MODE_INSTALL,
+    \dirname($phpQaCiBootstrapAutoloadPath, 2),
     new \Symfony\Component\Console\Output\ConsoleOutput(),
+    ...array_slice($argv, 1),
 ));

@@ -55,6 +55,13 @@ final class ActionsQaBinaryTest extends TestCase
         );
     }
 
+    /** The tarball name install.sh looks for, which an offline host keeps beside it. */
+    #[Test]
+    public function theBundleAssetIsNamedForTheReleaseAndThePlatform(): void
+    {
+        self::assertSame('actions-qa-ci_' . ActionsQaBinary::VERSION . '_linux_amd64.tar.gz', ActionsQaBinary::bundleAsset(ActionsQaBinary::PLATFORM_AMD64));
+    }
+
     #[Test]
     public function theInstallCommandIsTheEntryPointInTheLibrary(): void
     {
