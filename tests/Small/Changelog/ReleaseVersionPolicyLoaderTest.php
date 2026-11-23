@@ -47,6 +47,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(PlatformDetector::class)]
 #[UsesClass(ProjectConfigLoader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectQaConfigReader::class)]
 #[UsesClass(QaConfigBuilder::class)]
 #[Small]
 final class ReleaseVersionPolicyLoaderTest extends TestCase
