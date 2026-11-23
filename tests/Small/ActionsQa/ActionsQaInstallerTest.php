@@ -99,7 +99,7 @@ final class ActionsQaInstallerTest extends TestCase
         self::assertStringStartsWith($this->library->path . '/vendor-bin/.phpqa-actions-qa-ci', $install->command[3]);
         self::assertSame($install->cwd, $install->env['TMPDIR'] ?? null);
 
-        self::assertSame([ActionsQaBinary::path($this->library->path) . '.staged', 'version', '--json'], $this->stagedProbe());
+        self::assertSame(self::versionProbe(ActionsQaBinary::path($this->library->path) . '.staged'), $this->stagedProbe());
         self::assertSame(\sprintf("Installed actions-qa-ci %s in %s\n", ActionsQaBinary::VERSION, ActionsQaBinary::installDir($this->library->path)), $this->output->fetch());
         self::assertSame([], $this->stagingLeftovers());
     }
@@ -125,7 +125,7 @@ final class ActionsQaInstallerTest extends TestCase
 
         self::assertSame(0, $exit);
         self::assertSame([], $this->requests);
-        self::assertSame([[ActionsQaBinary::path($this->library->path), 'version', '--json']], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
+        self::assertSame([self::versionProbe(ActionsQaBinary::path($this->library->path))], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
         self::assertSame(\sprintf("actions-qa-ci %s is already installed in %s\n", ActionsQaBinary::VERSION, ActionsQaBinary::installDir($this->library->path)), $this->output->fetch());
     }
 
@@ -226,6 +226,118 @@ final class ActionsQaInstallerTest extends TestCase
     }
 
     #[Test]
+    public function installIsTheModeWhenNoneIsNamed(): void
+    {
+        $this->library->write(ActionsQaBinary::INSTALL_DIR . self::PROGRAM, self::OLD_PROGRAM);
+        \Safe\chmod(ActionsQaBinary::path($this->library->path), 0o755);
+        $this->processes->willSucceed(self::CURRENT_REPORT)->willSucceed(self::CURRENT_REPORT);
+
+        self::assertSame(0, $this->installer()->run($this->library->path));
+        self::assertSame(0, $this->installer()->run($this->library->path, ActionsQaInstaller::MODE_INSTALL));
+        self::assertSame([], $this->requests);
+    }
+
+    #[Test]
+    public function aModeItDoesNotKnowIsRefusedAndNothingIsDone(): void
+    {
+        $exit = $this->installer()->run($this->library->path, 'upgrade');
+
+        self::assertSame(1, $exit);
+        self::assertSame([], $this->requests);
+        self::assertSame([], $this->processes->specs);
+        self::assertSame("ERROR: unknown mode 'upgrade'; the modes are install (the default) and state.\n", $this->errors->fetch());
+    }
+
+    /** The state check is read-only: it asks the installed program its release and fetches nothing. */
+    #[Test]
+    public function theStateOfThePinnedReleaseInstalledIsReportedAsCurrent(): void
+    {
+        $this->library->write(ActionsQaBinary::INSTALL_DIR . self::PROGRAM, self::OLD_PROGRAM);
+        \Safe\chmod(ActionsQaBinary::path($this->library->path), 0o755);
+        $this->processes->willSucceed(self::CURRENT_REPORT);
+
+        $exit = $this->installer()->run($this->library->path, ActionsQaInstaller::MODE_STATE);
+
+        self::assertSame(0, $exit);
+        self::assertSame([], $this->requests);
+        self::assertSame([self::versionProbe(ActionsQaBinary::path($this->library->path))], array_map(static fn (ProcessSpecDto $spec): array => $spec->command, $this->processes->specs));
+        self::assertSame(\sprintf("actions-qa-ci %s, the pinned release, is installed in %s.\n", ActionsQaBinary::VERSION, ActionsQaBinary::installDir($this->library->path)), $this->output->fetch());
+    }
+
+    #[Test]
+    public function theStateOfAMissingBundleIsReportedWithTheCommandThatInstallsIt(): void
+    {
+        $exit = $this->installer()->run($this->library->path, ActionsQaInstaller::MODE_STATE);
+
+        self::assertSame(ActionsQaInstaller::EXIT_NOT_CURRENT, $exit);
+        self::assertSame([], $this->requests);
+        self::assertSame([], $this->processes->specs);
+        self::assertSame(
+            \sprintf(
+                "actions-qa-ci is not installed in %s, so the actionsQa lane crashes until %s installs it.\n",
+                ActionsQaBinary::installDir($this->library->path),
+                ActionsQaBinary::installCommand($this->library->path),
+            ),
+            $this->output->fetch(),
+        );
+        self::assertDirectoryDoesNotExist(ActionsQaBinary::installDir($this->library->path));
+    }
+
+    #[Test]
+    public function theStateOfAnotherReleaseIsReportedWithTheCommandThatReplacesIt(): void
+    {
+        $this->library->write(ActionsQaBinary::INSTALL_DIR . self::PROGRAM, self::OLD_PROGRAM);
+        \Safe\chmod(ActionsQaBinary::path($this->library->path), 0o755);
+        $this->processes->willSucceed(self::OLD_REPORT);
+
+        $exit = $this->installer()->run($this->library->path, ActionsQaInstaller::MODE_STATE);
+
+        self::assertSame(ActionsQaInstaller::EXIT_NOT_CURRENT, $exit);
+        self::assertSame([], $this->requests);
+        self::assertSame(
+            \sprintf(
+                "%s holds actions-qa-ci 0.1.0, not the pinned %s, so the actionsQa lane crashes until %s replaces it.\n",
+                ActionsQaBinary::installDir($this->library->path),
+                ActionsQaBinary::VERSION,
+                ActionsQaBinary::installCommand($this->library->path),
+            ),
+            $this->output->fetch(),
+        );
+        self::assertSame(self::OLD_PROGRAM, \Safe\file_get_contents(ActionsQaBinary::path($this->library->path)));
+    }
+
+    #[Test]
+    public function theStateOfABundleThatReportsNoReleaseSaysSo(): void
+    {
+        $this->library->write(ActionsQaBinary::INSTALL_DIR . self::PROGRAM, self::OLD_PROGRAM);
+        \Safe\chmod(ActionsQaBinary::path($this->library->path), 0o755);
+        $this->processes->willFail(1, 'it crashed');
+
+        $exit = $this->installer()->run($this->library->path, ActionsQaInstaller::MODE_STATE);
+
+        self::assertSame(ActionsQaInstaller::EXIT_NOT_CURRENT, $exit);
+        self::assertStringStartsWith(
+            \sprintf('%s holds an actions-qa-ci that reports no readable release, not the pinned %s, ', ActionsQaBinary::installDir($this->library->path), ActionsQaBinary::VERSION),
+            $this->output->fetch(),
+        );
+    }
+
+    #[Test]
+    public function theStateOnAHostTheReleaseBuildsNothingForNamesTheHost(): void
+    {
+        $installer = new ActionsQaInstaller($this->output, $this->errors, $this->fetcher(self::SCRIPT), $this->processes, 'Darwin', 'arm64', $this->scriptDigest());
+
+        $exit = $installer->run($this->library->path, ActionsQaInstaller::MODE_STATE);
+
+        self::assertSame(ActionsQaInstaller::EXIT_NOT_CURRENT, $exit);
+        self::assertSame([], $this->processes->specs);
+        self::assertSame(
+            "actions-qa-ci publishes no bundle for this host (Darwin arm64); it runs on Linux with an x86_64 (linux_amd64) or aarch64 (linux_arm64) CPU.\n",
+            $this->output->fetch(),
+        );
+    }
+
+    #[Test]
     public function itDeclaresTheInstallDirectoryAndItsStagingAsUntracked(): void
     {
         $outputs = ActionsQaInstaller::outputs();
@@ -236,6 +348,16 @@ final class ActionsQaInstallerTest extends TestCase
         self::assertTrue($outputs[0]->untrackedByDesign);
         self::assertStringStartsWith('vendor-bin/.phpqa-actions-qa-ci', $outputs[1]->path);
         self::assertTrue($outputs[1]->untrackedByDesign);
+    }
+
+    /**
+     * The command that asks a program which release it is.
+     *
+     * @return list<string>
+     */
+    private static function versionProbe(string $program): array
+    {
+        return [$program, 'version', '--json'];
     }
 
     private function installer(string $script = self::SCRIPT): ActionsQaInstaller

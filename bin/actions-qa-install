@@ -3,14 +3,19 @@
 
 /*
  * Installs the pinned actions-qa-ci bundle under vendor-bin/actions-qa-ci, for the actionsQa
- * lane. Run it by hand or from CI; the actionsQa lane prints this command when the bundle is
- * missing or of another release. The work itself (the digest check, the staged install, the
- * swap) lives in LTS\PHPQA\ActionsQa\ActionsQaInstaller, where it is unit-tested.
+ * lane (install mode, the default; a second run with the pinned release in place downloads
+ * nothing). State mode (`actions-qa-install state`) changes nothing and says whether the pinned
+ * release is installed, for an install killed before it could say so. Called by
+ * scripts/tool-install.bash on every composer install/update, in a consuming project by the
+ * php-qa-ci Composer plugin, and by hand with the command the lane prints. The work itself (the
+ * digest check, the staged install, the swap) lives in LTS\PHPQA\ActionsQa\ActionsQaInstaller,
+ * where it is unit-tested.
  */
 
 require __DIR__.'/bootstrap.php';
 
 die(\LTS\PHPQA\ActionsQa\ActionsQaInstaller::main(
     \dirname(__DIR__),
+    $argv[1] ?? \LTS\PHPQA\ActionsQa\ActionsQaInstaller::MODE_INSTALL,
     new \Symfony\Component\Console\Output\ConsoleOutput(),
 ));

@@ -26,13 +26,26 @@ use Throwable;
  * the digest written into it. The staged bundle has to report the pinned release before it
  * replaces the installed one whole, so a failure at any step leaves the old install as it was.
  *
- * Run by hand, or by CI, with the command the lane prints; never by a composer event, so a
- * consumer's `composer install` does not download the bundle unasked.
+ * A consumer's `composer install` and `composer update` run it through ActionsQaInstallPlugin,
+ * php-qa-ci's own through scripts/tool-install.bash; it can also be run by hand with the command
+ * the lane prints. An install already at the pinned release downloads nothing.
  *
  * @api
  */
 final readonly class ActionsQaInstaller implements InstallerOutputsInterface
 {
+    /** Fetch the pinned bundle when it is missing or of another release. */
+    public const string MODE_INSTALL = 'install';
+
+    /**
+     * Read-only: say on stdout whether the pinned release is installed, for an install killed
+     * before it could say so itself. The Composer plugin and scripts/tool-install.bash ask it.
+     */
+    public const string MODE_STATE = 'state';
+
+    /** The state check's exit status when the bundle is missing, of another release, or has no build for the host. */
+    public const int EXIT_NOT_CURRENT = 3;
+
     /** What the staging directory beside the install is named from; a random suffix follows. */
     private const string STAGING_PREFIX = '.phpqa-actions-qa-ci';
 
@@ -91,7 +104,7 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
     }
 
     /** @return int the process exit code */
-    public static function main(string $libraryRoot, ConsoleOutputInterface $output): int
+    public static function main(string $libraryRoot, string $mode, ConsoleOutputInterface $output): int
     {
         return new self(
             $output,
@@ -100,19 +113,76 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
             new SymfonyProcessRunner($output),
             \PHP_OS_FAMILY,
             php_uname('m'),
-        )->run($libraryRoot);
+        )->run($libraryRoot, $mode);
     }
 
-    public function run(string $libraryRoot): int
+    public function run(string $libraryRoot, string $mode = self::MODE_INSTALL): int
+    {
+        return match ($mode) {
+            self::MODE_INSTALL => $this->install($libraryRoot),
+            self::MODE_STATE   => $this->state($libraryRoot),
+            default            => $this->unknownMode($mode),
+        };
+    }
+
+    private function unknownMode(string $mode): int
+    {
+        $this->error(\sprintf("ERROR: unknown mode '%s'; the modes are %s (the default) and %s.", $mode, self::MODE_INSTALL, self::MODE_STATE));
+
+        return 1;
+    }
+
+    /** Changes nothing and fetches nothing: says whether the pinned release is what is installed. */
+    private function state(string $libraryRoot): int
     {
         if (null === ActionsQaBinary::platformFor($this->os, $this->machine)) {
-            $this->error(\sprintf(
-                'ERROR: actions-qa-ci publishes no bundle for this host (%s %s); it runs on Linux with an x86_64 (%s) or aarch64 (%s) CPU.',
-                $this->os,
-                $this->machine,
-                ActionsQaBinary::PLATFORM_AMD64,
-                ActionsQaBinary::PLATFORM_ARM64,
-            ));
+            $this->write($this->unsupportedHost());
+
+            return self::EXIT_NOT_CURRENT;
+        }
+
+        $installDir = ActionsQaBinary::installDir($libraryRoot);
+        $command    = ActionsQaBinary::installCommand($libraryRoot);
+        $program    = ActionsQaBinary::path($libraryRoot);
+        if (!is_executable($program)) {
+            $this->write(\sprintf('actions-qa-ci is not installed in %s, so the actionsQa lane crashes until %s installs it.', $installDir, $command));
+
+            return self::EXIT_NOT_CURRENT;
+        }
+
+        $installed = $this->reportedVersion($program, $libraryRoot);
+        if (ActionsQaBinary::VERSION === $installed) {
+            $this->write(\sprintf('actions-qa-ci %s, the pinned release, is installed in %s.', ActionsQaBinary::VERSION, $installDir));
+
+            return 0;
+        }
+
+        $this->write(\sprintf(
+            '%s holds %s, not the pinned %s, so the actionsQa lane crashes until %s replaces it.',
+            $installDir,
+            null === $installed ? 'an actions-qa-ci that reports no readable release' : 'actions-qa-ci ' . $installed,
+            ActionsQaBinary::VERSION,
+            $command,
+        ));
+
+        return self::EXIT_NOT_CURRENT;
+    }
+
+    private function unsupportedHost(): string
+    {
+        return \sprintf(
+            'actions-qa-ci publishes no bundle for this host (%s %s); it runs on Linux with an x86_64 (%s) or aarch64 (%s) CPU.',
+            $this->os,
+            $this->machine,
+            ActionsQaBinary::PLATFORM_AMD64,
+            ActionsQaBinary::PLATFORM_ARM64,
+        );
+    }
+
+    private function install(string $libraryRoot): int
+    {
+        if (null === ActionsQaBinary::platformFor($this->os, $this->machine)) {
+            $this->error('ERROR: ' . $this->unsupportedHost());
 
             return 1;
         }
