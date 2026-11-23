@@ -1,0 +1,16 @@
+#!/usr/bin/env php
+<?php declare(strict_types=1);
+
+/*
+ * Installs the pinned actions-qa-ci bundle under vendor-bin/actions-qa-ci, for the actionsQa
+ * lane. Run it by hand or from CI; the actionsQa lane prints this command when the bundle is
+ * missing or of another release. The work itself (the digest check, the staged install, the
+ * swap) lives in LTS\PHPQA\ActionsQa\ActionsQaInstaller, where it is unit-tested.
+ */
+
+require __DIR__.'/bootstrap.php';
+
+die(\LTS\PHPQA\ActionsQa\ActionsQaInstaller::main(
+    \dirname(__DIR__),
+    new \Symfony\Component\Console\Output\ConsoleOutput(),
+));

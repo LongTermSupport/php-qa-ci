@@ -119,6 +119,7 @@
     ]
   },
   "bin": [
+    "bin/actions-qa-install",
     "bin/arkitect-rule",
     "bin/autoload-included-files",
     "bin/changelog-release",
