@@ -61,6 +61,8 @@ final readonly class QaConfigDto
      *                                                                   printed on every run; null when it has not
      * @param bool                     $useFirstPartyConstraintFreshness whether the dependencyFreshness lane also fails a
      *                                                                   first-party constraint that excludes a newer release
+     * @param bool                     $offlineBuild                     whether the project builds without network access:
+     *                                                                   a step that needs the network skips, by name
      */
     public function __construct(
         public ProjectPathsDto $paths,
@@ -100,6 +102,7 @@ final readonly class QaConfigDto
         public array $composerCooldownInternalVendors = [],
         public ?string $composerCooldownOptOutReason = null,
         public bool $useFirstPartyConstraintFreshness = true,
+        public bool $offlineBuild = false,
     ) {
     }
 }
