@@ -220,19 +220,26 @@ final class ActionsQaInstallerTest extends TestCase
         self::assertSame([], $this->stagingLeftovers());
     }
 
+    /**
+     * The Composer plugin runs install on every host, so a host with no bundle gets one notice
+     * naming it and a success: a macOS install shows a notice, not a failure. The lane still
+     * crashes there with the host named.
+     */
     #[Test]
-    public function aHostTheReleaseBuildsNothingForIsNamedAndNothingIsFetched(): void
+    public function aHostTheReleaseBuildsNothingForIsNamedInOneNoticeAndNothingIsFetched(): void
     {
         $installer = new ActionsQaInstaller($this->output, $this->errors, $this->fetcher(self::SCRIPT), $this->processes, 'Darwin', 'arm64', $this->scriptDigest());
 
         $exit = $installer->run($this->library->path);
 
-        self::assertSame(1, $exit);
+        self::assertSame(0, $exit);
         self::assertSame([], $this->requests);
         self::assertSame(
-            "ERROR: actions-qa-ci publishes no bundle for this host (Darwin arm64); it runs on Linux with an x86_64 (linux_amd64) or aarch64 (linux_arm64) CPU.\n",
-            $this->errors->fetch(),
+            "NOTICE: actions-qa-ci publishes no bundle for this host (Darwin arm64); it runs on Linux with an x86_64 (linux_amd64) or aarch64 (linux_arm64) CPU. Nothing was installed, and the actionsQa lane cannot run on this host.\n",
+            $this->output->fetch(),
         );
+        self::assertSame('', $this->errors->fetch());
+        self::assertDirectoryDoesNotExist(ActionsQaBinary::installDir($this->library->path));
     }
 
     #[Test]

@@ -231,11 +231,13 @@ final readonly class ActionsQaInstaller implements InstallerOutputsInterface
     /** @param string|null $from a directory of release assets to install from, or null to download them */
     private function install(string $libraryRoot, ?string $from): int
     {
+        // The Composer plugin runs this on every host, so a host with no bundle is a notice, not a
+        // failure; the lane is what crashes there, with the host named.
         $platform = ActionsQaBinary::platformFor($this->os, $this->machine);
         if (null === $platform) {
-            $this->error('ERROR: ' . $this->unsupportedHost());
+            $this->write('NOTICE: ' . $this->unsupportedHost() . ' Nothing was installed, and the actionsQa lane cannot run on this host.');
 
-            return 1;
+            return 0;
         }
 
         $installDir = ActionsQaBinary::installDir($libraryRoot);
