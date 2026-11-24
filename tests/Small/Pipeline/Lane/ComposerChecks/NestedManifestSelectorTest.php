@@ -31,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\IgnoredPaths::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class NestedManifestSelectorTest extends TestCase

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Pipeline\Config\Dto;
 
 use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\DependencyFreshnessPatterns;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 
@@ -27,7 +28,9 @@ use LTS\PHPQA\Pipeline\Config\PlatformEnum;
  * `$specifiedPath` the project-relative path when `-p` was; `$quickTests`
  * skips PHPStan, PHPUnit and Infection entirely. `$releaseVersionPolicy` is
  * how releases are numbered, which the changelog lane needs to find the last
- * release tag.
+ * release tag. `$coverageDriver` is the extension that collects coverage on
+ * this host (pcov, else Xdebug, else none); coverage and Infection are forced
+ * off with none.
  *
  * @api
  */
@@ -78,7 +81,7 @@ final readonly class QaConfigDto
         public array $pathsToIgnore,
         public string $phpBinPath,
         public string $memoryLimit,
-        public bool $xdebugEnabled,
+        public CoverageDriverEnum $coverageDriver,
         public bool $quickTests,
         public int $halfCpuThreads,
         public PhpUnitOptionsDto $phpUnit,

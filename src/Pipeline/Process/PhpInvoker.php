@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Pipeline\Process;
 
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\OpcacheSettingsDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -55,8 +56,9 @@ final readonly class PhpInvoker
     }
 
     /**
-     * Run a PHP script with the full ini set (Xdebug loaded when installed),
-     * for coverage runs. XDEBUG_MODE is the caller's to set via $env.
+     * Run a PHP script with the full ini set (Xdebug loaded when installed).
+     * XDEBUG_MODE is the caller's to set via $env. The pipeline's own coverage
+     * runs use withCoverage(), which also serves pcov.
      *
      * @param list<string>          $args
      * @param array<string, string> $env
@@ -64,11 +66,39 @@ final readonly class PhpInvoker
     public function withXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true): ProcessResultDto
     {
         return $this->runner->run(new ProcessSpecDto(
-            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-d', self::DISPLAY_ERRORS_ON_STDERR, '-f', $script, '--', ...$args],
+            command: $this->scriptCommand($script, [], ...$args),
             cwd: $cwd,
             env: $env,
             streamOutput: $streamOutput,
         ));
+    }
+
+    /**
+     * Run a PHP script that collects coverage with $driver: the driver's ini
+     * (pcov enabled over the project, see CoverageDriverEnum::phpIni()) after
+     * the memory limit, and the driver's `XDEBUG_MODE` over the caller's. $cwd
+     * is the project root, the tree pcov instruments.
+     *
+     * @param list<string>          $args
+     * @param array<string, string> $env
+     */
+    public function withCoverage(CoverageDriverEnum $driver, string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true): ProcessResultDto
+    {
+        return $this->runner->run($this->specWithCoverage($driver, $script, $args, $cwd, $env, $streamOutput));
+    }
+
+    /**
+     * @param list<string>          $args
+     * @param array<string, string> $env
+     */
+    public function specWithCoverage(CoverageDriverEnum $driver, string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true): ProcessSpecDto
+    {
+        return new ProcessSpecDto(
+            command: $this->scriptCommand($script, $driver->phpIni($cwd), ...$args),
+            cwd: $cwd,
+            env: [...$env, ...$driver->environment()],
+            streamOutput: $streamOutput,
+        );
     }
 
     /**
@@ -81,14 +111,8 @@ final readonly class PhpInvoker
      */
     public function specWithoutXdebug(string $script, array $args, string $cwd, array $env = [], bool $streamOutput = true, bool $lowPriority = false, array $ini = []): ProcessSpecDto
     {
-        $overrides = [];
-        foreach ($ini as $directive => $value) {
-            $overrides[] = '-d';
-            $overrides[] = $directive . '=' . $value;
-        }
-
         return new ProcessSpecDto(
-            command: [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-d', self::DISPLAY_ERRORS_ON_STDERR, ...$overrides, '-f', $script, '--', ...$args],
+            command: $this->scriptCommand($script, $ini, ...$args),
             cwd: $cwd,
             env: [...$env, ...self::XDEBUG_OFF],
             streamOutput: $streamOutput,
@@ -100,6 +124,26 @@ final readonly class PhpInvoker
     public function version(): string
     {
         return trim($this->probe('echo PHP_VERSION;'));
+    }
+
+    /**
+     * The coverage driver the configured binary offers, in one probe: pcov when
+     * it is loaded and enabled (the test PHPUnit makes), else Xdebug when it is
+     * loaded, else none. An unreadable answer reads as none.
+     */
+    public function coverageDriver(): CoverageDriverEnum
+    {
+        $answer = explode(self::PROBE_DELIMITER, trim($this->probe(\sprintf(
+            'echo extension_loaded("pcov") && "1" === ini_get("pcov.enabled") ? "1" : "0", "%s", extension_loaded("xdebug") ? "1" : "0";',
+            self::PROBE_DELIMITER,
+        ))), 2);
+
+        // Both fields, or neither: a partial answer is not an answer.
+        if (2 !== \count($answer)) {
+            return CoverageDriverEnum::None;
+        }
+
+        return CoverageDriverEnum::select('1' === $answer[0], '1' === $answer[1]);
     }
 
     /** Whether the configured binary loads Xdebug (in any mode, including off). */
@@ -139,6 +183,24 @@ final readonly class PhpInvoker
         }
 
         return new OpcacheSettingsDto('1' === $answer[0], $answer[1]);
+    }
+
+    /**
+     * `php -d memory_limit=X -d display_errors=stderr [-d <ini>...] -f <script> -- <args>`.
+     *
+     * @param array<string, string> $ini
+     *
+     * @return list<string>
+     */
+    private function scriptCommand(string $script, array $ini, string ...$args): array
+    {
+        $command = [$this->phpBinPath, '-d', 'memory_limit=' . $this->memoryLimit, '-d', self::DISPLAY_ERRORS_ON_STDERR];
+        foreach ($ini as $directive => $value) {
+            $command[] = '-d';
+            $command[] = $directive . '=' . $value;
+        }
+
+        return [...$command, '-f', $script, '--', ...array_values($args)];
     }
 
     /**

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Lane\Phpunit\PhpunitArguments;
 use LTS\PHPQA\Pipeline\Lane\PhpunitTool;
@@ -34,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(QaConfigBuilder::class)]
+#[UsesClass(CoverageDriverEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]
@@ -66,6 +68,10 @@ final class PhpunitToolTest extends TestCase
 
     private const string PARATEST_BIN ='vendor/bin/paratest';
 
+    private const string PARATEST_SEVEN = '7.27.4';
+
+    private const array XDEBUG_OFF = ['XDEBUG_MODE' => 'off'];
+
     private const string VERSION_LINE = "PHPUnit 12.3.4 by Sebastian Bergmann and contributors.\n";
 
     private const string JUNIT_WITH_TESTS = "<?xml version=\"1.0\"?>\n<testsuites><testsuite name=\"t\" tests=\"1\"/></testsuites>\n";
@@ -96,7 +102,7 @@ final class PhpunitToolTest extends TestCase
     }
 
     #[Test]
-    public function aCoverageRunInCiUsesTheXdebugBinaryAndTheExactArgv(): void
+    public function anXdebugCoverageRunInCiPutsXdebugInCoverageModeWithTheExactArgv(): void
     {
         $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed("\x1B[30;42mOK\x1B[0m\nTests: 3, Assertions: 7, Failures: 0.\n");
@@ -128,6 +134,48 @@ final class PhpunitToolTest extends TestCase
         . self::ARCHIVAL
         . "Result: Tests: 3, Assertions: 7, Failures: 0.\n", $printed, 'the summary line is printed with the colour codes stripped, and no identifier on a pass');
         self::assertStringContainsString('Tests: 3', $this->factory->project->read('var/qa/phpunit_logs/phpunit.log'));
+    }
+
+    #[Test]
+    public function aPcovCoverageRunEnablesPcovOverTheProjectAndSwitchesXdebugOff(): void
+    {
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
+        $this->factory->processes->willSucceed(self::VERSION_LINE)->willSucceed('OK');
+
+        $result = new PhpunitTool()->run($this->context($this->factory->builder(ci: true, coverageDriver: CoverageDriverEnum::Pcov)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        $run = $this->factory->processes->lastSpec();
+        self::assertSame(
+            [self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', self::DISPLAY_ERRORS, ...$this->pcovIni(), '-f', $this->root . self::BIN_PHPUNIT, '--', '-c', $this->configPath()],
+            \array_slice($run->command, 0, 16),
+        );
+        self::assertNotContains('--no-coverage', $run->command);
+        self::assertSame(['phpUnitQuickTests' => '0', ...self::XDEBUG_OFF], $run->env);
+    }
+
+    #[Test]
+    public function aPcovRunUnderParatestHandsPcovsIniToTheWorkers(): void
+    {
+        $this->factory->project->write(self::PARATEST_BIN, self::SHEBANG);
+        $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
+        $this->factory->processes
+            ->willSucceed(self::VERSION_LINE)
+            ->willSucceed(ParatestFixture::help(self::PARATEST_SEVEN))
+            ->willSucceed(ParatestFixture::version(self::PARATEST_SEVEN))
+            ->willSucceed('OK')
+        ;
+
+        $result = new PhpunitTool()->run($this->context($this->factory->builder(ci: true, coverageDriver: CoverageDriverEnum::Pcov)));
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        $run = $this->factory->processes->lastSpec();
+        self::assertSame($this->root . '/' . self::PARATEST_BIN, $run->command[12]);
+        $root = $this->root;
+        self::assertSame(
+            "--passthru-php='-d' 'pcov.enabled=1' '-d' 'pcov.directory={$root}' '-d' 'pcov.exclude=~^" . preg_quote($root . '/vendor/', '~') . "~'",
+            array_last($run->command),
+        );
     }
 
     #[Test]
@@ -186,7 +234,7 @@ final class PhpunitToolTest extends TestCase
         self::assertSame('-d', $run->command[1]);
         self::assertContains('--no-coverage', $run->command);
         self::assertContains('--enforce-time-limit', $run->command);
-        self::assertSame(['phpUnitQuickTests' => '1', 'XDEBUG_MODE' => 'off'], $run->env);
+        self::assertSame(['phpUnitQuickTests' => '1', ...self::XDEBUG_OFF], $run->env);
     }
 
     #[Test]
@@ -213,8 +261,8 @@ final class PhpunitToolTest extends TestCase
         $this->factory->project->write(self::PHPUNIT_LOGS_PHPUNIT_JUNIT_XML, self::JUNIT_WITH_TESTS);
         $this->factory->processes
             ->willSucceed(self::VERSION_LINE)
-            ->willSucceed(ParatestFixture::help('7.27.4'))
-            ->willSucceed(ParatestFixture::version('7.27.4'))
+            ->willSucceed(ParatestFixture::help(self::PARATEST_SEVEN))
+            ->willSucceed(ParatestFixture::version(self::PARATEST_SEVEN))
             ->willSucceed('OK')
         ;
 
@@ -411,7 +459,7 @@ final class PhpunitToolTest extends TestCase
             [self::PHP_BIN_PATH, '-d', self::MEMORY_LIMIT_ARG, '-d', self::DISPLAY_ERRORS, '-f', $this->root . self::BIN_PHPUNIT, '--', $this->root . '/tests', '--debug'],
             $debug->command,
         );
-        self::assertSame(['qaQuickTests' => '0', 'XDEBUG_MODE' => 'off'], $debug->env);
+        self::assertSame(['qaQuickTests' => '0', ...self::XDEBUG_OFF], $debug->env);
     }
 
     #[Test]
@@ -438,6 +486,12 @@ final class PhpunitToolTest extends TestCase
 
         self::assertSame('phpunit', $tool->name());
         self::assertSame('phpqaci.phpunit', $tool->identifier());
+    }
+
+    /** @return list<string> */
+    private function pcovIni(): array
+    {
+        return ['-d', 'pcov.enabled=1', '-d', 'pcov.directory=' . $this->root, '-d', 'pcov.exclude=~^' . preg_quote($this->root . '/vendor/', '~') . '~'];
     }
 
     private function context(QaConfigBuilder $builder): ToolContext

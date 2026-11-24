@@ -28,6 +28,8 @@ final readonly class PhpunitArguments
     /**
      * @param int                       $majorVersion the probed PHPUnit major; 10+ gets the --display-* flags
      * @param ParatestCapabilities|null $paratest     what the installed paratest accepts, or null when not using paratest
+     * @param array<string, string>     $coverageIni  the coverage driver's `-d` ini; under paratest it is handed to every
+     *                                                worker with --passthru-php, since the workers do not inherit it
      * @param string                    ...$paths     the paths of a `-p` run; none for a full-suite run
      *
      * @return list<string>
@@ -41,6 +43,7 @@ final readonly class PhpunitArguments
         string $configPath,
         string $junitLogFile,
         ?ParatestCapabilities $paratest,
+        array $coverageIni,
         string ...$paths,
     ): array {
         $args   = [];
@@ -70,6 +73,10 @@ final readonly class PhpunitArguments
 
         $args = [...$args, ...$this->modeFlags($options, $ci)];
         if ($paratest instanceof ParatestCapabilities) {
+            if ([] !== $coverageIni && $options->coverage && !$options->iterativeMode) {
+                $args[] = '--passthru-php=' . $this->passthruPhp($coverageIni);
+            }
+
             $this->assertAccepted($paratest, \count($paths), ...$args);
         }
 
@@ -99,6 +106,23 @@ final readonly class PhpunitArguments
         if ($pathCount > 1) {
             throw ParatestIncompatibleException::severalPaths($pathCount);
         }
+    }
+
+    /**
+     * The `-d` pairs as ParaTest reads --passthru-php: shell words, each quoted,
+     * the form its own help shows (`'-d' 'pcov.enabled=1'`).
+     *
+     * @param array<string, string> $ini
+     */
+    private function passthruPhp(array $ini): string
+    {
+        $words = [];
+        foreach ($ini as $directive => $value) {
+            $words[] = escapeshellarg('-d');
+            $words[] = escapeshellarg($directive . '=' . $value);
+        }
+
+        return implode(' ', $words);
     }
 
     /** @return list<string> */

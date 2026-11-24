@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Large\Pipeline\Lane;
 
 use LTS\PHPQA\HooksDaemon\HooksDaemonCliLocator;
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
@@ -111,7 +112,7 @@ final class MarkdownFormatToolGitTest extends TestCase
             platform: PlatformEnum::Generic,
             env: new EnvironmentReader([]),
             phpBinPath: \PHP_BINARY,
-            xdebugEnabled: false,
+            coverageDriver: CoverageDriverEnum::None,
             halfCpuThreads: 1,
             ci: true,
             readOnly: true,

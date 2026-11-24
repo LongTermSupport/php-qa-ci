@@ -48,6 +48,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonIncludeChainDto::class)]
 #[UsesClass(\LTS\PHPQA\PHPStan\ProjectRecord\Dto\NeonRecordFileDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]

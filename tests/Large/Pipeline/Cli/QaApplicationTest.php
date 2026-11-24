@@ -60,6 +60,8 @@ final class QaApplicationTest extends TestCase
 
     private const string ANSWER_XDEBUG = 'fakephp/xdebug';
 
+    private const string ANSWER_COVERAGE = 'fakephp/coverage';
+
     private const string ANSWER_VERSION = 'fakephp/version';
 
     private const string ANSWER_JIT = 'fakephp/jit';
@@ -85,6 +87,8 @@ final class QaApplicationTest extends TestCase
     private const string OLD_PHP = '8.4.0';
 
     private const string NO_JIT = '0||';
+
+    private const string JIT_ON = '1|tracing|64M';
 
     private const string NO_OPCACHE = '0|';
 
@@ -131,6 +135,7 @@ final class QaApplicationTest extends TestCase
             done
             printf '%s\n' "$code" >> "$dir/calls.log"
             case "$code" in
+              *pcov*) answer=coverage ;;
               *xdebug*) answer=xdebug ;;
               *PHP_VERSION*) answer=version ;;
               *opcache.jit*) answer=jit ;;
@@ -171,8 +176,8 @@ final class QaApplicationTest extends TestCase
                         $c = $context->config;
                         $context->stdout->writeln('[probe stdout]');
                         $context->writeln(sprintf(
-                            '[probe] php=%s memory=%s xdebug=%d threads=%d ci=%d readOnly=%d aggregate=%d json=%d agent=%d tool=%s path=%s',
-                            $c->phpBinPath, $c->memoryLimit, (int) $c->xdebugEnabled, $c->halfCpuThreads, (int) $c->ci, (int) $c->readOnly,
+                            '[probe] php=%s memory=%s coverage=%s threads=%d ci=%d readOnly=%d aggregate=%d json=%d agent=%d tool=%s path=%s',
+                            $c->phpBinPath, $c->memoryLimit, $c->coverageDriver->value, $c->halfCpuThreads, (int) $c->ci, (int) $c->readOnly,
                             (int) $c->aggregate, (int) $c->jsonOutput, (int) $c->agentMode, $c->singleTool ?? '-', $c->specifiedPath ?? '-',
                         ));
                         $context->writeln(sprintf(
@@ -271,10 +276,10 @@ final class QaApplicationTest extends TestCase
         self::assertStringContainsString(self::READ_ONLY . "\n  (override with QA_READONLY=0 to apply fixes)\n", $this->stdout);
         self::assertStringContainsString(self::AGGREGATE . "\n  (override with QA_FAIL_FAST=1 to stop at the first failing tool)\n", $this->stdout);
         self::assertStringContainsString("generic platform detected\n", $this->stdout);
-        self::assertStringContainsString("\n\nChecking for Xdebug\n-------------------\nXdebug is not enabled - infection and coverage not available\n", $this->stdout);
+        self::assertStringContainsString("\n\nChecking for a coverage driver\n------------------------------\nNo coverage driver (pcov or Xdebug) is loaded - infection and coverage not available\n", $this->stdout);
         self::assertStringContainsString(self::PROBE_STDOUT, $this->stdout);
         self::assertStringContainsString(
-            \sprintf('[probe] php=%s memory=4G xdebug=0 threads=%d ci=1 readOnly=1 aggregate=1 json=0 agent=0 tool=probe path=-', $this->fakePhp, $this->halfCpuThreads()),
+            \sprintf('[probe] php=%s memory=4G coverage=none threads=%d ci=1 readOnly=1 aggregate=1 json=0 agent=0 tool=probe path=-', $this->fakePhp, $this->halfCpuThreads()),
             $this->stdout,
         );
         self::assertStringNotContainsString('Only scanning', $this->stdout);
@@ -466,26 +471,58 @@ final class QaApplicationTest extends TestCase
     #[Test]
     public function withoutXdebugTheJitSettingsAreNeverProbed(): void
     {
-        $this->answers('0', self::OLD_PHP, '1|tracing|64M', self::NO_OPCACHE);
+        $this->answers('0', self::OLD_PHP, self::JIT_ON, self::NO_OPCACHE);
 
         self::assertSame(0, $this->qa([], self::DASH_T, self::PROBE));
 
         self::assertStringNotContainsString('WARNING', $this->stdout);
         self::assertStringNotContainsString('opcache.jit', $this->consumer->read(self::CALLS));
-        self::assertStringContainsString('xdebug=0', $this->stdout);
+        self::assertStringContainsString('coverage=none', $this->stdout);
     }
 
     #[Test]
     public function withXdebugAndJitTheAdvisoryIsPrinted(): void
     {
-        $this->answers('1', self::OLD_PHP, '1|tracing|64M', self::NO_OPCACHE);
+        $this->answers('1', self::OLD_PHP, self::JIT_ON, self::NO_OPCACHE);
 
         self::assertSame(0, $this->qa([], self::DASH_T, self::PROBE));
 
-        self::assertStringContainsString("\nXdebug is enabled in coverage mode\n", $this->stdout);
+        self::assertStringContainsString("\nCoverage driver: Xdebug\nXdebug is enabled in coverage mode\n", $this->stdout);
         self::assertStringContainsString("\nWARNING: Xdebug is loaded and OPcache JIT is configured on (opcache.jit, opcache.jit_buffer_size).\n", $this->stdout);
-        self::assertStringContainsString('xdebug=1', $this->stdout);
+        self::assertStringContainsString('coverage=xdebug', $this->stdout);
         self::assertSame('coverage', getenv(self::XDEBUG_MODE));
+    }
+
+    #[Test]
+    public function pcovAloneIsTheDriverAndXdebugIsNotMentioned(): void
+    {
+        \Safe\putenv(self::XDEBUG_MODE);
+        $this->answers('0', self::OLD_PHP, self::NO_JIT, self::NO_OPCACHE, '1|0');
+
+        self::assertSame(0, $this->qa([], self::DASH_T, self::PROBE));
+
+        self::assertStringContainsString("\n------------------------------\nCoverage driver: pcov\n", $this->stdout);
+        self::assertStringNotContainsString('Xdebug', $this->stdout);
+        self::assertStringContainsString('coverage=pcov', $this->stdout);
+        self::assertFalse(getenv(self::XDEBUG_MODE), 'no Xdebug mode is set for a pcov run');
+    }
+
+    /** With both loaded pcov wins, the process's Xdebug mode is left alone, and the JIT advisory still applies to the loaded Xdebug. */
+    #[Test]
+    public function withBothLoadedPcovIsPreferredAndXdebugIsLeftOutOfCoverageMode(): void
+    {
+        \Safe\putenv(self::XDEBUG_MODE . '=develop');
+        $this->answers('1', self::OLD_PHP, self::JIT_ON, self::NO_OPCACHE, '1|1');
+
+        self::assertSame(0, $this->qa([], self::DASH_T, self::PROBE));
+
+        self::assertStringContainsString(
+            "\nCoverage driver: pcov\nXdebug is also loaded; the coverage run switches it off (XDEBUG_MODE=off) so only pcov collects\n",
+            $this->stdout,
+        );
+        self::assertStringContainsString('coverage=pcov', $this->stdout);
+        self::assertStringContainsString("\nWARNING: Xdebug is loaded and OPcache JIT is configured on", $this->stdout);
+        self::assertSame('develop', getenv(self::XDEBUG_MODE));
     }
 
     /** Debug mode is a developer's choice and is left alone; whatever the process has is what is reported. */
@@ -698,8 +735,10 @@ final class QaApplicationTest extends TestCase
         return false;
     }
 
-    private function answers(string $xdebug, string $version, string $jit, string $opcache): void
+    /** $coverage is the coverage-driver probe's `pcov|xdebug` answer; by default, no pcov and $xdebug. */
+    private function answers(string $xdebug, string $version, string $jit, string $opcache, ?string $coverage = null): void
     {
+        $this->consumer->write(self::ANSWER_COVERAGE, $coverage ?? '0|' . $xdebug);
         $this->consumer->write(self::ANSWER_XDEBUG, $xdebug);
         $this->consumer->write(self::ANSWER_VERSION, $version);
         $this->consumer->write(self::ANSWER_JIT, $jit);

@@ -92,26 +92,30 @@ whether you are in CI:
   **in CI** (`CI=true`). A local coverage run (`phpUnitCoverage=1 vendor/bin/qa` with `CI` unset)
   still enforces the time limits, so long tests can hit them.
 
-### Guarding on the Xdebug Mode
+### Guarding on the Coverage Driver
 
 A project that wants its coverage-enabled PHPUnit configuration to fail fast when it is run without
-coverage can check the mode in a test bootstrap. The lane starts PHPUnit with the `XDEBUG_MODE`
+coverage can check for a driver in a test bootstrap. When pcov is the
+[coverage driver](../configuration.md#coverage-driver) the lane runs PHPUnit with
+`XDEBUG_MODE=off`, so a guard must accept pcov before it looks at Xdebug. The lane starts PHPUnit with the `XDEBUG_MODE`
 environment variable set (see [How the lane runs](#how-the-lane-runs)), and Xdebug lets that
 variable win over the ini file. `ini_get('xdebug.mode')` returns the ini value only, so on a host
 whose ini says another mode (`debug` for IDE debugging, say) a guard that reads it rejects a run
 the pipeline started correctly, and the suite stops in the bootstrap before a test runs.
 
-Read the environment variable first and the ini value second. This calls no `xdebug_*` function,
-so it needs no extension declared:
+Accept an enabled pcov, then read the Xdebug environment variable first and the ini value second.
+This calls no pcov or `xdebug_*` function, so it needs no extension declared:
 
 ```php
+$pcov = extension_loaded('pcov') && '1' === ini_get('pcov.enabled');
+
 $mode = getenv('XDEBUG_MODE');
 if (false === $mode || '' === $mode) {
     $mode = (string) ini_get('xdebug.mode');
 }
 
-if (!str_contains($mode, 'coverage')) {
-    throw new RuntimeException('Run with XDEBUG_MODE=coverage, as `vendor/bin/qa` does.');
+if (!$pcov && !str_contains($mode, 'coverage')) {
+    throw new RuntimeException('Run with pcov enabled or XDEBUG_MODE=coverage, as `vendor/bin/qa` does.');
 }
 ```
 
@@ -129,7 +133,7 @@ choice.
 
 ### Speed Impact of Enabling Coverage
 
-If coverage is enabled, the tests have to be run with Xdebug enabled. This on its own has a dramatic impact on the speed of PHP execution.
+If coverage is enabled, the tests run with a coverage driver collecting. With Xdebug this on its own has a dramatic impact on the speed of PHP execution; pcov, which the pipeline prefers when it is loaded, costs far less (see [Coverage driver](../configuration.md#coverage-driver)).
 
 This is in addition to the time required to actually generate and write the coverage reports. For a large test suite the time impact can be significant.
 
@@ -189,7 +193,7 @@ The lane is `LTS\PHPQA\Pipeline\Lane\PhpunitTool` (identifier `phpqaci.phpunit`)
 
 1. A missing `tests/bootstrap.php` is seeded with a documented placeholder, and `var/qa/phpunit_logs/coverage-xml` is removed, in every mode and before anything can fail, so any coverage Infection finds there afterwards was written by this run's PHPUnit.
 2. The project's `vendor/bin/phpunit` is probed for its major version; `vendor/bin/paratest` is used instead when installed (its `--help` is probed first, see [Paratest](#paratest)).
-3. With coverage on, the Xdebug-enabled PHP binary runs under `XDEBUG_MODE=coverage` (so Infection can reuse the result); otherwise Xdebug is stripped and `XDEBUG_MODE=off`. `phpUnitQuickTests` is passed through as `1`/`0`.
+3. With coverage on, PHP runs with the [coverage driver](../configuration.md#coverage-driver) set up (so Infection can reuse the result): for pcov, `-d pcov.enabled=1 -d pcov.directory=<project root> -d pcov.exclude=<its vendor/>` and `XDEBUG_MODE=off`, handed to ParaTest's workers with `--passthru-php`; for Xdebug, `XDEBUG_MODE=coverage`. Otherwise Xdebug is stripped and `XDEBUG_MODE=off`. `phpUnitQuickTests` is passed through as `1`/`0`.
 4. Flags: `--strict-global-state --fail-on-risky --fail-on-warning --log-junit`, the PHPUnit 10+ `--display-*` flags, then the mode flags (iterative, no-coverage, coverage in CI, coverage interactively) and the `-p` paths.
 5. An absent or empty junit log ("no tests have been run") fails the lane. Both `phpunit.junit.xml` and `phpunit.log` are archived under `var/qa/phpunit_logs`, and the `Tests: … Assertions: …` summary line is echoed.
 6. Exit 0 passes, 1 and 2 fail (retried interactively), anything higher is a crash: the suite is re-run once with `--debug` for diagnosis and never retried.
@@ -216,6 +220,6 @@ is the quickest loop while working through a list.
 
 ## Infection
 
-Another tool that runs your PHPUnit tests is Infection. This will only run if Xdebug is enabled and you have configured PHPUnit to generate coverage. Infection runs as a PHAR.
+Another tool that runs your PHPUnit tests is Infection. This will only run if a coverage driver (pcov or Xdebug) is loaded and you have configured PHPUnit to generate coverage. Infection runs as a PHAR.
 
 See the [PHPQA Infection docs](./infection.md) for more information.

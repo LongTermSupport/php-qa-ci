@@ -2,7 +2,7 @@
 
 [Infection](https://infection.github.io/) is a Mutation Testing Framework that runs PHPUnit tests and then makes small modifications to the code and sees if these cause the unit tests to fail.
 
-Infection runs as a **PHAR** from `vendor-phar/infection.phar` (not as a Composer dependency). It requires Xdebug to be available for code coverage.
+Infection runs as a **PHAR** from `vendor-phar/infection.phar` (not as a Composer dependency). It requires a coverage driver, pcov or Xdebug, for code coverage (see [Coverage driver](../configuration.md#coverage-driver)).
 
 In PHPQA we run this after the normal PHPUnit run and pass in the coverage generated with PHPUnit. This means that it will only run this tool if you have the `phpUnitCoverage` environment variable set to 1.
 
@@ -379,11 +379,11 @@ vendor/bin/qa
 
 The lane is `LTS\PHPQA\Pipeline\Lane\InfectionTool` (identifier `phpqaci.infection`). Its pure parts are split out under `Lane/Infection/`: `InfectionDiffBaseResolver` (the auto-mode decision), `InfectionDiffFilter` and `TestSourceMirror` (the changed-file list from `git diff`), `InfectionFullRunTriggers` (the files that force a full run), `CommentOnlyChange` (the token comparison), `InfectionSourceScope` (whether Infection collects a file from the config's `source`), `PreloadedSourceFinder` (which loaded files Infection mutates) and `InfectionArguments` (the argv for the full and diff lanes), all unit-tested without a real process. `AutoloadIncludedFilesProbe` runs `bin/autoload-included-files`.
 
-1. Without Xdebug there is no coverage, so the lane skips.
+1. Without a coverage driver (pcov or Xdebug) there is no coverage, so the lane skips.
 2. The scope is decided and printed (see [What is mutated](#what-is-mutated)).
 3. A diff run checks `git status --porcelain=v1 -z --untracked-files=all` over `src`, `tests` and the full-run triggers (`InfectionFullRunTriggers`): an explicit base refuses a dirty tree; auto mode adds the uncommitted files (made project-relative with `git rev-parse --show-prefix`) to the change and names them in a warning.
 4. A diff run lists the change with `git diff <base>...HEAD -z -M --name-status --diff-filter=AMRCD --relative` over the same paths. A trigger in it makes the run full. Each modified or renamed PHP file is compared with `git show <merge base>:<path>` and left out when only its comments or whitespace changed, unless either version has a comment carrying a tool directive. A file Infection would not collect from the config's `source` (`InfectionSourceScope`) is named with why and left out. Otherwise the PHP files are passed to Infection as positional absolute paths; an empty list skips before any coverage is generated, so a docs-only change costs no test run. A failing `git diff` or `git status` fails.
 5. The project's `vendor/autoload.php` is loaded as PHPUnit's runner loads it, and a file Infection would mutate that is already loaded by then crashes the lane, as does an autoloader that cannot be loaded (see [Source files loaded before Infection's bootstrap](#source-files-loaded-before-infections-bootstrap)).
-6. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one Xdebug coverage run generates it. A failing coverage run fails the lane.
+6. Coverage is reused when the PHPUnit lane produced it this run (a full pipeline run with a non-empty `var/qa/phpunit_logs/coverage-xml`); otherwise (`-t infection`, or nothing on disk) one coverage run with the host's driver (pcov, else Xdebug) generates it. A failing coverage run fails the lane.
 7. `var/qa/infection/` is emptied and `vendor-phar/infection.phar` runs without Xdebug at low CPU priority with `--skip-initial-tests`, `--coverage`, `--threads`, `--configuration`, `--log-verbosity=all`, then either `--min-msi --min-covered-msi` (full) or `--with-uncovered --min-msi=<diff floor> --min-covered-msi=<diff floor> --ignore-msi-with-no-mutations` and the paths (diff). Any non-zero exit fails.
 8. `VacuousKillDetector` reads the JSON log, before the exit code is judged: no test ran for any killed mutant, an unreadable log, or a passing run with no log crashes the lane; some kills with no test run are named, a passing run whose floors hold only by counting them crashes, and the exit code then decides.

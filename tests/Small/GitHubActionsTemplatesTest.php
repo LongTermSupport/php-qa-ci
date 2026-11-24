@@ -34,6 +34,8 @@ final class GitHubActionsTemplatesTest extends TestCase
 
     private const string RELEASE_TEMPLATE = self::TEMPLATES . '/release.yml';
 
+    private const string PIPELINE_TEMPLATE = self::TEMPLATES . '/php-qa-ci.yml';
+
     private const string APPROVE_TEMPLATE = self::TEMPLATES . '/approve-held-ci/action.yml';
 
     private const string REPOSITORY = __DIR__ . '/../..';
@@ -77,6 +79,32 @@ final class GitHubActionsTemplatesTest extends TestCase
             \Safe\file_get_contents(self::REPOSITORY . '/.github/workflows/release.yml'),
             '.github/workflows/release.yml must be an identical copy of templates/github-actions/release.yml: edit the template and copy it.',
         );
+    }
+
+    /** This repository's pipeline run is the proof of the pipeline template a consumer copies. */
+    #[Test]
+    public function thisRepositoryRunsTheShippedPipelineWorkflow(): void
+    {
+        self::assertSame(
+            \Safe\file_get_contents(self::PIPELINE_TEMPLATE),
+            \Safe\file_get_contents(self::REPOSITORY . '/.github/workflows/qa.yml'),
+            '.github/workflows/qa.yml must be an identical copy of templates/github-actions/php-qa-ci.yml: edit the template and copy it.',
+        );
+    }
+
+    /**
+     * pcov is the faster coverage driver and the one the pipeline prefers;
+     * asking setup-php for it also leaves Xdebug unloaded, so nothing else
+     * collects coverage alongside it.
+     */
+    #[Test]
+    public function thePipelineTemplateSetsUpPcovForCoverage(): void
+    {
+        $coverage = $this->executedLinesIn(self::PIPELINE_TEMPLATE, '#^\s*coverage:\s#');
+
+        self::assertCount(1, $coverage);
+        self::assertStringEndsWith(': coverage: pcov', $coverage[0]);
+        self::assertSame([], $this->executedLinesIn(self::PIPELINE_TEMPLATE, '#xdebug#i'), 'No Xdebug setting is needed once pcov collects the coverage.');
     }
 
     #[Test]

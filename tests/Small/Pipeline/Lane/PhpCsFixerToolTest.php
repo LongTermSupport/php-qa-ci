@@ -37,6 +37,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(IgnoredPaths::class)]
 #[UsesClass(FilteredFinderConfig::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(ProcessResultDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]

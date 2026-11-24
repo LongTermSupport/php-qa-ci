@@ -43,6 +43,7 @@ use RuntimeException;
 #[UsesClass(PlatformDetector::class)]
 #[UsesClass(ProjectConfigLoader::class)]
 #[UsesClass(QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(\LTS\PHPQA\Changelog\ReleaseVersionPolicy::class)]
 #[Small]
 final class ProjectQaConfigReaderTest extends TestCase

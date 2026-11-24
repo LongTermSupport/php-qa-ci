@@ -75,7 +75,7 @@ A PHP extension is a dependency like any package: a test that calls `xdebug_info
 it there is no extension to map the function to, so no finding), and the shipped default does not
 hide it. Declare `ext-xdebug` in `require-dev`, mind that every install then checks for the
 extension, or read the mode without an `xdebug_*` function (see
-[Guarding on the Xdebug Mode](phpunit.md#guarding-on-the-xdebug-mode)).
+[Guarding on the Coverage Driver](phpunit.md#guarding-on-the-coverage-driver)).
 
 **Dev dependency in prod**: a `composer install --no-dev` will not have it, so production
 crashes with class-not-found. Move the package to `require`, or move the usage out of `src/`.

@@ -41,7 +41,7 @@ final readonly class ProjectQaConfigReader
             platform: new PlatformDetector()->detect($projectRoot),
             env: new EnvironmentReader(EnvironmentReader::fromProcess()),
             phpBinPath: 'php',
-            xdebugEnabled: false,
+            coverageDriver: CoverageDriverEnum::None,
             halfCpuThreads: 1,
             ci: true,
             readOnly: true,

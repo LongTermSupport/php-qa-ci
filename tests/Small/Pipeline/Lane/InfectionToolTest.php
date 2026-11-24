@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
 use Closure;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use LTS\PHPQA\Pipeline\Lane\BranchNamePolicy\GitBranches;
@@ -54,6 +55,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
+#[UsesClass(CoverageDriverEnum::class)]
 #[UsesClass(QaConfigBuilder::class)]
 #[UsesClass(VacuousKillDetector::class)]
 #[UsesClass(PreloadedSourceFinder::class)]
@@ -108,6 +110,10 @@ final class InfectionToolTest extends TestCase
 
     private const string PHPUNIT_LOGS = '/var/qa/phpunit_logs';
 
+    private const string COVERAGE_XML_DIR = self::PHPUNIT_LOGS . '/coverage-xml';
+
+    private const array PHP_PREFIX = ['/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr'];
+
     private const string IDENTIFIER_FOOTER ="\n🪪  phpqaci.infection  (vendor/bin/rule-doc phpqaci.infection)\n";
 
     private const string GIT_STATUS_CLEAN = '';
@@ -161,13 +167,37 @@ final class InfectionToolTest extends TestCase
     }
 
     #[Test]
-    public function withoutXdebugTheLaneSkips(): void
+    public function withoutACoverageDriverTheLaneSkips(): void
     {
-        $result = $this->tool()->run($this->context($this->factory->builder(xdebug: false)));
+        $result = $this->tool()->run($this->context($this->factory->builder(coverageDriver: CoverageDriverEnum::None)));
 
         self::assertSame(ToolOutcomeEnum::Skipped, $result->outcome);
+        self::assertSame('no coverage driver (pcov or Xdebug)', $result->summary);
         self::assertSame([], $this->factory->processes->specs);
-        self::assertStringContainsString('Xdebug is not enabled', $this->factory->output->fetch());
+        self::assertStringContainsString('Infection: no coverage driver (pcov or Xdebug) is loaded', $this->factory->output->fetch());
+    }
+
+    #[Test]
+    public function aSingleToolRunGeneratesFreshCoverageWithPcovOverTheProjectAndXdebugOff(): void
+    {
+        $this->factory->processes->willSucceed('OK (3 tests)')->willRun($this->infection());
+
+        $result  = $this->tool()->run($this->context($this->factory->builder(env: self::FLOORS, singleTool: self::INFECTION, coverageDriver: CoverageDriverEnum::Pcov)));
+        $printed = $this->factory->output->fetch();
+
+        self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
+        self::assertStringContainsString('generating fresh coverage (pcov)', $printed);
+
+        $coverage = $this->factory->processes->specs[0];
+        self::assertSame([
+            ...self::PHP_PREFIX,
+            '-d', 'pcov.enabled=1', '-d', 'pcov.directory=' . $this->root, '-d', 'pcov.exclude=~^' . preg_quote($this->root . '/vendor/', '~') . '~',
+            '-f', $this->root . '/vendor/bin/phpunit', '--',
+            '-c', \dirname(__DIR__, 4) . '/configDefaults/generic/phpunit.xml',
+            '--coverage-xml', $this->root . self::COVERAGE_XML_DIR,
+            '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
+        ], $coverage->command);
+        self::assertSame(['XDEBUG_MODE' => 'off'], $coverage->env);
     }
 
     #[Test]
@@ -187,7 +217,7 @@ final class InfectionToolTest extends TestCase
 
         $phar = $this->factory->processes->lastSpec();
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr',
+            ...self::PHP_PREFIX,
             '-f', \dirname(__DIR__, 4) . '/vendor-phar/infection.phar', '--',
             '--coverage=' . $this->root . self::PHPUNIT_LOGS,
             '--skip-initial-tests',
@@ -594,15 +624,15 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString('generating fresh coverage (xdebug)', $printed);
+        self::assertStringContainsString('generating fresh coverage (Xdebug)', $printed);
         self::assertFileDoesNotExist($this->root . '/var/qa/phpunit_logs/coverage-xml/stale.xml', 'stale coverage is removed before regeneration');
-        self::assertDirectoryDoesNotExist($this->root . '/var/qa/phpunit_logs/coverage-xml', 'the directory goes too, so PHPUnit writes it afresh');
+        self::assertDirectoryDoesNotExist($this->root . self::COVERAGE_XML_DIR, 'the directory goes too, so PHPUnit writes it afresh');
 
         $coverage = $this->factory->processes->specs[0];
         self::assertSame([
-            '/usr/bin/php', '-d', 'memory_limit=4G', '-d', 'display_errors=stderr', '-f', $this->root . '/vendor/bin/phpunit', '--',
+            ...self::PHP_PREFIX, '-f', $this->root . '/vendor/bin/phpunit', '--',
             '-c', \dirname(__DIR__, 4) . '/configDefaults/generic/phpunit.xml',
-            '--coverage-xml', $this->root . '/var/qa/phpunit_logs/coverage-xml',
+            '--coverage-xml', $this->root . self::COVERAGE_XML_DIR,
             '--log-junit', $this->root . '/var/qa/phpunit_logs/phpunit.junit.xml',
         ], $coverage->command);
         self::assertSame(['XDEBUG_MODE' => 'coverage'], $coverage->env);
@@ -623,7 +653,7 @@ final class InfectionToolTest extends TestCase
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
         self::assertStringContainsString(
-            "Infection: generating fresh coverage (xdebug) before mutation testing.\n"
+            "Infection: generating fresh coverage (Xdebug) before mutation testing.\n"
             . "           (this also proves the suite is green, which lets Infection skip its initial run)\n",
             $this->factory->output->fetch(),
         );
@@ -640,7 +670,7 @@ final class InfectionToolTest extends TestCase
         $printed = $this->factory->output->fetch();
 
         self::assertSame(ToolOutcomeEnum::Passed, $result->outcome);
-        self::assertStringContainsString('generating fresh coverage (xdebug)', $printed);
+        self::assertStringContainsString('generating fresh coverage (Xdebug)', $printed);
         self::assertStringNotContainsString('reusing the coverage', $printed);
         self::assertCount(2, $this->factory->processes->specs, 'a coverage run, then Infection');
     }

@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Tests\Small\Pipeline\Config;
 
 use LogicException;
 use LTS\PHPQA\Changelog\ReleaseVersionPolicy;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\PhpUnitOptionsDto;
@@ -16,6 +17,7 @@ use LTS\PHPQA\Pipeline\Config\InfectionDiffModeEnum;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
 use LTS\PHPQA\Pipeline\Config\QaConfigBuilder;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -33,6 +35,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(ReleaseVersionPolicy::class)]
+#[UsesClass(CoverageDriverEnum::class)]
 #[Small]
 final class QaConfigBuilderTest extends TestCase
 {
@@ -142,13 +145,33 @@ final class QaConfigBuilderTest extends TestCase
     }
 
     #[Test]
-    public function withoutXdebugCoverageAndInfectionAreForcedOff(): void
+    public function withoutACoverageDriverCoverageAndInfectionAreForcedOff(): void
     {
-        $config = $this->defaults(xdebug: false)->withPhpUnitCoverage(true)->withInfection(true)->build();
+        $config = $this->defaults(coverageDriver: CoverageDriverEnum::None)->withPhpUnitCoverage(true)->withInfection(true)->build();
 
-        self::assertFalse($config->xdebugEnabled);
+        self::assertSame(CoverageDriverEnum::None, $config->coverageDriver);
         self::assertFalse($config->phpUnit->coverage);
         self::assertFalse($config->infection->enabled);
+    }
+
+    #[Test]
+    #[DataProvider('coverageDrivers')]
+    public function eitherCoverageDriverKeepsCoverageAndInfectionOnAndIsCarriedToTheConfig(CoverageDriverEnum $driver): void
+    {
+        $config = $this->defaults(coverageDriver: $driver)->withPhpUnitCoverage(true)->withInfection(true)->build();
+
+        self::assertSame($driver, $config->coverageDriver);
+        self::assertTrue($config->phpUnit->coverage);
+        self::assertTrue($config->infection->enabled);
+        // An adjustment rebuilds the builder; the driver survives it.
+        self::assertSame($driver, $this->defaults(coverageDriver: $driver)->withMemoryLimit('1G')->build()->coverageDriver);
+    }
+
+    /** @return iterable<string, array{CoverageDriverEnum}> */
+    public static function coverageDrivers(): iterable
+    {
+        yield 'pcov' => [CoverageDriverEnum::Pcov];
+        yield 'xdebug' => [CoverageDriverEnum::Xdebug];
     }
 
     #[Test]
@@ -504,7 +527,7 @@ final class QaConfigBuilderTest extends TestCase
             pathsToIgnore: $built->pathsToIgnore,
             phpBinPath: $built->phpBinPath,
             memoryLimit: $built->memoryLimit,
-            xdebugEnabled: $built->xdebugEnabled,
+            coverageDriver: $built->coverageDriver,
             quickTests: $built->quickTests,
             halfCpuThreads: $built->halfCpuThreads,
             phpUnit: $built->phpUnit,
@@ -731,7 +754,7 @@ final class QaConfigBuilderTest extends TestCase
     private function defaults(
         ?EnvironmentReader $env = null,
         ?string $specifiedPath = null,
-        bool $xdebug = true,
+        CoverageDriverEnum $coverageDriver = CoverageDriverEnum::Xdebug,
         PlatformEnum $platform = PlatformEnum::Generic,
         int $halfCpu = 4,
     ): QaConfigBuilder {
@@ -753,7 +776,7 @@ final class QaConfigBuilderTest extends TestCase
             platform: $platform,
             env: $env ?? new EnvironmentReader([]),
             phpBinPath: '/usr/bin/php',
-            xdebugEnabled: $xdebug,
+            coverageDriver: $coverageDriver,
             halfCpuThreads: $halfCpu,
             ci: true,
             readOnly: true,

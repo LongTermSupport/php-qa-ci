@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Process;
 
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\OpcacheSettingsDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessResultDto;
 use LTS\PHPQA\Pipeline\Process\Dto\ProcessSpecDto;
@@ -11,6 +12,7 @@ use LTS\PHPQA\Pipeline\Process\PhpInvoker;
 use LTS\PHPQA\Tests\Support\FakeProcessRunner;
 use LTS\PHPQA\Tests\Support\TempDir;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Small;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\UsesClass;
@@ -23,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(ProcessSpecDto::class)]
 #[CoversClass(ProcessResultDto::class)]
 #[UsesClass(OpcacheSettingsDto::class)]
+#[UsesClass(CoverageDriverEnum::class)]
 #[Small]
 final class PhpInvokerTest extends TestCase
 {
@@ -37,6 +40,14 @@ final class PhpInvokerTest extends TestCase
     private const string PHP_BINARY = 'php';
 
     private const string PHP_AT_OPT = '/opt/php';
+
+    private const string PHPUNIT = '/lib/bin/phpunit';
+
+    private const string MEMORY_2G = 'memory_limit=2G';
+
+    private const array CALLER_ENV = ['FOO' => 'bar'];
+
+    private const array PHPUNIT_ARGS = ['-c', 'x.xml'];
 
     private const array XDEBUG_OFF = ['XDEBUG_MODE' => 'off'];
 
@@ -60,7 +71,7 @@ final class PhpInvokerTest extends TestCase
         $runner  = new FakeProcessRunner()->willSucceed('tool ran');
         $invoker = new PhpInvoker($runner, '/usr/bin/php8.5', '4G', $this->varDir->path);
 
-        $result = $invoker->withoutXdebug(self::BIN_TOOL, ['--flag', 'value'], self::PROJECT, ['FOO' => 'bar']);
+        $result = $invoker->withoutXdebug(self::BIN_TOOL, ['--flag', 'value'], self::PROJECT, self::CALLER_ENV);
 
         self::assertSame('tool ran', $result->output);
         self::assertTrue($result->succeeded());
@@ -70,7 +81,7 @@ final class PhpInvokerTest extends TestCase
             $spec->command,
         );
         self::assertSame(self::PROJECT, $spec->cwd);
-        self::assertSame(['FOO' => 'bar', ...self::XDEBUG_OFF], $spec->env);
+        self::assertSame([...self::CALLER_ENV, ...self::XDEBUG_OFF], $spec->env);
         // No probe, no generated ini: the tool run is the only process.
         self::assertCount(1, $runner->specs);
         self::assertSame([], \Safe\glob($this->varDir->path . '/*.ini'));
@@ -93,13 +104,77 @@ final class PhpInvokerTest extends TestCase
         $runner  = new FakeProcessRunner()->willFail(2, 'boom');
         $invoker = new PhpInvoker($runner, self::PHP_BINARY, '2G', $this->varDir->path);
 
-        $result = $invoker->withXdebug('/lib/bin/phpunit', ['-c', 'x.xml'], self::PROJECT, self::XDEBUG_COVERAGE, streamOutput: false);
+        $result = $invoker->withXdebug(self::PHPUNIT, self::PHPUNIT_ARGS, self::PROJECT, self::XDEBUG_COVERAGE, streamOutput: false);
 
         self::assertSame(2, $result->exitCode);
         self::assertFalse($result->succeeded());
-        self::assertSame([self::PHP_BINARY, '-d', 'memory_limit=2G', '-d', self::DISPLAY_ERRORS, '-f', '/lib/bin/phpunit', '--', '-c', 'x.xml'], $runner->lastSpec()->command);
+        self::assertSame([self::PHP_BINARY, '-d', self::MEMORY_2G, '-d', self::DISPLAY_ERRORS, '-f', self::PHPUNIT, '--', ...self::PHPUNIT_ARGS], $runner->lastSpec()->command);
         self::assertSame(self::XDEBUG_COVERAGE, $runner->lastSpec()->env);
         self::assertFalse($runner->lastSpec()->streamOutput);
+    }
+
+    #[Test]
+    public function aPcovCoverageRunEnablesPcovOverTheProjectAndSwitchesXdebugOff(): void
+    {
+        $runner  = new FakeProcessRunner()->willSucceed('');
+        $invoker = new PhpInvoker($runner, self::PHP_BINARY, '2G', $this->varDir->path);
+
+        $invoker->withCoverage(CoverageDriverEnum::Pcov, self::PHPUNIT, self::PHPUNIT_ARGS, self::PROJECT, [...self::CALLER_ENV, ...self::XDEBUG_COVERAGE], streamOutput: false);
+
+        $spec = $runner->lastSpec();
+        self::assertSame(
+            [
+                self::PHP_BINARY, '-d', self::MEMORY_2G, '-d', self::DISPLAY_ERRORS,
+                '-d', 'pcov.enabled=1', '-d', 'pcov.directory=/project', '-d', 'pcov.exclude=~^/project/vendor/~',
+                '-f', self::PHPUNIT, '--', ...self::PHPUNIT_ARGS,
+            ],
+            $spec->command,
+        );
+        // The caller's environment is kept, except that Xdebug never collects alongside pcov.
+        self::assertSame([...self::CALLER_ENV, ...self::XDEBUG_OFF], $spec->env);
+        self::assertSame(self::PROJECT, $spec->cwd);
+        self::assertFalse($spec->streamOutput);
+    }
+
+    #[Test]
+    public function anXdebugCoverageRunPutsXdebugInCoverageModeWithNoExtraIni(): void
+    {
+        $runner  = new FakeProcessRunner()->willFail(2, 'boom');
+        $invoker = new PhpInvoker($runner, self::PHP_BINARY, '2G', $this->varDir->path);
+
+        $result = $invoker->withCoverage(CoverageDriverEnum::Xdebug, self::PHPUNIT, [], self::PROJECT, self::XDEBUG_OFF);
+
+        self::assertSame(2, $result->exitCode);
+        self::assertSame([self::PHP_BINARY, '-d', self::MEMORY_2G, '-d', self::DISPLAY_ERRORS, '-f', self::PHPUNIT, '--'], $runner->lastSpec()->command);
+        self::assertSame(self::XDEBUG_COVERAGE, $runner->lastSpec()->env);
+        self::assertTrue($runner->lastSpec()->streamOutput);
+    }
+
+    #[Test]
+    #[DataProvider('coverageProbeAnswers')]
+    public function theCoverageDriverIsProbedFromTheConfiguredBinary(string $answer, CoverageDriverEnum $expected): void
+    {
+        $runner  = new FakeProcessRunner()->willSucceed($answer);
+        $invoker = new PhpInvoker($runner, self::PHP_AT_OPT, '4G', $this->varDir->path);
+
+        self::assertSame($expected, $invoker->coverageDriver());
+        self::assertCount(1, $runner->specs);
+        self::assertSame(self::PHP_AT_OPT, $runner->specs[0]->command[0]);
+        self::assertSame(self::XDEBUG_OFF, $runner->specs[0]->env);
+        // pcov counts only when enabled, the same test PHPUnit makes when it picks a driver.
+        self::assertStringContainsString('extension_loaded("pcov") && "1" === ini_get("pcov.enabled")', $runner->specs[0]->commandLine());
+        self::assertStringContainsString('extension_loaded("xdebug")', $runner->specs[0]->commandLine());
+    }
+
+    /** @return iterable<string, array{string, CoverageDriverEnum}> */
+    public static function coverageProbeAnswers(): iterable
+    {
+        yield 'pcov only' => ["1|0\n", CoverageDriverEnum::Pcov];
+        yield 'xdebug only' => ["0|1\n", CoverageDriverEnum::Xdebug];
+        yield 'both' => ["1|1\n", CoverageDriverEnum::Pcov];
+        yield 'neither' => ["0|0\n", CoverageDriverEnum::None];
+        yield 'no answer' => ['', CoverageDriverEnum::None];
+        yield 'a partial answer' => ['1', CoverageDriverEnum::None];
     }
 
     #[Test]
