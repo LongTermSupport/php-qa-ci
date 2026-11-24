@@ -281,6 +281,7 @@ the release and its tag. The full rules are in
   allows; the check took a name with no `key: value` for a shape it could not read and reported a
   workflow GitHub may accept. It now reads the names, so such a workflow is judged for the
   up-to-date-with-base gate like any other. See [docs/tools/versionPins.md](docs/tools/versionPins.md).
+- **A host that is down no longer fails the markdown links check.** An external link failed the `markdownLinks` lane on any answer but a 2xx or 3xx, so a 502 from a link target that was briefly unavailable failed the pipeline, and with it the push run that the release workflow waits for. Only a 404 or 410 fails now. A server error (5xx), a refusal to say (401, 403, 429 or another 4xx), no answer at all, and a link that answers only after a redirect are printed as warnings under the file and leave the exit code alone. A project that relied on a 5xx, a 401, a 403 or an unreachable host failing the lane will now see a warning and a pass. See [docs/tools/markdownLinks.md](docs/tools/markdownLinks.md#what-fails-and-what-only-warns).
 
 ## 85.18.1 — 2026-11-09
 

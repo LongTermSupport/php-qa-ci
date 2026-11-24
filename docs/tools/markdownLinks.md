@@ -33,10 +33,29 @@ tree navigable and catches a doc that was moved without its references being upd
   `Markdown links skipped <path>: its real path cannot be resolved ...` for each one, and a
   skipped file does not fail the lane.
 
+## What fails and what only warns
+
+An internal link to a file that does not exist fails the lane, and so does an external link the
+server says is gone: HTTP 404 or 410. Nothing else about an external link fails it, because
+the lane cannot tell a dead page from a host having a bad minute:
+
+| Answer                                                         | Result  | Printed as                                           |
+| -------------------------------------------------------------- | ------- | ---------------------------------------------------- |
+| 2xx                                                            | passes  | nothing                                              |
+| 301, 302, 307, 308 ending on a 2xx                             | warning | `redirected to <address>; update the link`           |
+| 5xx, such as a 502 from a host that is down                    | warning | `a server error is not treated as a broken link`     |
+| 401, 403, 429 or any other 4xx but 404 and 410                 | warning | `the server would not say whether the page exists`   |
+| No answer: connection refused, a timeout, a certificate error  | warning | the reason, then `is not treated as a broken link`   |
+
+A warning is printed under the file, as `Warning for "<text>" to "<target>"`, and never changes the
+exit code. Fix a redirect warning when convenient by pointing the link at the address it ends
+on. A warning that never goes away is worth a look: a link that answers 5xx or does not answer on
+every run is probably dead.
+
 ## How to fix a failure
 
 Each finding names the file, the link text and the target. Fix the path or URL, or remove the
-link if the target is gone for good.
+link if the target is gone for good. A warning needs no fix to pass.
 
 ## Implementation
 
