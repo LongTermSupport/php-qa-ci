@@ -104,6 +104,7 @@ final readonly class QaConfigBuilder
         private array $composerCooldownInternalVendors = [],
         private ?string $composerCooldownOptOutReason = null,
         private bool $useFirstPartyConstraintFreshness = true,
+        private bool $offlineBuild = false,
     ) {
     }
 
@@ -490,6 +491,18 @@ final readonly class QaConfigBuilder
         return $this->with(releaseVersionPolicy: $policy);
     }
 
+    /**
+     * The one switch that says this project builds without network access. A step that needs the
+     * network then skips with a `SKIPPED <lane> (<identifier>): ...` line: it never passes in
+     * silence and never fails for want of a download. Off by default, and set only here, never
+     * by an environment variable: it is a fact about the project, not about one host.
+     * docs/configuration.md lists the steps that honour it.
+     */
+    public function withOfflineBuild(bool $offline): self
+    {
+        return $this->with(offlineBuild: $offline);
+    }
+
     public function build(): QaConfigDto
     {
         if ($this->useDeadCode && null === $this->deadCodeEntryPoints) {
@@ -561,6 +574,7 @@ final readonly class QaConfigBuilder
             composerCooldownInternalVendors: $this->composerCooldownInternalVendors,
             composerCooldownOptOutReason: $this->composerCooldownOptOutReason,
             useFirstPartyConstraintFreshness: $this->useFirstPartyConstraintFreshness,
+            offlineBuild: $this->offlineBuild,
         );
     }
 
@@ -641,6 +655,7 @@ final readonly class QaConfigBuilder
         ?array $composerCooldownInternalVendors = null,
         ?string $composerCooldownOptOutReason = null,
         ?bool $useFirstPartyConstraintFreshness = null,
+        ?bool $offlineBuild = null,
     ): self {
         return new self(
             paths: $this->paths,
@@ -691,6 +706,7 @@ final readonly class QaConfigBuilder
             composerCooldownInternalVendors: $composerCooldownInternalVendors   ?? $this->composerCooldownInternalVendors,
             composerCooldownOptOutReason: $composerCooldownOptOutReason         ?? $this->composerCooldownOptOutReason,
             useFirstPartyConstraintFreshness: $useFirstPartyConstraintFreshness ?? $this->useFirstPartyConstraintFreshness,
+            offlineBuild: $offlineBuild                                         ?? $this->offlineBuild,
         );
     }
 }

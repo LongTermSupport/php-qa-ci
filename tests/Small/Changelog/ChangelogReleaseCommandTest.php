@@ -57,6 +57,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(ReleaseLine::class)]
 #[UsesClass(ReleaseVersionPolicy::class)]
 #[UsesClass(ReleaseVersionPolicyLoader::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectQaConfigReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ComposerBinDirReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]

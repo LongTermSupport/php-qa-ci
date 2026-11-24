@@ -32,6 +32,7 @@
 !/bin/rules
 !/bin/sensitive-parameter-usage
 !/bin/shellcheck-install
+!/bin/actions-qa-install
 !/bin/single-rule-report
 !/bin/turbo-install
 !/bin/version-pins-check
@@ -41,6 +42,9 @@
 /vendor-bin/.phpqa-shellcheck*
 # ShellCheck builds for a host other than the committed linux.x86_64 (ShellCheckBinary::pathFor), fetched per host
 /vendor-bin/shellcheck.linux.*
+# The actions-qa-ci bundle and its install staging (ActionsQaInstaller): fetched by bin/actions-qa-install, never committed
+/vendor-bin/actions-qa-ci
+/vendor-bin/.phpqa-actions-qa-ci*
 /cache/
 /.phive-home/
 /build/*/vendor/

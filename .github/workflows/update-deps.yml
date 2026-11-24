@@ -136,6 +136,9 @@ jobs:
       # with it, so the patch packaged below is the change as the pull request
       # will have it. The work branch is not chore/update-deps, which the pull
       # request action creates and resets itself.
+      #
+      # The actionsQa lane's actions-qa-ci bundle is already in place: the
+      # composer update above ran scripts/tool-install.bash, which installs it.
       - name: Run QA Pipeline
         if: steps.changes.outputs.changed == 'true'
         env:

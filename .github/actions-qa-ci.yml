@@ -1,0 +1,9 @@
+version: 1
+analyse:
+  include:
+    - templates/github-actions/**
+  unanalysed:
+    - path: tests/assets/versionPins/**
+      justification:
+        hazard: "Fixture workflows carry deliberately stale PHP pins and odd file names, so linting them would report the very shapes the versionPins tests feed the detector"
+        scope: "Only the versionPins test fixtures, which no repository workflow runs and no consumer copies"

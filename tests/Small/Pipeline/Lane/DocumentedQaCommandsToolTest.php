@@ -82,6 +82,7 @@ use Symfony\Component\Console\Output\NullOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\RectorTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\SensitiveParameterUsageTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheckTool::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Lane\ActionsQaTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigCsFixerTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\TwigLintTool::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\VersionPinsTool::class)]

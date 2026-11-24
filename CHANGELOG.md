@@ -123,6 +123,23 @@ the release and its tag. The full rules are in
 
 ### Added
 
+- A new linting lane, `actionsQa` (`bin/qa -t aq`, identifier `phpqaci.actionsQa`), checks the
+  project's GitHub Actions workflows with actions-qa-ci 0.2.0 (actionlint, ShellCheck over `run:`
+  scripts, zizmor), from the project root and over the whole project. Findings fail the lane; any
+  exit other than 0 or 1 crashes it. A project that is not a git work tree, or tracks nothing under
+  `.github/workflows`, is skipped. The bundle is not shipped: every `composer install` and
+  `composer update` installs it through a new Composer plugin, `ActionsQaInstallPlugin`, which runs
+  `bin/actions-qa-install` (also in Composer's bin dir). The installer downloads the pinned
+  release's `install.sh`, runs it only when its SHA-256 matches the pin, and installs into
+  `vendor-bin/actions-qa-ci`; with that release in place it downloads nothing, and a failed install
+  is reported without failing `composer install`. A host without network declares
+  `withOfflineBuild(true)` in `qaConfig/qa.php`, a new setting: the installer then downloads
+  nothing, the bundle is provisioned from the release assets with
+  `bin/actions-qa-install --from <directory>`, and until then the lane skips by name. If the bundle
+  is absent and the project is not offline, the lane crashes naming the install command. A
+  `composer install --no-scripts` runs no plugin, so the shipped `qa-autofix.yml` template carries
+  its own install step. Linux on x86_64 and aarch64 only: on any other host the install prints a
+  notice naming the host and the lane crashes. See [docs/tools/actionsQa.md](docs/tools/actionsQa.md).
 - A read-only run (`QA_READONLY=1`, which GitHub Actions defaults to) now fails when a step leaves a git-tracked file
   changed, naming each file and the lane or hook that was running when it changed, under the new
   identifier `phpqaci.trackedFilesUnchanged`. Before this, a full gate could exit 0 and leave a

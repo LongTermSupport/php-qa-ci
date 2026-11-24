@@ -212,7 +212,9 @@ jobs:
 
       # The qa entry point lives in composer's bin-dir: vendor/bin unless
       # composer.json sets config.bin-dir. The QA tools themselves ship inside
-      # the package (vendor-phar/), so nothing else needs installing.
+      # the package (vendor-phar/), and composer install above put the
+      # actions-qa-ci bundle the actionsQa lane runs in place, so nothing else
+      # needs installing.
       - name: Verify php-qa-ci installation
         id: locate
         run: |
