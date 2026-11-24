@@ -131,9 +131,9 @@ env:
   CI: true
 
   # OPTIONAL: Customize QA behavior
-  # phpUnitCoverage: 1           # Enable coverage (default: 1 if xdebug available)
+  # phpUnitCoverage: 1           # Enable coverage (default: 1 if pcov or xdebug available)
   # phpqaQuickTests: 1           # Quick test mode (default: 0)
-  # useInfection: 0              # Disable infection (default: 1 if xdebug available)
+  # useInfection: 0              # Disable infection (default: 1 if pcov or xdebug available)
 
 jobs:
   qa:
@@ -187,13 +187,15 @@ jobs:
         with:
           php-version: ${{ steps.php.outputs.version }}
           tools: composer:v2
-          coverage: xdebug
+          # pcov collects the coverage PHPUnit and Infection need, several
+          # times faster than Xdebug. A project whose phpunit.xml asks for
+          # path or branch coverage needs Xdebug instead: `coverage: xdebug`.
+          coverage: pcov
           # Add all common PHP extensions needed by most projects
           # Add more if your project needs them
           extensions: mbstring, intl, json, zip, dom, curl, libxml, xmlwriter, xmlreader, xml, simplexml, iconv, pdo, pdo_sqlite, calendar
           ini-values: |
             memory_limit=4G
-            xdebug.mode=coverage
 
       - name: Get composer cache directory
         id: composer-cache
