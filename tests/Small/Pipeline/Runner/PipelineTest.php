@@ -62,6 +62,7 @@ use RuntimeException;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(LockInfoDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lock\SystemClock::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Process\LogArchiver::class)]

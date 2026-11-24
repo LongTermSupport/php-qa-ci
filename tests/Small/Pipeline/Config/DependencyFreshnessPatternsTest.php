@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
  */
 #[CoversClass(DependencyFreshnessPatterns::class)]
 #[UsesClass(QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\DeadCodeOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\InfectionOptionsDto::class)]

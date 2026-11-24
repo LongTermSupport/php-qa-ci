@@ -31,6 +31,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\EnvironmentReader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\ShellFileFinder::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\CapturedPhpOutputScanner::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Lane\ShellCheck\DaemonOwnedFiles::class)]

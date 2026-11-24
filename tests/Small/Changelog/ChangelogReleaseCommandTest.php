@@ -69,6 +69,7 @@ use Symfony\Component\Console\Output\BufferedOutput;
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\PlatformDetector::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectConfigLoader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[UsesClass(ReleasedSections::class)]
 #[UsesClass(BundledToolVersions::class)]
 #[UsesClass(ProcessResultDto::class)]

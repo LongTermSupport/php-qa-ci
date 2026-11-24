@@ -49,6 +49,7 @@ use PHPUnit\Framework\TestCase;
 #[UsesClass(ProjectConfigLoader::class)]
 #[UsesClass(\LTS\PHPQA\Pipeline\Config\ProjectQaConfigReader::class)]
 #[UsesClass(QaConfigBuilder::class)]
+#[UsesClass(\LTS\PHPQA\Pipeline\Config\CoverageDriverEnum::class)]
 #[Small]
 final class ReleaseVersionPolicyLoaderTest extends TestCase
 {
