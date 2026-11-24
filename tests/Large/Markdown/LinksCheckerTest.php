@@ -27,6 +27,8 @@ final class LinksCheckerTest extends TestCase
 
     private const string README = '/README.md';
 
+    private const string README_FILE = 'README.md';
+
     /** @var list<TempDir> */
     private array $tempDirs = [];
 
@@ -124,6 +126,127 @@ result: HTTP status: 404
             proc_terminate($serverProcess);
             \Safe\proc_close($serverProcess);
         }
+    }
+
+    /**
+     * Only a link the server says is gone (404, 410) fails the check. A server error, a refusal
+     * to be checked (401, 403, 429) and a redirect are warnings: the page may well be fine, or
+     * the link wants a new address, and a host being down must not stop a release.
+     *
+     * @throws Exception
+     */
+    public function testOnlyAGoneLinkFailsAndEverythingElseWarns(): void
+    {
+        [$serverProcess, $baseUrl] = $this->startLocalStatusServer();
+
+        try {
+            $dir              = TempDir::create('linksCheckerWarnings');
+            $this->tempDirs[] = $dir;
+            $dir->write(
+                self::README_FILE,
+                '[gone](' . $baseUrl . "/410)\n\n"
+                . '[down](' . $baseUrl . "/502)\n\n"
+                . '[busy](' . $baseUrl . "/503)\n\n"
+                . '[private](' . $baseUrl . "/401)\n\n"
+                . '[refused](' . $baseUrl . "/403)\n\n"
+                . '[throttled](' . $baseUrl . "/429)\n\n"
+                . '[moved](' . $baseUrl . "/301)\n\n"
+                . '[found](' . $baseUrl . "/302)\n",
+            );
+
+            $note     = ' is not treated as a broken link';
+            $expected = '
+/README.md
+----------
+
+Bad link for "gone" to "' . $baseUrl . '/410"
+result: HTTP status: 410
+
+Warning for "down" to "' . $baseUrl . '/502"
+result: HTTP status: 502, a server error' . $note . '
+
+Warning for "busy" to "' . $baseUrl . '/503"
+result: HTTP status: 503, a server error' . $note . '
+
+Warning for "private" to "' . $baseUrl . '/401"
+result: HTTP status: 401, the server would not say whether the page exists, so it' . $note . '
+
+Warning for "refused" to "' . $baseUrl . '/403"
+result: HTTP status: 403, the server would not say whether the page exists, so it' . $note . '
+
+Warning for "throttled" to "' . $baseUrl . '/429"
+result: HTTP status: 429, the server would not say whether the page exists, so it' . $note . '
+
+Warning for "moved" to "' . $baseUrl . '/301"
+result: HTTP status: 301, redirected to /200; update the link to the address it ends on
+
+Warning for "found" to "' . $baseUrl . '/302"
+result: HTTP status: 302, redirected to /200; update the link to the address it ends on
+';
+            self::assertResult($dir->path, 1, $expected);
+        } finally {
+            proc_terminate($serverProcess);
+            \Safe\proc_close($serverProcess);
+        }
+    }
+
+    /**
+     * Warnings alone never fail the check, so a run is green when the only findings are a host
+     * that is down and a link that has moved.
+     *
+     * @throws Exception
+     */
+    public function testWarningsAloneLeaveTheCheckPassing(): void
+    {
+        [$serverProcess, $baseUrl] = $this->startLocalStatusServer();
+
+        try {
+            $dir              = TempDir::create('linksCheckerWarningsOnly');
+            $this->tempDirs[] = $dir;
+            $dir->write(
+                self::README_FILE,
+                '[down](' . $baseUrl . "/502)\n\n[moved](" . $baseUrl . "/301)\n",
+            );
+
+            \Safe\ob_start();
+            $exit   = LinksChecker::main($dir->path);
+            $output = \Safe\ob_get_clean();
+
+            self::assertSame(0, $exit);
+            self::assertStringContainsString('Warning for "down"', $output);
+            self::assertStringContainsString('Warning for "moved"', $output);
+            self::assertStringNotContainsString('Bad link', $output);
+        } finally {
+            proc_terminate($serverProcess);
+            \Safe\proc_close($serverProcess);
+        }
+    }
+
+    /**
+     * A host that cannot be reached at all is a warning too: the network, not the page, may be
+     * what is down.
+     *
+     * @throws Exception
+     */
+    public function testAnUnreachableHostWarnsAndDoesNotFail(): void
+    {
+        $probe = \Safe\stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
+        $name  = \Safe\stream_socket_get_name($probe, false);
+        $port  = (int)substr($name, (int)strrpos($name, ':') + 1);
+        \Safe\fclose($probe);
+
+        $dir              = TempDir::create('linksCheckerUnreachable');
+        $this->tempDirs[] = $dir;
+        $dir->write(self::README_FILE, '[nobody home](http://127.0.0.1:' . $port . "/page)\n");
+
+        \Safe\ob_start();
+        $exit   = LinksChecker::main($dir->path);
+        $output = \Safe\ob_get_clean();
+
+        self::assertSame(0, $exit);
+        self::assertStringContainsString('Warning for "nobody home" to "http://127.0.0.1:' . $port . '/page"', $output);
+        self::assertStringContainsString('is not treated as a broken link', $output);
+        self::assertStringNotContainsString('Bad link', $output);
     }
 
     /**

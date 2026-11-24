@@ -18,6 +18,8 @@ final readonly class LinksChecker
 {
     private const string HEAD = 'HEAD';
 
+    private const string NOT_BROKEN = ' is not treated as a broken link';
+
     /**
      * @throws Exception
      */
@@ -214,8 +216,19 @@ final readonly class LinksChecker
             }
         }
 
-        $result = self::fetchLinkStatus($href, $githubToken);
-        if (null === $result) {
+        $finding = self::fetchLinkStatus($href, $githubToken);
+        if (null === $finding) {
+            return;
+        }
+
+        if (!$finding['broken']) {
+            $errors[] = \sprintf(
+                "\nWarning for \"%s\" to \"%s\"\nresult: %s\n",
+                $anchor,
+                $href,
+                $finding['result']
+            );
+
             return;
         }
 
@@ -223,7 +236,7 @@ final readonly class LinksChecker
             "\nBad link for \"%s\" to \"%s\"\nresult: %s\n",
             $anchor,
             $href,
-            $result
+            $finding['result']
         );
         $return   = 1;
     }
@@ -272,7 +285,14 @@ final readonly class LinksChecker
         return null;
     }
 
-    private static function fetchLinkStatus(string $href, ?string $githubToken = null): ?string
+    /**
+     * Only a page the server says is gone is a broken link. Anything else that is not a clean
+     * answer (a server error, a refusal to say, no connection, a redirect) is a warning: the
+     * page may be fine, and a host being down must not fail a run.
+     *
+     * @return array{broken: bool, result: string}|null null when the link answers 2xx directly
+     */
+    private static function fetchLinkStatus(string $href, ?string $githubToken = null): ?array
     {
         $userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36'
                      . ' (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -297,7 +317,8 @@ final readonly class LinksChecker
             'user_agent'       => $userAgent,
         ];
 
-        $lastError = null;
+        $lastError  = null;
+        $lastStatus = null;
         foreach ([self::HEAD, 'GET'] as $method) {
             $httpOpts['method'] = $method;
             $context            = stream_context_create([
@@ -311,33 +332,89 @@ final readonly class LinksChecker
             try {
                 $headers = @\Safe\get_headers($href, false, $context);
                 /** @var list<string> $headers */
-                $lastStatus = self::getLastStatusCode(...$headers);
-                if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 400) {
-                    return null;
-                }
-
-                if (self::HEAD === $method && null !== $lastStatus && $lastStatus >= 400) {
-                    continue;
+                $statuses   = self::getStatusCodes(...$headers);
+                $lastStatus = [] === $statuses ? null : array_last($statuses);
+                if (null !== $lastStatus && $lastStatus >= 200 && $lastStatus < 300) {
+                    return self::redirectFinding($statuses, ...$headers);
                 }
             } catch (Throwable $e) {
                 $lastError = $e->getMessage();
-                continue;
             }
         }
 
-        return 'HTTP status: ' . ($lastStatus ?? $lastError ?? 'connection failed');
+        return self::unansweredFinding($lastStatus, $lastError);
     }
 
-    private static function getLastStatusCode(string ...$headers): ?int
+    /**
+     * @return array{broken: bool, result: string}
+     */
+    private static function unansweredFinding(?int $status, ?string $error): array
     {
-        $lastStatus = null;
+        if (null === $status) {
+            return [
+                'broken' => false,
+                'result' => ($error ?? 'connection failed') . ', so the link could not be checked and'
+                    . self::NOT_BROKEN,
+            ];
+        }
+
+        if (404 === $status || 410 === $status) {
+            return ['broken' => true, 'result' => 'HTTP status: ' . $status];
+        }
+
+        $reason = match (true) {
+            $status >= 500 => ', a server error',
+            $status >= 400 => ', the server would not say whether the page exists, so it',
+            default        => ', redirects that did not end on a page, so it',
+        };
+
+        return ['broken' => false, 'result' => 'HTTP status: ' . $status . $reason . self::NOT_BROKEN];
+    }
+
+    /**
+     * The warning for a link that answered 2xx only after a redirect, or null when it answered 2xx directly.
+     *
+     * @param list<int> $statuses the status of every response on the way, redirects first
+     *
+     * @return array{broken: bool, result: string}|null
+     */
+    private static function redirectFinding(array $statuses, string ...$headers): ?array
+    {
+        if (\count($statuses) < 2) {
+            return null;
+        }
+
+        $location = '';
+        foreach ($headers as $header) {
+            $matches = [];
+            if (1 === \Safe\preg_match('/^Location:\s*(\S+)/i', $header, $matches) && isset($matches[1])) {
+                $location = $matches[1];
+            }
+        }
+
+        return [
+            'broken' => false,
+            'result' => \sprintf(
+                'HTTP status: %d, redirected to %s; update the link to the address it ends on',
+                $statuses[0],
+                $location,
+            ),
+        ];
+    }
+
+    /**
+     * @return list<int> the status of every response in the chain, in order
+     */
+    private static function getStatusCodes(string ...$headers): array
+    {
+        $statuses = [];
         foreach ($headers as $header) {
             $matches = [];
             if (1 === \Safe\preg_match('/^HTTP\/[\d.]+ (\d{3})/', $header, $matches) && isset($matches[1])) {
-                $lastStatus = (int)$matches[1];
+                $statuses[] = (int)$matches[1];
             }
         }
 
-        return $lastStatus;
+        return $statuses;
     }
 }
