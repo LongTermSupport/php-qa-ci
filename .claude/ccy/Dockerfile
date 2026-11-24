@@ -10,7 +10,9 @@
 #
 # Installed on top of claude-yolo:latest:
 #   - PHP 8.5 CLI + extensions the pipeline/tools need
-#     (xml, mbstring, curl, zip, intl) and Xdebug (coverage + Infection)
+#     (xml, mbstring, curl, zip, intl), pcov (the coverage driver bin/qa
+#     prefers for PHPUnit coverage + Infection) and Xdebug (kept for
+#     debugging and for testing the Xdebug coverage path)
 #   - Composer (checksum-verified installer)
 #   - PHIVE (GPG-verified) — scripts/tool-install.bash uses it for PHAR tools
 #
@@ -41,11 +43,15 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
         php8.5-zip \
         php8.5-intl \
         php8.5-xdebug \
+        php8.5-pcov \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # Xdebug only when explicitly requested (XDEBUG_MODE env) — keeps the default
-# CLI fast; bin/qa exports XDEBUG_MODE=coverage itself when generating coverage.
+# CLI fast. pcov stays enabled (its package default): it only collects when
+# PHPUnit starts it, and bin/qa picks it over Xdebug for coverage, running the
+# coverage run with XDEBUG_MODE=off. With pcov disabled bin/qa falls back to
+# Xdebug and sets XDEBUG_MODE=coverage itself.
 ENV XDEBUG_MODE=off
 
 # ----------------------------------------------------------------------------
@@ -70,4 +76,4 @@ RUN curl -fsSL --retry 5 -o /usr/local/bin/phive https://phar.io/releases/phive.
     phive version
 
 # Sanity check the toolchain the QA pipeline expects
-RUN php --version && php -m | grep -E 'xdebug|mbstring|intl' && composer --version
+RUN php --version && php -m | grep -E 'xdebug|pcov|mbstring|intl' && composer --version
