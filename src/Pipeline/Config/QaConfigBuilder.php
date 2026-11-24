@@ -23,7 +23,7 @@ use LTS\PHPQA\Pipeline\Config\Dto\TypeCoverageOptionsDto;
  *       ->withIgnoredPaths('tests/assets');
  *
  * build() applies the derivations that depend on adjustable inputs (coverage
- * needs Xdebug, Infection needs coverage) so an override cannot switch on
+ * needs a coverage driver, pcov or Xdebug; Infection needs coverage) so an override cannot switch on
  * something the host cannot run.
  *
  * @api
@@ -70,7 +70,7 @@ final readonly class QaConfigBuilder
         private array $pathsToIgnore,
         private string $phpBinPath,
         private string $memoryLimit,
-        private bool $xdebugEnabled,
+        private CoverageDriverEnum $coverageDriver,
         private bool $quickTests,
         private int $halfCpuThreads,
         private bool $phpUnitCoverage,
@@ -117,7 +117,7 @@ final readonly class QaConfigBuilder
         PlatformEnum $platform,
         EnvironmentReader $env,
         string $phpBinPath,
-        bool $xdebugEnabled,
+        CoverageDriverEnum $coverageDriver,
         int $halfCpuThreads,
         bool $ci,
         bool $readOnly,
@@ -153,7 +153,7 @@ final readonly class QaConfigBuilder
             pathsToIgnore: [],
             phpBinPath: $phpBinPath,
             memoryLimit: $env->string('phpqaMemoryLimit') ?? '4G',
-            xdebugEnabled: $xdebugEnabled,
+            coverageDriver: $coverageDriver,
             quickTests: $env->bool('phpqaQuickTests', false),
             halfCpuThreads: $halfCpu,
             phpUnitCoverage: $env->bool('phpUnitCoverage', true),
@@ -520,7 +520,7 @@ final readonly class QaConfigBuilder
             }
         }
 
-        $coverage  = $this->phpUnitCoverage && $this->xdebugEnabled;
+        $coverage  = $this->phpUnitCoverage && $this->coverageDriver->generatesCoverage();
         $infection = $this->useInfection    && $coverage;
 
         return new QaConfigDto(
@@ -537,7 +537,7 @@ final readonly class QaConfigBuilder
             pathsToIgnore: $this->pathsToIgnore,
             phpBinPath: $this->phpBinPath,
             memoryLimit: $this->memoryLimit,
-            xdebugEnabled: $this->xdebugEnabled,
+            coverageDriver: $this->coverageDriver,
             quickTests: $this->quickTests,
             halfCpuThreads: $this->halfCpuThreads,
             phpUnit: new PhpUnitOptionsDto(
@@ -671,7 +671,7 @@ final readonly class QaConfigBuilder
             pathsToIgnore: $pathsToIgnore ?? $this->pathsToIgnore,
             phpBinPath: $this->phpBinPath,
             memoryLimit: $memoryLimit ?? $this->memoryLimit,
-            xdebugEnabled: $this->xdebugEnabled,
+            coverageDriver: $this->coverageDriver,
             quickTests: $this->quickTests,
             halfCpuThreads: $this->halfCpuThreads,
             phpUnitCoverage: $phpUnitCoverage ?? $this->phpUnitCoverage,

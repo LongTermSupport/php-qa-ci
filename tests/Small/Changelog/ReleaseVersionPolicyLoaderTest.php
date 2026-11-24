@@ -63,7 +63,7 @@ final class ReleaseVersionPolicyLoaderTest extends TestCase
             file_put_contents(__DIR__ . '/seen.json', json_encode([
                 ...get_object_vars($config->paths),
                 'phpBinPath'     => $config->phpBinPath,
-                'xdebugEnabled'  => $config->xdebugEnabled,
+                'coverageDriver' => $config->coverageDriver,
                 'halfCpuThreads' => $config->halfCpuThreads,
                 'ci'             => $config->ci,
                 'readOnly'       => $config->readOnly,
@@ -128,7 +128,7 @@ final class ReleaseVersionPolicyLoaderTest extends TestCase
             'pharDir'           => $library . '/vendor-phar',
             'configDefaultsDir' => $library . '/configDefaults',
             'phpBinPath'        => 'php',
-            'xdebugEnabled'     => false,
+            'coverageDriver'    => 'none',
             'halfCpuThreads'    => 1,
             'ci'                => true,
             'readOnly'          => true,

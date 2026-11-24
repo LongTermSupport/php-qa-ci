@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Support;
 
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\Dto\QaConfigDto;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
@@ -72,7 +73,7 @@ final readonly class ContextFactory
         bool $agentMode = false,
         ?string $singleTool = null,
         ?string $specifiedPath = null,
-        bool $xdebug = true,
+        CoverageDriverEnum $coverageDriver = CoverageDriverEnum::Xdebug,
         PlatformEnum $platform = PlatformEnum::Generic,
         ?ProjectPathsDto $paths = null,
     ): QaConfigBuilder {
@@ -81,7 +82,7 @@ final readonly class ContextFactory
             platform: $platform,
             env: new EnvironmentReader($env),
             phpBinPath: '/usr/bin/php',
-            xdebugEnabled: $xdebug,
+            coverageDriver: $coverageDriver,
             halfCpuThreads: 2,
             ci: $ci,
             readOnly: $readOnly,

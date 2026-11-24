@@ -38,6 +38,14 @@ final class PhpunitArgumentsTest extends TestCase
 
     private const string NO_COVERAGE = '--no-coverage';
 
+    private const string PASSTHRU_PREFIX = '--passthru-php=';
+
+    private const array PCOV_INI = [
+        'pcov.enabled'   => '1',
+        'pcov.directory' => '/p',
+        'pcov.exclude'   => '~^/p/vendor/~',
+    ];
+
     private const array BASE = [
         '-c',
         '/cfg/phpunit.xml',
@@ -212,21 +220,79 @@ final class PhpunitArgumentsTest extends TestCase
         self::assertSame([...self::BASE, ...self::DISPLAY, self::NO_COVERAGE, self::ENFORCE_TIME_LIMIT, '/p/tests/Unit', '/p/src/A.php'], $args);
     }
 
+    #[Test]
+    public function aParatestCoverageRunHandsTheCoverageIniToItsWorkersAsQuotedShellWords(): void
+    {
+        $args = $this->buildWithIni(coverage: true, iterative: false, paratest: self::SEVEN, ini: self::PCOV_INI);
+
+        self::assertSame(
+            [...self::BASE, ...self::DISPLAY, self::PASSTHRU_PREFIX . "'-d' 'pcov.enabled=1' '-d' 'pcov.directory=/p' '-d' 'pcov.exclude=~^/p/vendor/~'"],
+            $args,
+        );
+    }
+
+    #[Test]
+    public function aProjectPathWithASpaceOrAQuoteStaysOneShellWord(): void
+    {
+        $args = $this->buildWithIni(coverage: true, iterative: false, paratest: self::SEVEN, ini: ['pcov.directory' => "/home/o'brien/my project"]);
+
+        self::assertSame(self::PASSTHRU_PREFIX . "'-d' 'pcov.directory=/home/o'\\''brien/my project'", end($args));
+    }
+
+    #[Test]
+    public function plainPhpunitTakesTheIniFromItsOwnCommandLineNotAsAnArgument(): void
+    {
+        $args = $this->buildWithIni(coverage: true, iterative: false, paratest: null, ini: self::PCOV_INI);
+
+        self::assertSame([...self::BASE, ...self::DISPLAY], $args);
+    }
+
+    #[Test]
+    public function aParatestRunThatCollectsNoCoverageHandsNothingOn(): void
+    {
+        self::assertSame([...self::BASE, ...self::DISPLAY, self::NO_COVERAGE, self::ENFORCE_TIME_LIMIT], $this->buildWithIni(false, false, self::SEVEN, self::PCOV_INI));
+        self::assertSame([self::NO_COVERAGE, self::ENFORCE_TIME_LIMIT], \array_slice($this->buildWithIni(true, true, self::SEVEN, self::PCOV_INI), -2));
+        // Xdebug needs no ini, so nothing is handed on for it.
+        self::assertSame([...self::BASE, ...self::DISPLAY], $this->buildWithIni(true, false, self::SEVEN, []));
+    }
+
     /** @return list<string> */
     private function build(bool $coverage, bool $iterative, bool $ci, int $major = 12, ?string $paratest = null, string ...$paths): array
     {
-        $capabilities = null === $paratest
-            ? null
-            : ParatestCapabilities::fromProbes(ParatestFixture::help($paratest), ParatestFixture::version($paratest));
-
         return new PhpunitArguments()->build(
             new PhpUnitOptionsDto(coverage: $coverage, quickTests: false, iterativeMode: $iterative),
             $ci,
             $major,
             '/cfg/phpunit.xml',
             '/var/qa/phpunit_logs/phpunit.junit.xml',
-            $capabilities,
+            $this->capabilities($paratest),
+            [],
             ...$paths,
         );
+    }
+
+    /**
+     * @param array<string, string> $ini
+     *
+     * @return list<string>
+     */
+    private function buildWithIni(bool $coverage, bool $iterative, ?string $paratest, array $ini): array
+    {
+        return new PhpunitArguments()->build(
+            new PhpUnitOptionsDto(coverage: $coverage, quickTests: false, iterativeMode: $iterative),
+            true,
+            12,
+            '/cfg/phpunit.xml',
+            '/var/qa/phpunit_logs/phpunit.junit.xml',
+            $this->capabilities($paratest),
+            $ini,
+        );
+    }
+
+    private function capabilities(?string $paratest): ?ParatestCapabilities
+    {
+        return null === $paratest
+            ? null
+            : ParatestCapabilities::fromProbes(ParatestFixture::help($paratest), ParatestFixture::version($paratest));
     }
 }

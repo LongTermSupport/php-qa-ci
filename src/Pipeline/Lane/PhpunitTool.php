@@ -17,9 +17,12 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
 /**
  * Runs the project's test suite through its own phpunit binary (or paratest
  * when installed). A missing tests/bootstrap.php is seeded with a documented
- * placeholder first. With coverage on, the Xdebug-enabled binary runs under
- * XDEBUG_MODE=coverage so Infection can reuse the result; otherwise Xdebug is
- * stripped. The junit and stdout logs are archived under var/qa/phpunit_logs.
+ * placeholder first. With coverage on, the run collects it with the host's
+ * driver (pcov, enabled over the project with Xdebug off, else Xdebug under
+ * XDEBUG_MODE=coverage) so Infection can reuse the result; ParaTest's workers
+ * are handed pcov's ini through --passthru-php, since a -d flag does not reach
+ * the PHP processes it starts. Otherwise Xdebug is stripped. The junit and
+ * stdout logs are archived under var/qa/phpunit_logs.
  *
  * Exit 0 passes; 1 and 2 are test failures; anything above is a PHPUnit crash,
  * which is re-run once with --debug for diagnosis and never retried.
@@ -112,7 +115,6 @@ final readonly class PhpunitTool implements ToolInterface
         DirectoryTree::remove($logDir . '/' . self::COVERAGE_XML_DIRECTORY);
 
         $phpunitBinary = $paths->binDir . '/phpunit';
-        $coverage      = $config->phpUnit->coverage;
 
         $versionProbe = $this->invoke($context, $phpunitBinary, [], false, '--version');
         $major        = $this->majorVersion($versionProbe->output);
@@ -150,6 +152,7 @@ final readonly class PhpunitTool implements ToolInterface
                 $context->configPath('phpunit.xml'),
                 $junitLog,
                 $paratest,
+                $config->coverageDriver->phpIni($paths->projectRoot),
                 ...(null === $config->specifiedPath ? [] : $config->pathsToCheck),
             );
         } catch (ParatestIncompatibleException $paratestIncompatibleException) {
@@ -159,10 +162,7 @@ final readonly class PhpunitTool implements ToolInterface
             return ToolResultDto::failed('ParaTest is incompatible: ' . $paratestIncompatibleException->getMessage());
         }
 
-        $env = [
-            'phpUnitQuickTests' => $config->phpUnit->quickTests ? '1' : '0',
-            'XDEBUG_MODE'       => $coverage ? 'coverage' : 'off',
-        ];
+        $env      = ['phpUnitQuickTests' => $config->phpUnit->quickTests ? '1' : '0'];
         $result   = $this->invoke($context, $script, $env, true, ...$args);
         $exitCode = $result->exitCode;
         \Safe\file_put_contents($logDir . '/' . self::STDOUT_LOG, $result->output);
@@ -232,19 +232,21 @@ final readonly class PhpunitTool implements ToolInterface
     }
 
     /**
-     * The coverage path must run the Xdebug-enabled binary; every other run
-     * strips Xdebug. Both apply the global memory limit.
+     * The coverage path runs with the host's coverage driver set up for
+     * collection; every other run strips Xdebug. Both apply the global memory
+     * limit.
      *
      * @param array<string, string> $env
      */
     private function invoke(ToolContext $context, string $script, array $env, bool $streamOutput, string ...$args): ProcessResultDto
     {
-        $cwd = $context->config->paths->projectRoot;
+        $config = $context->config;
+        $cwd    = $config->paths->projectRoot;
 
         $argList = array_values($args);
 
-        return $context->config->phpUnit->coverage
-            ? $context->php->withXdebug($script, $argList, $cwd, $env, $streamOutput)
+        return $config->phpUnit->coverage
+            ? $context->php->withCoverage($config->coverageDriver, $script, $argList, $cwd, $env, $streamOutput)
             : $context->php->withoutXdebug($script, $argList, $cwd, $env, $streamOutput);
     }
 

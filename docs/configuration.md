@@ -84,7 +84,7 @@ on stdout too.
 `phpqaMemoryLimit`
 
 Global memory limit for all QA tools. Default: `4G`. It is applied to every PHP process the
-pipeline starts, including the Xdebug-enabled coverage runs.
+pipeline starts, including the coverage runs.
 
 ```bash
 # Override via environment variable
@@ -96,6 +96,24 @@ phpqaMemoryLimit=8G vendor/bin/qa
 // Or in qaConfig/qa.php
 return static fn (QaConfigBuilder $qa): QaConfigBuilder => $qa->withMemoryLimit('8G');
 ```
+
+##### Coverage driver:
+
+PHPUnit coverage, and so Infection, needs a coverage extension in the PHP that runs `bin/qa`
+(`PHP_QA_CI_PHP_EXECUTABLE`). The pipeline probes for one at start-up and prints which it found:
+
+1. **pcov**, when it is loaded and `pcov.enabled=1` (the same test PHPUnit uses to choose it).
+   pcov collects line coverage only and is several times faster than Xdebug. The coverage run
+   points pcov at the whole project root, less its `vendor/`, and runs with `XDEBUG_MODE=off`,
+   so a loaded Xdebug collects nothing alongside it. Under ParaTest the same settings reach the
+   workers through `--passthru-php`.
+2. **Xdebug**, when pcov is not available and Xdebug is loaded; the coverage run uses
+   `XDEBUG_MODE=coverage`.
+3. **None**: coverage and Infection are switched off, and the run says so.
+
+A project whose `phpunit.xml` asks for path or branch coverage (`pathCoverage="true"`) needs
+Xdebug, which pcov cannot provide: on a host with both, set `pcov.enabled=0` in the PHP ini and
+the pipeline uses Xdebug.
 
 ## Configuration Files
 
@@ -170,7 +188,7 @@ Settings that are not a tool's own config file (memory limit, ignored paths, mut
 opt-outs) live in `qaConfig/qa.php`. The file returns a closure that receives the pipeline's
 `QaConfigBuilder`, seeded from the defaults and the environment variables above, and returns the
 adjusted builder, so a setting in `qa.php` wins over the environment. `build()` then derives the
-dependent values (coverage needs Xdebug, Infection needs coverage), so a project cannot switch on
+dependent values (coverage needs a [coverage driver](#coverage-driver), Infection needs coverage), so a project cannot switch on
 what the host cannot run. Every setting is a typed method, so a misspelt one fails at load time:
 
 ```php

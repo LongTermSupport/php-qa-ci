@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace LTS\PHPQA\Tests\Support;
 
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
@@ -43,7 +44,7 @@ final readonly class RealLaneContext
             platform: PlatformEnum::Generic,
             env: new EnvironmentReader([]),
             phpBinPath: \PHP_BINARY,
-            xdebugEnabled: false,
+            coverageDriver: CoverageDriverEnum::None,
             halfCpuThreads: 1,
             ci: false,
             readOnly: $readOnly,

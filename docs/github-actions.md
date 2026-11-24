@@ -98,6 +98,15 @@ env:
   phpqaMemoryLimit: 4G              # Memory limit for all QA tools
 ```
 
+### Coverage Driver
+
+The template sets up PHP with `coverage: pcov`, the faster of the two
+[coverage drivers](configuration.md#coverage-driver) the pipeline uses. A workflow copied from an
+earlier template has `coverage: xdebug` and an `xdebug.mode=coverage` ini line; it keeps working
+with Xdebug, and switching it to `coverage: pcov` (dropping the ini line) makes the coverage run
+faster. Keep Xdebug if your `phpunit.xml` asks for path or branch coverage, which pcov cannot
+collect.
+
 ### Fixes
 
 A run on GitHub Actions is read-only: Rector and PHP CS Fixer dry-run and fail on a pending

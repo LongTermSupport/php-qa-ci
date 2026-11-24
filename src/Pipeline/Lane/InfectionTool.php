@@ -36,7 +36,8 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  *
  *   1. Coverage is REUSED when the phpunit lane produced it this run (a full
  *      pipeline run with a non-empty coverage-xml dir) and GENERATED otherwise
- *      (`-t infection`, or a clean checkout) with one Xdebug coverage run. That
+ *      (`-t infection`, or a clean checkout) with one coverage run, by pcov
+ *      or Xdebug (CoverageDriverEnum). That
  *      run also proves the suite green, which is what lets Infection skip its
  *      own initial run.
  *   2. Infection always gets --skip-initial-tests, so the suite is never
@@ -45,7 +46,7 @@ use LTS\PHPQA\Pipeline\Tool\ToolInterface;
  *      its own: it reads every killed mutant's test output from Infection's
  *      JSON log and crashes when no test ran for any of them.
  *
- * Without Xdebug there is no coverage and the lane skips. What is mutated
+ * Without a coverage driver there is no coverage and the lane skips. What is mutated
  * is decided first (InfectionDiffBaseResolver) and printed in one line: by
  * default a branch is scoped to the files committed since its merge base
  * with the default branch, and the default branch, or a clone with no merge
@@ -116,10 +117,10 @@ final readonly class InfectionTool implements ToolInterface
         $paths   = $config->paths;
         $options = $config->infection;
 
-        if (!$config->xdebugEnabled) {
-            $context->writeln('Infection: Xdebug is not enabled — cannot generate coverage, so mutation testing cannot run. SKIPPING.');
+        if (!$config->coverageDriver->generatesCoverage()) {
+            $context->writeln('Infection: no coverage driver (pcov or Xdebug) is loaded — cannot generate coverage, so mutation testing cannot run. SKIPPING.');
 
-            return ToolResultDto::skipped('Xdebug not enabled');
+            return ToolResultDto::skipped('no coverage driver (pcov or Xdebug)');
         }
 
         $runConfig = $this->runConfig($context);
@@ -648,7 +649,7 @@ final readonly class InfectionTool implements ToolInterface
             return null;
         }
 
-        $context->writeln('Infection: generating fresh coverage (xdebug) before mutation testing.');
+        $context->writeln(\sprintf('Infection: generating fresh coverage (%s) before mutation testing.', $config->coverageDriver->label()));
         $context->writeln('           (this also proves the suite is green, which lets Infection skip its initial run)');
         DirectoryTree::remove($coverageXmlDir);
 
@@ -657,11 +658,11 @@ final readonly class InfectionTool implements ToolInterface
         }
 
         $paths  = $config->paths;
-        $result = $context->php->withXdebug(
+        $result = $context->php->withCoverage(
+            $config->coverageDriver,
             $paths->binDir . '/phpunit',
             ['-c', $context->configPath('phpunit.xml'), '--coverage-xml', $coverageXmlDir, '--log-junit', $logsDir . '/phpunit.junit.xml'],
             $paths->projectRoot,
-            ['XDEBUG_MODE' => 'coverage'],
         );
         if ($result->succeeded()) {
             return null;

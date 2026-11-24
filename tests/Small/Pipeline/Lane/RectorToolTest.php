@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace LTS\PHPQA\Tests\Small\Pipeline\Lane;
 
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\Dto\ProjectPathsDto;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\PlatformEnum;
@@ -439,7 +440,7 @@ final class RectorToolTest extends TestCase
             platform: PlatformEnum::Generic,
             env: new EnvironmentReader([]),
             phpBinPath: '/usr/bin/php',
-            xdebugEnabled: true,
+            coverageDriver: CoverageDriverEnum::Xdebug,
             halfCpuThreads: 2,
             ci: true,
             readOnly: true,

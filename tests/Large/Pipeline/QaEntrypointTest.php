@@ -96,7 +96,7 @@ final class QaEntrypointTest extends TestCase
         self::assertStringContainsString('QA read-only (check) mode', $out);
         self::assertStringContainsString('QA aggregate mode', $out);
         self::assertStringContainsString('generic platform detected', $out);
-        self::assertStringContainsString('Checking for Xdebug', $out);
+        self::assertStringContainsString('Checking for a coverage driver', $out);
         self::assertSame(0, $process->getExitCode(), $out . $process->getErrorOutput());
         self::assertMatchesRegularExpression('/ qa -t pt COMPLETED\n=+\n$/', $out);
     }

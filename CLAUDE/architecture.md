@@ -105,7 +105,7 @@ proxy that passes arbitrary arguments through to the tools. For a contributor th
 - Do not add pass-through flags or per-run tool arguments to `bin/qa`. `-t`, `-p`, `--json`,
   `--agent-mode` and `-h` are the whole interface; a need for another flag is a configuration setting
   (a typed `with*()` on `QaConfigBuilder`) or a config file under `qaConfig/`.
-- The pipeline owns every tool argument, the PHAR delivery, the cache directories, the Xdebug
-  mode and the memory limit, so that a tool behaves the same in every consumer.
+- The pipeline owns every tool argument, the PHAR delivery, the cache directories, the coverage
+  driver's settings (pcov's ini, the Xdebug mode) and the memory limit, so that a tool behaves the same in every consumer.
 - The consumer's side of the same ruling — what to do instead when a tool needs a flag the
   pipeline does not offer — is in [docs/configuration.md](../docs/configuration.md#the-pipeline-is-not-a-tool-proxy).

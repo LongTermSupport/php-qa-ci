@@ -6,6 +6,7 @@ namespace LTS\PHPQA\Pipeline\Cli;
 
 use LTS\PHPQA\Pipeline\Cli\Exception\UsageException;
 use LTS\PHPQA\Pipeline\Config\ConfigPathResolver;
+use LTS\PHPQA\Pipeline\Config\CoverageDriverEnum;
 use LTS\PHPQA\Pipeline\Config\EnvironmentReader;
 use LTS\PHPQA\Pipeline\Config\OpcacheDefects;
 use LTS\PHPQA\Pipeline\Config\PipelineConfigLoader;
@@ -191,21 +192,12 @@ final readonly class QaApplication
         $platform = new PlatformDetector()->detect($paths->projectRoot);
         $decoration->writeln($platform->value . ' platform detected');
 
-        $xdebug = $php->hasXdebug();
+        $xdebug         = $php->hasXdebug();
+        $coverageDriver = $php->coverageDriver();
         $decoration->writeln('');
-        $decoration->writeln('Checking for Xdebug');
-        $decoration->writeln('-------------------');
-        if ($xdebug) {
-            $mode = $env->string('XDEBUG_MODE');
-            if ('debug' !== $mode) {
-                \Safe\putenv('XDEBUG_MODE=coverage');
-            }
-
-            $xdebugMode = getenv('XDEBUG_MODE');
-            $decoration->writeln('Xdebug is enabled in ' . (false === $xdebugMode || '' === $xdebugMode ? 'default' : $xdebugMode) . ' mode');
-        } else {
-            $decoration->writeln('Xdebug is not enabled - infection and coverage not available');
-        }
+        $decoration->writeln('Checking for a coverage driver');
+        $decoration->writeln('------------------------------');
+        $this->announceCoverageDriver($decoration, $env, $coverageDriver, $xdebug);
 
         foreach (XdebugJitAdvisory::lines($xdebug, $xdebug ? $php->jitSettings() : '') as $line) {
             $decoration->writeln($line);
@@ -224,7 +216,7 @@ final readonly class QaApplication
             platform: $platform,
             env: $env,
             phpBinPath: $phpBin,
-            xdebugEnabled: $xdebug,
+            coverageDriver: $coverageDriver,
             halfCpuThreads: $this->halfCpuThreads($processes, $paths->projectRoot),
             ci: $ci,
             readOnly: $readOnly,
@@ -323,6 +315,36 @@ final readonly class QaApplication
             $out->writeln('QA aggregate mode: all tools run; failures are collected and reported together (not fail-fast).');
             $out->writeln('  (override with QA_FAIL_FAST=1 to stop at the first failing tool)');
         }
+    }
+
+    /**
+     * Names the coverage driver. Only an Xdebug driver puts this process in
+     * Xdebug's coverage mode (unless it is debugging); a pcov run switches
+     * Xdebug off itself, so the process's mode is left as it is.
+     */
+    private function announceCoverageDriver(OutputInterface $out, EnvironmentReader $env, CoverageDriverEnum $driver, bool $xdebugLoaded): void
+    {
+        if (CoverageDriverEnum::None === $driver) {
+            $out->writeln('No coverage driver (pcov or Xdebug) is loaded - infection and coverage not available');
+
+            return;
+        }
+
+        $out->writeln('Coverage driver: ' . $driver->label());
+        if (CoverageDriverEnum::Pcov === $driver) {
+            if ($xdebugLoaded) {
+                $out->writeln('Xdebug is also loaded; the coverage run switches it off (XDEBUG_MODE=off) so only pcov collects');
+            }
+
+            return;
+        }
+
+        if ('debug' !== $env->string('XDEBUG_MODE')) {
+            \Safe\putenv('XDEBUG_MODE=coverage');
+        }
+
+        $xdebugMode = getenv('XDEBUG_MODE');
+        $out->writeln('Xdebug is enabled in ' . (false === $xdebugMode || '' === $xdebugMode ? 'default' : $xdebugMode) . ' mode');
     }
 
     private function pid(): int

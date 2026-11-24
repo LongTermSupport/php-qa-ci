@@ -120,6 +120,7 @@ the release and its tag. The full rules are in
   finding naming the cause: run the lane from a git checkout, or exempt the project with
   `withoutComposerCooldownCheck('<reason>')`. A report-only project still gets the note and passes.
   See [docs/tools/composerChecks.md](docs/tools/composerChecks.md).
+- **A host with both pcov and Xdebug loaded now collects coverage with pcov, and `QaConfigDto::$xdebugEnabled` is replaced by `$coverageDriver` (`CoverageDriverEnum`: `Pcov`, `Xdebug`, `None`).** With both extensions loaded the coverage run used Xdebug in coverage mode; it now uses pcov with Xdebug switched off (`XDEBUG_MODE=off`), and the process is no longer put in Xdebug coverage mode. pcov collects line coverage only, so a project whose `phpunit.xml` asks for path or branch coverage (`pathCoverage="true"`) fails its PHPUnit coverage run on such a host until it sets `pcov.enabled=0` in the PHP ini, after which the pipeline uses Xdebug as before. A test bootstrap that rejects a run unless Xdebug is in coverage mode rejects the pcov run: accept an enabled pcov too (see [docs/tools/phpunit.md](docs/tools/phpunit.md#guarding-on-the-coverage-driver)). A custom lane or `qaConfig/qa.php` that reads `$config->xdebugEnabled`, or calls `QaConfigBuilder::defaults()` or its constructor with `xdebugEnabled:`, fails until it uses `coverageDriver` (`$config->coverageDriver->generatesCoverage()` is the old meaning).
 
 ### Added
 
@@ -156,6 +157,7 @@ the release and its tag. The full rules are in
   the pipeline's own phases, so a phase added later is required at once. Only the templates in
   `templates/github-actions/` are judged; a project's own workflows are not. See
   [docs/tools/versionPins.md](docs/tools/versionPins.md#phase-groups-in-a-shipped-template).
+- **PHPUnit coverage, and so Infection, can now be collected with pcov, and pcov is preferred over Xdebug.** At start-up `bin/qa` probes for a coverage driver and prints which it uses under `Checking for a coverage driver`: pcov when it is loaded and enabled (`pcov.enabled=1`, the test PHPUnit makes), else Xdebug, else none. A pcov coverage run points pcov at the whole project root less its `vendor/` (left to itself pcov instruments only the first of `src`, `lib` or `app` it finds) and runs with `XDEBUG_MODE=off`; under ParaTest the same settings reach the workers through `--passthru-php`. A host with only Xdebug works as before. The line `Xdebug is not enabled - infection and coverage not available` is now `No coverage driver (pcov or Xdebug) is loaded - infection and coverage not available`, and the Infection lane skips with `no coverage driver (pcov or Xdebug)`. The pipeline workflow template (`templates/github-actions/php-qa-ci.yml`) now sets up PHP with `coverage: pcov` and no `xdebug.mode` ini; a workflow copied from an earlier template keeps `coverage: xdebug` and keeps working, and switching it to `coverage: pcov` makes its coverage run faster. Custom lanes get `$context->php->withCoverage()` and `->coverageDriver()`. See [docs/configuration.md](docs/configuration.md#coverage-driver).
 
 ### Changed
 
